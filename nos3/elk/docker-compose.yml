@@ -1,0 +1,42 @@
+version: '3.7'
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.10
+    container_name: nos3-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    networks:
+      - nos3-core
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:7.17.10
+    container_name: nos3-logstash
+    volumes:
+      - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
+      - /workspaces/dtu-satellite-supply-chain-NOS3/nos3/attack_logs:/attack_logs:ro
+      - /workspaces/dtu-satellite-supply-chain-NOS3/nos3/gsw/cosmos/outputs/logs:/cosmos_logs:ro
+    networks:
+      - nos3-core
+    depends_on:
+      - elasticsearch
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.17.10
+    container_name: nos3-kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    networks:
+      - nos3-core
+    depends_on:
+      - elasticsearch
+
+networks:
+  nos3-core:
+    external: true
