@@ -1,0 +1,12 @@
+# Ignore build folders and compiled artifacts
+build/
+install/
+exe/
+*.o
+*.so
+*.a
+*.bin
+*.out
+CMakeCache.txt
+CMakeFiles/
+.vscode/
