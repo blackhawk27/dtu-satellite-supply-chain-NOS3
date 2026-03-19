@@ -18,8 +18,8 @@ services:
     container_name: nos3-logstash
     volumes:
       - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
-      - /workspaces/dtu-satellite-supply-chain-NOS3/nos3/attack_logs:/attack_logs:ro
-      - /workspaces/dtu-satellite-supply-chain-NOS3/nos3/gsw/cosmos/outputs/logs:/cosmos_logs:ro
+      - ../attack_logs:/attack_logs:ro
+      - ../omni_logs:/omni_logs:ro
     networks:
       - nos3-core
     depends_on:

@@ -14,3 +14,8 @@ CMakeFiles/
 # Ignore live telemetry, attack logs, and COSMOS outputs
 nos3/attack_logs/
 nos3/gsw/cosmos/outputs/
+nos3/omni_logs/
+
+# General log file ignore
+*.log
+nos3/fsw_syslog_test.txt
