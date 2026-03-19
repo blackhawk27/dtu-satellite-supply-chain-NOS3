@@ -10,3 +10,7 @@ exe/
 CMakeCache.txt
 CMakeFiles/
 .vscode/
+
+# Ignore live telemetry, attack logs, and COSMOS outputs
+nos3/attack_logs/
+nos3/gsw/cosmos/outputs/
