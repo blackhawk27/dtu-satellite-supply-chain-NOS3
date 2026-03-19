@@ -71,7 +71,7 @@
 /* Local structure for remove pipe callbacks */
 typedef struct
 {
-    const char *    FullName; /* Full name (app.task) for error reporting */
+    const char     *FullName; /* Full name (app.task) for error reporting */
     CFE_SB_PipeId_t PipeId;   /* Pipe id to remove */
 } CFE_SB_RemovePipeCallback_t;
 
@@ -99,7 +99,7 @@ CFE_Status_t CFE_SB_CreatePipe(CFE_SB_PipeId_t *PipeIdPtr, uint16 Depth, const c
     osal_id_t        SysQueueId;
     int32            OsStatus;
     int32            Status;
-    CFE_SB_PipeD_t * PipeDscPtr;
+    CFE_SB_PipeD_t  *PipeDscPtr;
     CFE_ResourceId_t PendingPipeId = CFE_RESOURCEID_UNDEFINED;
     uint16           PendingEventId;
     char             FullName[(OS_MAX_API_NAME * 2)];
@@ -314,7 +314,7 @@ int32 CFE_SB_DeletePipeWithAppId(CFE_SB_PipeId_t PipeId, CFE_ES_AppId_t AppId)
  *-----------------------------------------------------------------*/
 void CFE_SB_RemovePipeFromRoute(CFE_SBR_RouteId_t RouteId, void *ArgPtr)
 {
-    CFE_SB_DestinationD_t *      destptr;
+    CFE_SB_DestinationD_t       *destptr;
     CFE_SB_RemovePipeCallback_t *args;
 
     args = (CFE_SB_RemovePipeCallback_t *)ArgPtr;
@@ -335,10 +335,10 @@ void CFE_SB_RemovePipeFromRoute(CFE_SBR_RouteId_t RouteId, void *ArgPtr)
  *-----------------------------------------------------------------*/
 int32 CFE_SB_DeletePipeFull(CFE_SB_PipeId_t PipeId, CFE_ES_AppId_t AppId)
 {
-    CFE_SB_PipeD_t *            PipeDscPtr;
+    CFE_SB_PipeD_t             *PipeDscPtr;
     int32                       Status;
     CFE_ES_TaskId_t             TskId;
-    CFE_SB_BufferD_t *          BufDscPtr;
+    CFE_SB_BufferD_t           *BufDscPtr;
     osal_id_t                   SysQueueId;
     char                        FullName[(OS_MAX_API_NAME * 2)];
     size_t                      BufDscSize;
@@ -877,7 +877,7 @@ int32 CFE_SB_SubscribeFull(CFE_SB_MsgId_t MsgId, CFE_SB_PipeId_t PipeId, CFE_SB_
                            uint8 Scope)
 {
     CFE_SBR_RouteId_t      RouteId;
-    CFE_SB_PipeD_t *       PipeDscPtr;
+    CFE_SB_PipeD_t        *PipeDscPtr;
     int32                  Status;
     CFE_ES_TaskId_t        TskId;
     CFE_ES_AppId_t         AppId;
@@ -1173,7 +1173,7 @@ int32 CFE_SB_UnsubscribeFull(CFE_SB_MsgId_t MsgId, CFE_SB_PipeId_t PipeId, uint8
     CFE_SB_DestinationD_t *DestPtr;
     char                   FullName[(OS_MAX_API_NAME * 2)];
     char                   PipeName[OS_MAX_API_NAME];
-    CFE_SB_PipeD_t *       PipeDscPtr;
+    CFE_SB_PipeD_t        *PipeDscPtr;
     uint16                 PendingEventID;
 
     PendingEventID = 0;
@@ -1303,6 +1303,19 @@ CFE_Status_t CFE_SB_TransmitMsg(const CFE_MSG_Message_t *MsgPtr, bool UpdateHead
     RouteId        = CFE_SBR_INVALID_ROUTE_ID;
 
     Status = CFE_SB_TransmitMsgValidate(MsgPtr, &MsgId, &Size, &RouteId);
+
+    /* --- DTU THESIS: ELK STACK JSON GOD VIEW --- */
+    if (Status == CFE_SUCCESS)
+    {
+        FILE *dtu_log = fopen("/workspaces/dtu-satellite-supply-chain-NOS3/nos3/attack_logs/cfs_god_view.json", "a");
+        if (dtu_log != NULL)
+        {
+            fprintf(dtu_log, "{\"log_type\":\"cfs_sb\", \"msg_id\":\"0x%04X\", \"length\":%lu}\n",
+                    (unsigned int)CFE_SB_MsgIdToValue(MsgId), (unsigned long)Size);
+            fclose(dtu_log);
+        }
+    }
+    /* ------------------------------------------- */
 
     CFE_SB_LockSharedData(__func__, __LINE__);
 
@@ -1529,7 +1542,7 @@ void CFE_SB_BroadcastBufferToRoute(CFE_SB_BufferD_t *BufDscPtr, CFE_SBR_RouteId_
     CFE_ES_AppId_t         AppId;
     CFE_ES_TaskId_t        TskId;
     CFE_SB_DestinationD_t *DestPtr;
-    CFE_SB_PipeD_t *       PipeDscPtr;
+    CFE_SB_PipeD_t        *PipeDscPtr;
     CFE_SB_EventBuf_t      SBSndErr;
     int32                  OsStatus;
     uint32                 i;
@@ -1745,9 +1758,9 @@ CFE_Status_t CFE_SB_ReceiveBuffer(CFE_SB_Buffer_t **BufPtr, CFE_SB_PipeId_t Pipe
 {
     int32                  Status;
     int32                  OsStatus;
-    CFE_SB_BufferD_t *     BufDscPtr;
+    CFE_SB_BufferD_t      *BufDscPtr;
     size_t                 BufDscSize;
-    CFE_SB_PipeD_t *       PipeDscPtr;
+    CFE_SB_PipeD_t        *PipeDscPtr;
     CFE_SB_DestinationD_t *DestPtr;
     CFE_SBR_RouteId_t      RouteId;
     CFE_ES_TaskId_t        TskId;
@@ -2000,7 +2013,7 @@ CFE_SB_Buffer_t *CFE_SB_AllocateMessageBuffer(size_t MsgSize)
 {
     CFE_ES_AppId_t    AppId;
     CFE_SB_BufferD_t *BufDscPtr;
-    CFE_SB_Buffer_t * BufPtr;
+    CFE_SB_Buffer_t  *BufPtr;
 
     AppId     = CFE_ES_APPID_UNDEFINED;
     BufDscPtr = NULL;
