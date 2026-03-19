@@ -18,6 +18,6 @@
             ]
         }
     },
-    "postCreateCommand": "sudo apt-get update && sudo apt-get install -y python3-pip python3-venv python3-dev make git build-essential tmux terminator",
+    "postCreateCommand": "sudo apt-get update && sudo apt-get install -y python3-pip python3-venv python3-dev make git build-essential tmux terminator && bash .devcontainer/post-create.sh",
     "remoteUser": "vscode"
 }
