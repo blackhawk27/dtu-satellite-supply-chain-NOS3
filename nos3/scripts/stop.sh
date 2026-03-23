@@ -8,6 +8,9 @@
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/env.sh
 
+# Kill cpu_monitor if still running
+pkill -f "cpu_monitor.sh" 2>/dev/null || true
+
 # NOS3 GPIO
 rm -rf /tmp/gpio_fake
 
