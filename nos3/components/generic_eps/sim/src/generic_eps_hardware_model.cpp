@@ -52,8 +52,6 @@ namespace Nos3
                 }
             }
         }
-        _time_bus->add_time_tick_callback(std::bind(&Generic_epsHardwareModel::update_battery_values, this));
-
         _i2c_slave_connection = new I2CSlaveConnection(this, bus_address, connection_string, bus_name);
         sim_logger->info("Generic_epsHardwareModel::Generic_epsHardwareModel:  Now on I2C bus name %s as address 0x%02x.", bus_name.c_str(), bus_address);
 
@@ -195,6 +193,9 @@ namespace Nos3
         sim_logger->info("    _switch[0]._voltage = %d", _switch[0]._voltage);
         sim_logger->info("    _switch[0]._current = %d", _switch[0]._current);
         sim_logger->info("    _switch[0]._status = 0x%04x", _switch[0]._status);
+
+        /* Register time tick callback only after all members are initialized */
+        _time_bus->add_time_tick_callback(std::bind(&Generic_epsHardwareModel::update_battery_values, this));
 
         /* Construction complete */
         sim_logger->info("Generic_epsHardwareModel::Generic_epsHardwareModel:  Construction complete.");

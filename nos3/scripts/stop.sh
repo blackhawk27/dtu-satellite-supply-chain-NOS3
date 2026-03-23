@@ -46,4 +46,12 @@ rm -rf /tmp/gpio*
 yes | rm $GSW_DIR/Gemfile > /dev/null 2>&1
 yes | rm $GSW_DIR/Gemfile.lock > /dev/null 2>&1
 
+# Wipe simulator and attack logs so each run starts clean
+rm -f $BASE_DIR/omni_logs/*.log
+> $BASE_DIR/attack_logs/cfs_god_view.json
+
+# Delete only telemetry indices from Elasticsearch so Kibana starts fresh
+# but preserves dashboards, visualizations, and index patterns (.kibana index)
+curl -s -X DELETE "http://localhost:9200/nos3-telemetry-*" > /dev/null 2>&1 || true
+
 exit 0
