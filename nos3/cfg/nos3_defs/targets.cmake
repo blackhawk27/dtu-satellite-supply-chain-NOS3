@@ -92,6 +92,8 @@ list(APPEND MISSION_GLOBAL_APPLIST
     #
         cf
         ci
+        beacon_app 
+        noisy_app 
         ci_lab
         ds
         fm

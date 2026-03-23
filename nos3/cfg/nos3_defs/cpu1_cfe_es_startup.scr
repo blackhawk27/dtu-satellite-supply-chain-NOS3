@@ -8,9 +8,10 @@ CFE_APP, to,                        TO_AppMain,               TO,               
 
 CFE_APP, ci_lab,                    CI_Lab_AppMain,           CI_LAB_APP,       80, 16384, 0x0, 0;
 CFE_APP, to_lab,                    TO_LAB_AppMain,           TO_LAB_APP,       81, 32768, 0x0, 0;
+CFE_APP, beacon_app,                BEACON_APP_Main,          BEACON_APP,       82, 16384, 0x0, 0;
 
 OFF_APP, ===_DTU_THESIS_MENU_===,   CHANGE_CFE_TO_OFF,        TO_DISABLE,       0,  0,     0x0, 0;
-OFF_APP, noisy_app,                 NOISY_APP_Main,           NOISY_APP,        160, 16384, 0x0, 0;
+CFE_APP, noisy_app,                 NOISY_APP_Main,           NOISY_APP,        20, 16384, 0x0, 0;
 OFF_APP, cpu_killer,                CPU_KILLER_Main,          CPU_KILLER,       160, 16384, 0x0, 0;
 
 !

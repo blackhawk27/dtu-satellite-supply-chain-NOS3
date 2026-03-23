@@ -98,6 +98,9 @@ TO_LAB_Subs_t TO_LAB_Subs = {.Subs = {/* CFS App Subscriptions */
                                       {CFE_SB_MSGID_WRAP_VALUE(LC_HK_TLM_MID), {0, 0}, 4},
 #endif
 
+                                      /* Beacon app telemetry (MID 0x08F0) */
+                                      {CFE_SB_MSGID_WRAP_VALUE(0x08F0), {0, 0}, 4},
+
                                       /* CFE_SB_MSGID_RESERVED entry to mark the end of valid MsgIds */
                                       {CFE_SB_MSGID_RESERVED, {0, 0}, 0}}};
 
