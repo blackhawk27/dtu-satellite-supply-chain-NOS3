@@ -39,7 +39,7 @@ endif
 
 # The "LOCALTGTS" defines the top-level targets that are implemented in this makefile
 # Any other target may also be given, in that case it will simply be passed through.
-LOCALTGTS := all checkout clean clean-fsw clean-sim clean-gsw code-coverage config debug fsw gcov gsw help help-all launch log prep sim stop stop-gsw uninstall
+LOCALTGTS := all checkout clean clean-fsw clean-sim clean-gsw code-coverage config debug fsw gcov gsw help help-all launch load-run log prep save-run sim stop stop-gsw uninstall
 OTHERTGTS := $(filter-out $(LOCALTGTS),$(MAKECMDGOALS))
 
 # As this makefile does not build any real files, treat everything as a PHONY target
@@ -178,6 +178,8 @@ help: ## Display this help message
 	@printf "%-20s %s\n" "help-all"      "Display advanced help information"
 	@printf "%-20s %s\n" "launch"        "Launch NOS3 System"
 	@printf "%-20s %s\n" "prep"          "Prepare full development environment"
+	@printf "%-20s %s\n" "save-run"      "Archive current sim run logs, then stop (RUN_LABEL=name optional)"
+	@printf "%-20s %s\n" "load-run"      "Load a saved run into Kibana (RUN=<name> required)"
 	@printf "%-20s %s\n" "stop"          "Stop entire system"
 	@printf "%-20s %s\n" "uninstall"     "Remove all build artifacts and containers"
 	@echo ""
@@ -228,6 +230,8 @@ help-all: ## Displays advanced help information
 	@printf "\t%-20s %s\n" "clean-gsw"      "Clean only Ground Software build artifacts"
 	@printf "\t%-20s %s\n" "clean-sim"      "Clean only Simulation build artifacts"
 	@printf "\t%-20s %s\n" "log"            "Log Outputs"
+	@printf "\t%-20s %s\n" "save-run"       "Archive current sim run logs, then stop"
+	@printf "\t%-20s %s\n" "load-run"       "Load a saved run into Kibana: make load-run RUN=<name>"
 	@printf "\t%-20s %s\n" "stop"           "Stop entire System"
 	@printf "\t%-20s %s\n" "stop-gsw"       "Stop Ground Software"
 	@printf "\t%-20s %s\n" "uninstall"      "Remove all build artifacts and containers"
@@ -259,6 +263,47 @@ start-gsw: ## Launch Ground Software
 
 start-sat: ## Satellite Launch
 	./scripts/fsw/launch_sat.sh
+
+NOS3_RUNS_DIR ?= $(HOME)/nos3_runs
+RUN_LABEL     ?= run_$(shell date +%Y%m%d_%H%M%S)
+
+save-run: ## Archive current sim run logs then stop. Optional: RUN_LABEL=my_attack_scenario
+	@DEST=$(NOS3_RUNS_DIR)/$(RUN_LABEL); \
+	echo "Saving run to $$DEST ..."; \
+	mkdir -p $$DEST/omni_logs; \
+	cp -r omni_logs/*.log $$DEST/omni_logs/ 2>/dev/null || true; \
+	cp attack_logs/cfs_god_view.json $$DEST/ 2>/dev/null || true; \
+	echo "Run label : $(RUN_LABEL)"          > $$DEST/metadata.txt; \
+	echo "Saved at  : $$(date)"             >> $$DEST/metadata.txt; \
+	echo "Git commit: $$(git rev-parse --short HEAD 2>/dev/null || echo n/a)" >> $$DEST/metadata.txt; \
+	echo "Done. Stopping system..."; \
+	$(MAKE) stop
+
+load-run: ## Load a saved run into Kibana (ELK only, no sim). Usage: make load-run RUN=<name>
+	@if [ -z "$(RUN)" ]; then \
+	  echo ""; \
+	  echo "Usage: make load-run RUN=<run_name>"; \
+	  echo ""; \
+	  echo "Available runs:"; \
+	  ls $(NOS3_RUNS_DIR) 2>/dev/null || echo "  (none found in $(NOS3_RUNS_DIR))"; \
+	  echo ""; \
+	  exit 1; \
+	fi
+	@SRC=$(NOS3_RUNS_DIR)/$(RUN); \
+	if [ ! -d $$SRC ]; then \
+	  echo "Run '$(RUN)' not found in $(NOS3_RUNS_DIR)"; exit 1; \
+	fi; \
+	echo "Loading run: $(RUN)"; \
+	cat $$SRC/metadata.txt 2>/dev/null && echo ""; \
+	rm -f omni_logs/*.log; \
+	cp -r $$SRC/omni_logs/*.log omni_logs/ 2>/dev/null || true; \
+	cp $$SRC/cfs_god_view.json attack_logs/ 2>/dev/null || true; \
+	echo "Deleting old telemetry indices..."; \
+	curl -s -X DELETE "http://localhost:9200/nos3-telemetry-*" > /dev/null 2>&1 || true; \
+	echo "Starting ELK stack..."; \
+	cd elk && docker compose up -d; \
+	echo ""; \
+	echo "Logstash is re-indexing. Kibana will be ready at http://localhost:5601 in ~30s"
 
 stop: ## Stop entire system
 	./scripts/stop.sh
