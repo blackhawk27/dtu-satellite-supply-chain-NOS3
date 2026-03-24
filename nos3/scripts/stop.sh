@@ -8,8 +8,10 @@
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/env.sh
 
-# Kill cpu_monitor if still running
-pkill -f "cpu_monitor.sh" 2>/dev/null || true
+# Kill auxiliary capture scripts if still running
+pkill -f "cpu_monitor.sh"      2>/dev/null || true
+pkill -f "cfs_evs_capture.sh"  2>/dev/null || true
+pkill -f "sim_logs_capture.sh" 2>/dev/null || true
 
 # NOS3 GPIO
 rm -rf /tmp/gpio_fake
@@ -48,7 +50,7 @@ yes | rm $GSW_DIR/Gemfile.lock > /dev/null 2>&1
 
 # Wipe simulator and attack logs so each run starts clean
 rm -f $BASE_DIR/omni_logs/*.log
-> $BASE_DIR/attack_logs/cfs_god_view.json
+rm -f $BASE_DIR/attack_logs/cfs_god_view.json
 
 # Delete only telemetry indices from Elasticsearch so Kibana starts fresh
 # but preserves dashboards, visualizations, and index patterns (.kibana index)

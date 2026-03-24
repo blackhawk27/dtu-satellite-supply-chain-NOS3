@@ -242,6 +242,16 @@ igniter: ## Launch Configuration GUI Igniter
 
 launch: ## Launch NOS3 System
 	./cfg/build/launch.sh
+	@mkdir -p omni_logs attack_logs
+	@touch attack_logs/cfs_god_view.json
+	@echo "Restarting Logstash for fresh telemetry indexing..."
+	@docker restart nos3-logstash > /dev/null 2>&1 || true
+	@echo "Starting cFS EVS capture (omni_logs/cfs_evs.log)..."
+	@./scripts/cfs_evs_capture.sh &
+	@echo "Starting simulator telemetry capture (omni_logs/nos3-*.log)..."
+	@./scripts/sim_logs_capture.sh &
+	@echo "Starting cFS CPU monitor (omni_logs/cpu_monitor.log)..."
+	@./scripts/cpu_monitor.sh &
 
 log: ## Log outputs
 	./scripts/log.sh
@@ -300,8 +310,9 @@ load-run: ## Load a saved run into Kibana (ELK only, no sim). Usage: make load-r
 	cp $$SRC/cfs_god_view.json attack_logs/ 2>/dev/null || true; \
 	echo "Deleting old telemetry indices..."; \
 	curl -s -X DELETE "http://localhost:9200/nos3-telemetry-*" > /dev/null 2>&1 || true; \
-	echo "Starting ELK stack..."; \
+	echo "Starting ELK stack and restarting Logstash..."; \
 	cd elk && docker compose up -d; \
+	docker restart nos3-logstash > /dev/null 2>&1 || true; \
 	echo ""; \
 	echo "Logstash is re-indexing. Kibana will be ready at http://localhost:5601 in ~30s"
 
