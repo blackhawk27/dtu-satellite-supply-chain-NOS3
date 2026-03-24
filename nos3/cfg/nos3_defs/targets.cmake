@@ -97,6 +97,8 @@ list(APPEND MISSION_GLOBAL_APPLIST
         ci_lab
         ds
         fm
+        hk
+        hs
         lc
         sbn
         sbn_tcp

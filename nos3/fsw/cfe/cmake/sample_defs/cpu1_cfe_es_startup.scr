@@ -4,7 +4,14 @@ CFE_APP, sample_app,  SAMPLE_APP_Main,    SAMPLE_APP,   50,   16384, 0x0, 0;
 CFE_APP, ci_lab,      CI_Lab_AppMain,     CI_LAB_APP,   60,   16384, 0x0, 0;
 CFE_APP, to_lab,      TO_LAB_AppMain,     TO_LAB_APP,   70,   16384, 0x0, 0;
 CFE_APP, sch_lab,     SCH_Lab_AppMain,    SCH_LAB_APP,  80,   16384, 0x0, 0;
-CFE_APP, noisy_app, NOISY_APP_Main, NOISY_APP, 160, 16384, 0x0, 0;
+CFE_APP, hs, HS_AppMain, HS,  85, 16384, 0x0, 0;
+CFE_APP, hk, HK_AppMain, HK,  90, 16384, 0x0, 0;
+CFE_APP, sc, SC_AppMain, SC,  90, 16384, 0x0, 0;
+CFE_APP, cs, CS_AppMain, CS,  90, 16384, 0x0, 0;
+CFE_APP, lc, LC_AppMain, LC,  90, 16384, 0x0, 0;
+CFE_APP, mm, MM_AppMain, MM,  95, 16384, 0x0, 0;
+CFE_APP, md, MD_AppMain, MD,  95, 16384, 0x0, 0;
+!CFE_APP, noisy_app, NOISY_APP_Main, NOISY_APP, 160, 16384, 0x0, 0;
 !
 ! Startup script fields:
 ! 1. Object Type      -- CFE_APP for an Application, or CFE_LIB for a library.
