@@ -87,6 +87,7 @@ list(APPEND MISSION_GLOBAL_APPLIST
         cryptolib
         hwlib
         io_lib
+        iodriver
     #
     # cFS Apps
     #

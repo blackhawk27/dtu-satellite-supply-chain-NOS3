@@ -44,13 +44,32 @@
 /************************************************************************
 ** Includes
 *************************************************************************/
+//#include "cfe.h"
+//#include "cfe_msgids.h"
+//#include "hk_utils.h"
+//#include "/workspaces/dtu-satellite-supply-chain-NOS3/nos3/fsw/apps/hk/fsw/src/hk_utils.h"
+//#include "hk_app.h"
+//#include "hk_msgids.h"
+//#include "hk_tbldefs.h"
+//#include "cfe_tbl_filedef.h"
+
 #include "cfe.h"
 #include "cfe_msgids.h"
-#include "hk_utils.h"
-#include "hk_app.h"
-#include "hk_msgids.h"
-#include "hk_tbldefs.h"
+#include "/workspaces/dtu-satellite-supply-chain-NOS3/nos3/fsw/apps/hk/fsw/src/hk_utils.h"
+#include "/workspaces/dtu-satellite-supply-chain-NOS3/nos3/fsw/apps/hk/fsw/src/hk_app.h"
+#include "/workspaces/dtu-satellite-supply-chain-NOS3/nos3/fsw/apps/hk/fsw/inc/hk_msgids.h"
+#include "/workspaces/dtu-satellite-supply-chain-NOS3/nos3/fsw/apps/hk/fsw/inc/hk_tbldefs.h"
 #include "cfe_tbl_filedef.h"
+
+/* Fikser det manglende macro-navn fra den ældre NOS3 opsætning */
+#ifndef HK_UNDEFINED_ENTRY
+#define HK_UNDEFINED_ENTRY CFE_SB_INVALID_MSG_ID
+#endif
+
+/* Beder GCC-compileren om midlertidigt at ignorere klamme-advarsler for denne tabel */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-braces"
+#pragma GCC diagnostic ignored "-Wpedantic"
 
 hk_copy_table_entry_t      HK_CopyTable[HK_COPY_TABLE_ENTRIES] =
 {
@@ -188,6 +207,9 @@ hk_copy_table_entry_t      HK_CopyTable[HK_COPY_TABLE_ENTRIES] =
 /* 127 */ { HK_UNDEFINED_ENTRY,    0,   HK_UNDEFINED_ENTRY,       0,   0, },
 
 };
+
+/* Genaktiverer normale advarsler */
+#pragma GCC diagnostic pop
 
 /*
 ** Table file header

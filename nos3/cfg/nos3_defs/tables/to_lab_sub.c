@@ -39,8 +39,8 @@
 #include "cf_msgids.h"
 #include "ds_msgids.h"
 #include "fm_msgids.h"
-//#include "hs_msgids.h"
-//#include "hk_msgids.h"
+#include "hs_msgids.h"
+#include "hk_msgids.h"
 #include "lc_msgids.h"
 #include "sc_msgids.h"
 #include "sch_msgids.h"
@@ -133,6 +133,10 @@ TO_LAB_Subs_t TO_LAB_Subs =
         {CFE_SB_MSGID_WRAP_VALUE(SYN_HK_TLM_MID),               {0,0},  32},
         {CFE_SB_MSGID_WRAP_VALUE(SCH_HK_TLM_MID),               {0,0},  32},
         {CFE_SB_MSGID_WRAP_VALUE(SCH_DIAG_TLM_MID),             {0,0},  32},
+
+        /* TILFØJ DISSE TO LINJER: */
+        {CFE_SB_MSGID_WRAP_VALUE(HK_HK_TLM_MID), {0,0}, 4},
+        {CFE_SB_MSGID_WRAP_VALUE(HS_HK_TLM_MID), {0,0}, 4},
 
     }
 };

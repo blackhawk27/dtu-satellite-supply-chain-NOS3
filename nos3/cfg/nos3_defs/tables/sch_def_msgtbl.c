@@ -35,8 +35,8 @@
 #include "ci_msgids.h"
 #include "ds_msgids.h"
 #include "fm_msgids.h"
-//#include "hk_msgids.h"
-//#include "hs_msgids.h"
+#include "hk_msgids.h" // Fjernet "//"
+#include "hs_msgids.h" // Fjernet "//"
 #include "lc_msgids.h"
 #include "lc_msgdefs.h"
 #include "sc_msgids.h"
@@ -109,11 +109,11 @@ SCH_MessageEntry_t SCH_DefaultMessageTable[SCH_MAX_MESSAGES] =
     /* command ID #8 - File Manager HK Request       */
   { { CFE_MAKE_BIG16(FM_SEND_HK_MID),  CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000 } },
     /* command ID #9 - Housekeeping HK Request       */
-/*{ { CFE_MAKE_BIG16(HK_SEND_HK_MID),  CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000 } }, */
+  { { CFE_MAKE_BIG16(HK_SEND_HK_MID),  CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000 } }, 
   { { CFE_MAKE_BIG16(SCH_UNUSED_MID) } },
 
     /* command ID #10 - Health & Safety HK Request   */
-/*{ { CFE_MAKE_BIG16(HS_SEND_HK_MID),  CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000 } }, */
+  { { CFE_MAKE_BIG16(HS_SEND_HK_MID),  CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000 } }, 
   { { CFE_MAKE_BIG16(SCH_UNUSED_MID) } },
     /* command ID #11 - Limit Checker HK Request     */
   { { CFE_MAKE_BIG16(LC_SEND_HK_MID),  CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000 } },
@@ -132,16 +132,16 @@ SCH_MessageEntry_t SCH_DefaultMessageTable[SCH_MAX_MESSAGES] =
   **  CFS routine messages
   */
     /* command ID #16 - HK Send Combined Housekeeping Msg #1 */
-/*{ { CFE_MAKE_BIG16(HK_SEND_COMBINED_PKT_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0003), 0x0000, HK_COMBINED_PKT1_MID } }, */
+  { { CFE_MAKE_BIG16(HK_SEND_COMBINED_PKT_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0003), 0x0000, HK_COMBINED_PKT1_MID } },
   { { CFE_MAKE_BIG16(SCH_UNUSED_MID) } },
     /* command ID #17 - HK Send Combined Housekeeping Msg #2 */
-/*{ { CFE_MAKE_BIG16(HK_SEND_COMBINED_PKT_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0003), 0x0000, HK_COMBINED_PKT2_MID } }, */
+  { { CFE_MAKE_BIG16(HK_SEND_COMBINED_PKT_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0003), 0x0000, HK_COMBINED_PKT2_MID } }, 
   { { CFE_MAKE_BIG16(SCH_UNUSED_MID) } },
     /* command ID #18 - HK Send Combined Housekeeping Msg #3 */
-/*{ { CFE_MAKE_BIG16(HK_SEND_COMBINED_PKT_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0003), 0x0000, HK_COMBINED_PKT3_MID } }, */
+  { { CFE_MAKE_BIG16(HK_SEND_COMBINED_PKT_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0003), 0x0000, HK_COMBINED_PKT3_MID } }, 
   { { CFE_MAKE_BIG16(SCH_UNUSED_MID) } },
     /* command ID #19 - HK Send Combined Housekeeping Msg #4 */
-/*{ { CFE_MAKE_BIG16(HK_SEND_COMBINED_PKT_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0003), 0x0000, HK_COMBINED_PKT4_MID } }, */
+  { { CFE_MAKE_BIG16(HK_SEND_COMBINED_PKT_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0003), 0x0000, HK_COMBINED_PKT4_MID } }, 
   { { CFE_MAKE_BIG16(SCH_UNUSED_MID) } },
     /* command ID #20 - CS Background Cycle               */
 /*{ { CFE_MAKE_BIG16(CS_BACKGROUND_CYCLE_MID),  CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000 } }, */
