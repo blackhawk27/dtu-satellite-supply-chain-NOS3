@@ -157,12 +157,12 @@ CFE_Status_t CS_GetTableAddr(CS_LocalChecksumState_t *State, CFE_TBL_Handle_t Lo
  * Local helper function
  *
  *-----------------------------------------------------------------*/
-void CS_ReleaseTableAddr(CFE_TBL_HandleId_t LocalId, const char *Name)
+void CS_ReleaseTableAddr(CFE_TBL_Handle_t LocalId, const char *Name)
 {
     CFE_Status_t     Result;
     CFE_TBL_Handle_t LocalHandle;
 
-    LocalHandle = CFE_TBL_HandleFromID(LocalId);
+    LocalHandle = LocalId;
 
     Result = CFE_TBL_ReleaseAddress(LocalHandle);
     if (Result != CFE_SUCCESS)
@@ -210,7 +210,7 @@ CFE_Status_t CS_RefreshTableHandleAndAddress(CS_LocalChecksumState_t *State, CFE
     CFE_Status_t Result;
 
     /* This means our local handle went stale, unregister it before getting a new one */
-    if (CFE_TBL_HANDLE_IS_VALID(*LocalHandle))
+    if (*LocalHandle != CFE_TBL_BAD_TABLE_HANDLE)
     {
         CFE_TBL_Unregister(*LocalHandle);
     }
@@ -239,7 +239,7 @@ CFE_Status_t CS_RefreshTableHandleAndAddress(CS_LocalChecksumState_t *State, CFE
  * Local helper function
  *
  *-----------------------------------------------------------------*/
-CFE_Status_t CS_RefreshTableData(CS_LocalChecksumState_t *State, CFE_TBL_HandleId_t *LocalId, const char *Name)
+CFE_Status_t CS_RefreshTableData(CS_LocalChecksumState_t *State, CFE_TBL_Handle_t *LocalId, const char *Name)
 {
     CFE_Status_t     Status;
     CFE_TBL_Handle_t LocalHandle;
@@ -251,7 +251,7 @@ CFE_Status_t CS_RefreshTableData(CS_LocalChecksumState_t *State, CFE_TBL_HandleI
      * since the last time we checked this table.  */
     if (State->TotalSize != 0)
     {
-        LocalHandle = CFE_TBL_HandleFromID(*LocalId);
+        LocalHandle = *LocalId;
         Status      = CS_GetTableAddr(State, LocalHandle);
     }
     else
@@ -276,11 +276,11 @@ CFE_Status_t CS_RefreshTableData(CS_LocalChecksumState_t *State, CFE_TBL_HandleI
 
     if (Status == CFE_SUCCESS)
     {
-        *LocalId = CFE_TBL_HandleToID(LocalHandle);
+        *LocalId = LocalHandle;
     }
     else
     {
-        *LocalId = CFE_TBL_HANDLEID_UNDEFINED;
+        *LocalId = CFE_TBL_BAD_TABLE_HANDLE;
     }
 
     return Status;

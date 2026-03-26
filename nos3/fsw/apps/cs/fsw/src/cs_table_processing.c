@@ -548,7 +548,7 @@ void CS_ExtractNames(const CS_Def_Tables_Table_Entry_t *DefEntry, char *AppBuf, 
     size_t      AppNameLen;
 
     /* Look for the separator char (.) somewhere in the name */
-    TableNameLen = OS_strnlen(DefEntry->Name, sizeof(DefEntry->Name));
+    TableNameLen = strnlen(DefEntry->Name, sizeof(DefEntry->Name));
     Sep          = memchr(DefEntry->Name, '.', TableNameLen);
     if (Sep == NULL)
     {
@@ -627,7 +627,7 @@ void CS_ProcessNewTablesDefinitionTable(CS_TableWrapper_t *tw)
         /* wipe the entry, sets everything to safe state, state set to CS_ChecksumState_EMPTY (0) */
         /* This also needs to explicitly set the TBL handle as 0 might be valid */
         memset(ResultsEntry, 0, sizeof(*ResultsEntry));
-        ResultsEntry->TblHandleID = CFE_TBL_HANDLEID_UNDEFINED;
+        ResultsEntry->TblHandleID = CFE_TBL_BAD_TABLE_HANDLE;
 
         if (CS_StateValid(DefEntry->State))
         {
@@ -663,7 +663,7 @@ void CS_ProcessNewTablesDefinitionTable(CS_TableWrapper_t *tw)
             NumRegionsInTable++;
 
             ResultsEntry->State       = DefEntry->State;
-            ResultsEntry->TblHandleID = CFE_TBL_HandleToID(TableHandle);
+            ResultsEntry->TblHandleID = TableHandle;
             ResultsEntry->IsCSOwner   = Owned;
 
             CFE_SB_MessageStringGet(ResultsEntry->Name, DefEntry->Name, NULL, sizeof(ResultsEntry->Name),
@@ -905,13 +905,13 @@ CFE_Status_t CS_HandleTableUpdate(CS_TableWrapper_t *tw)
                 }
                 if (!ResTablesTblPtr->IsCSOwner)
                 {
-                    LocalHandle = CFE_TBL_HandleFromID(ResTablesTblPtr->TblHandleID);
+                    LocalHandle = ResTablesTblPtr->TblHandleID;
                 }
                 else
                 {
                     LocalHandle = CFE_TBL_BAD_TABLE_HANDLE;
                 }
-                if (CFE_TBL_HANDLE_IS_VALID(LocalHandle))
+                if (LocalHandle != CFE_TBL_BAD_TABLE_HANDLE)
                 {
                     CFE_TBL_Unregister(LocalHandle);
                 }

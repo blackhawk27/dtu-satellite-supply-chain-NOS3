@@ -95,7 +95,7 @@ typedef struct
     uint32              ComparisonValue;    /**< \brief The Memory Integrity Value */
     uint32              ByteOffset;         /**< \brief Where a previous unfinished calc left off */
     uint32              TempChecksumValue;  /**< \brief The unfinished caluculation */
-    CFE_TBL_HandleId_t  TblHandleID;        /**< \brief handle recieved from CFE_TBL */
+    CFE_TBL_Handle_t    TblHandleID;        /**< \brief handle received from CFE_TBL */
     bool                IsCSOwner;          /**< \brief Is CS the original owner of this table */
     bool                Filler8;            /**< \brief Padding */
     char                Name[CFE_MISSION_TBL_MAX_FULL_NAME_LEN]; /**< \brief name of the table */
