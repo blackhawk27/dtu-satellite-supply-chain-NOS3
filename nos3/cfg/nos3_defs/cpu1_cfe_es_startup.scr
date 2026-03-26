@@ -12,6 +12,10 @@ CFE_APP, beacon_app,                BEACON_APP_Main,          BEACON_APP,       
 
 CFE_APP, hs,                        HS_AppMain,               HS,               85, 16384, 0x0, 0;
 CFE_APP, hk,                        HK_AppMain,               HK,               90, 16384, 0x0, 0;
+CFE_APP, cs,                        CS_AppMain,               CS,               55, 16384, 0x0, 0;
+CFE_APP, md,                        MD_AppMain,               MD,               60, 16384, 0x0, 0;
+CFE_APP, mm,                        MM_AppMain,               MM,               61, 16384, 0x0, 0;
+
 
 
 
@@ -49,9 +53,7 @@ CFE_APP, generic_thruster,          GENERIC_THR_AppMain,      THRUSTER,         
 CFE_APP, mgr,                       MGR_AppMain,              MGR,              75, 32768, 0x0, 0;
 
 CFE_LIB, cfs_lib,                   CFS_LibInit,              CFS_LIB,          0,  0,     0x0, 0;
-CFE_APP, cs,                        CS_AppMain,               CS,               55, 16384, 0x0, 0;
-CFE_APP, md,                        MD_AppMain,               MD,               60, 16384, 0x0, 0;
-CFE_APP, mm,                        MM_AppMain,               MM,               61, 16384, 0x0, 0;
+
 
 
 Startup script fields:

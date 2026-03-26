@@ -31,12 +31,15 @@
 #include "cfe_msgids.h"
 #include "cf_msgids.h"
 #include "ci_msgids.h"
+#include "cs_msgids.h"
 #include "ds_msgids.h"
 #include "fm_msgids.h"
 #include "hk_msgids.h"
 #include "hs_msgids.h"
 #include "lc_msgids.h"
 #include "lc_msgdefs.h"
+#include "md_msgids.h"
+#include "mm_msgids.h"
 #include "sc_msgids.h"
 #include "sch_msgids.h"
 #include "to_msgids.h"
@@ -74,7 +77,7 @@ SCH_MessageEntry_t SCH_DefaultMessageTable[SCH_MAX_MESSAGES] = {
     {{CFE_MAKE_BIG16(CFE_TBL_SEND_HK_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}},
 
     /* CFS housekeeping request messages */
-    {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}, /* 6 CS */
+    {{CFE_MAKE_BIG16(CS_SEND_HK_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}}, /* 6 CS */
     {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}, /* 7 DS */
     {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}, /* 8 FM */
 
@@ -85,8 +88,8 @@ SCH_MessageEntry_t SCH_DefaultMessageTable[SCH_MAX_MESSAGES] = {
     {{CFE_MAKE_BIG16(HS_SEND_HK_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}},
 
     {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}},                                                          /* 11 LC */
-    {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}},                                                          /* 12 MD */
-    {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}},                                                          /* 13 MM */
+    {{CFE_MAKE_BIG16(MD_SEND_HK_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}},  /* 12 MD */
+    {{CFE_MAKE_BIG16(MM_SEND_HK_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}},  /* 13 MM */
     {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}},                                                          /* 14 SC */
     {{CFE_MAKE_BIG16(SCH_SEND_HK_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}}, /* 15 SCH */
 

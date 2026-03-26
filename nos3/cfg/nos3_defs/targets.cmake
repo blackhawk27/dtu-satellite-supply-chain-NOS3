@@ -93,6 +93,7 @@ list(APPEND MISSION_GLOBAL_APPLIST
     #
         cf
         ci
+        cs
         beacon_app 
         noisy_app 
         ci_lab
@@ -101,6 +102,8 @@ list(APPEND MISSION_GLOBAL_APPLIST
         hk
         hs
         lc
+        md
+        mm
         sbn
         sbn_tcp
         sbn_client
