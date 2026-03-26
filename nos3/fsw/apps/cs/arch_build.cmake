@@ -16,4 +16,9 @@ set(CS_PLATFORM_CONFIG_FILE_LIST
   cs_platform_cfg.h
 )
 
-generate_configfile_set(${CS_PLATFORM_CONFIG_FILE_LIST})
+foreach(CS_CFGFILE ${CS_PLATFORM_CONFIG_FILE_LIST})
+  generate_config_includefile(
+    FILE_NAME     "${CS_CFGFILE}"
+    FALLBACK_FILE "${CMAKE_CURRENT_LIST_DIR}/config/default_${CS_CFGFILE}"
+  )
+endforeach()

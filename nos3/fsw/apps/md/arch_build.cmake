@@ -17,4 +17,9 @@ set(MD_PLATFORM_CONFIG_FILE_LIST
   md_msgid_values.h
 )
 
-generate_configfile_set(${MD_PLATFORM_CONFIG_FILE_LIST})
+foreach(MD_CFGFILE ${MD_PLATFORM_CONFIG_FILE_LIST})
+  generate_config_includefile(
+    FILE_NAME     "${MD_CFGFILE}"
+    FALLBACK_FILE "${CMAKE_CURRENT_LIST_DIR}/config/default_${MD_CFGFILE}"
+  )
+endforeach()
