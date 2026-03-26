@@ -44,21 +44,12 @@
 /************************************************************************
 ** Includes
 *************************************************************************/
-//#include "cfe.h"
-//#include "cfe_msgids.h"
-//#include "hk_utils.h"
-//#include "/workspaces/dtu-satellite-supply-chain-NOS3/nos3/fsw/apps/hk/fsw/src/hk_utils.h"
-//#include "hk_app.h"
-//#include "hk_msgids.h"
-//#include "hk_tbldefs.h"
-//#include "cfe_tbl_filedef.h"
-
 #include "cfe.h"
 #include "cfe_msgids.h"
-#include "/workspaces/dtu-satellite-supply-chain-NOS3/nos3/fsw/apps/hk/fsw/src/hk_utils.h"
-#include "/workspaces/dtu-satellite-supply-chain-NOS3/nos3/fsw/apps/hk/fsw/src/hk_app.h"
-#include "/workspaces/dtu-satellite-supply-chain-NOS3/nos3/fsw/apps/hk/fsw/inc/hk_msgids.h"
-#include "/workspaces/dtu-satellite-supply-chain-NOS3/nos3/fsw/apps/hk/fsw/inc/hk_tbldefs.h"
+#include "hk_utils.h"
+#include "hk_app.h"
+#include "hk_msgids.h"
+#include "hk_tbldefs.h"
 #include "cfe_tbl_filedef.h"
 
 /* Fikser det manglende macro-navn fra den ældre NOS3 opsætning */
