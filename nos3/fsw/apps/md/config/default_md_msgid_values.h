@@ -23,10 +23,19 @@
 #ifndef DEFAULT_MD_MSGID_VALUES_H
 #define DEFAULT_MD_MSGID_VALUES_H
 
-#include "cfe_core_api_base_msgids.h"
-#include "md_topicids.h"
+/*
+ * Hardcoded MID values for non-EDS (legacy cFE) builds.
+ * CFE_PLATFORM_CMD/TLM_TOPICID_TO_MIDV are Draco-era macros that do not
+ * exist in this cFE.  Use a token-paste lookup table instead so that
+ * default_md_msgids.h compiles unchanged.
+ */
+#define CFE_PLATFORM_MD_CMD_MIDVAL_CMD              0x1890
+#define CFE_PLATFORM_MD_CMD_MIDVAL_SEND_HK          0x1891
+#define CFE_PLATFORM_MD_CMD_MIDVAL_WAKEUP           0x1892
+#define CFE_PLATFORM_MD_TLM_MIDVAL_HK_TLM           0x0890
+#define CFE_PLATFORM_MD_TLM_MIDVAL_DWELL_PKT_MID_BASE 0x0891
 
-#define CFE_PLATFORM_MD_CMD_MIDVAL(x) CFE_PLATFORM_CMD_TOPICID_TO_MIDV(CFE_MISSION_MD_##x##_TOPICID)
-#define CFE_PLATFORM_MD_TLM_MIDVAL(x) CFE_PLATFORM_TLM_TOPICID_TO_MIDV(CFE_MISSION_MD_##x##_TOPICID)
+#define CFE_PLATFORM_MD_CMD_MIDVAL(x) CFE_PLATFORM_MD_CMD_MIDVAL_##x
+#define CFE_PLATFORM_MD_TLM_MIDVAL(x) CFE_PLATFORM_MD_TLM_MIDVAL_##x
 
 #endif
