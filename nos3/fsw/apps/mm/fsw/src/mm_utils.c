@@ -437,7 +437,7 @@ int32 MM_ResolveSymAddr(MM_SymAddr_t *SymAddr, cpuaddr *ResolvedAddr) {
   ** If the symbol name string is a nul string
   ** we use the offset as the absolute address
   */
-  if (OS_strnlen(SymAddr->SymName, CFE_MISSION_MAX_PATH_LEN) == 0) {
+  if (strnlen(SymAddr->SymName, CFE_MISSION_MAX_PATH_LEN) == 0) {
     *ResolvedAddr = (cpuaddr)CFE_ES_MEMADDRESS_TO_PTR(SymAddr->Offset);
     OS_Status = OS_ERROR_NAME_LENGTH;
   } else {

@@ -34,6 +34,7 @@
 #include "mm_version.h"
 
 #include "cfe.h"
+#include <string.h>
 
 #ifdef MM_INTERNAL_OPT_CODE_MEM32_MEMTYPE
 #include "mm_mem32.h"
@@ -122,7 +123,7 @@ CFE_Status_t MM_LookupSymCmd(const MM_LookupSymCmd_t *Msg) {
   /*
   ** Check if the symbol name string is a nul string
   */
-  if (OS_strnlen(SymName, CFE_MISSION_MAX_PATH_LEN) == 0) {
+  if (strnlen(SymName, CFE_MISSION_MAX_PATH_LEN) == 0) {
     MM_AppData.HkTlm.Payload.ErrCounter++;
     CFE_EVS_SendEvent(MM_SYMNAME_NUL_ERR_EID, CFE_EVS_EventType_ERROR,
                       "NUL (empty) string specified as symbol name");
@@ -147,7 +148,7 @@ CFE_Status_t MM_LookupSymCmd(const MM_LookupSymCmd_t *Msg) {
                         SymName);
     }
 
-  } /* end OS_strnlen(Msg->Payload.SymName, CFE_MISSION_MAX_PATH_LEN) == 0 else
+  } /* end strnlen(Msg->Payload.SymName, CFE_MISSION_MAX_PATH_LEN) == 0 else
      */
 
   /* Nothing atypical needs to be done so return success */
@@ -170,7 +171,7 @@ CFE_Status_t MM_SymTblToFileCmd(const MM_SymTblToFileCmd_t *Msg) {
   /*
   ** Check if the filename string is a nul string
   */
-  if (OS_strnlen(FileName, CFE_MISSION_MAX_PATH_LEN) == 0) {
+  if (strnlen(FileName, CFE_MISSION_MAX_PATH_LEN) == 0) {
     MM_AppData.HkTlm.Payload.ErrCounter++;
     CFE_EVS_SendEvent(MM_SYMFILENAME_NUL_ERR_EID, CFE_EVS_EventType_ERROR,
                       "NUL (empty) string specified as symbol dump file name");
@@ -194,7 +195,7 @@ CFE_Status_t MM_SymTblToFileCmd(const MM_SymTblToFileCmd_t *Msg) {
           "Error dumping symbol table, OS_Status= 0x%X, File='%s'",
           (unsigned int)OS_Status, FileName);
     }
-  } /* end OS_strnlen(FileName, CFE_MISSION_MAX_PATH_LEN) == 0 else */
+  } /* end strnlen(FileName, CFE_MISSION_MAX_PATH_LEN) == 0 else */
 
   /* Nothing atypical needs to be done so return success */
   return CFE_SUCCESS;
@@ -919,7 +920,7 @@ CFE_Status_t MM_DumpInEventCmd(const MM_DumpInEventCmd_t *Msg) {
             &EventString[EventStringTotalLength], HeaderString, NULL,
             sizeof(EventString) - EventStringTotalLength, sizeof(HeaderString));
         EventStringTotalLength =
-            OS_strnlen(EventString, CFE_MISSION_EVS_MAX_MESSAGE_LENGTH);
+            strnlen(EventString, CFE_MISSION_EVS_MAX_MESSAGE_LENGTH);
 
         /*
         ** Build dump data string
@@ -936,7 +937,7 @@ CFE_Status_t MM_DumpInEventCmd(const MM_DumpInEventCmd_t *Msg) {
               &EventString[EventStringTotalLength], TempString, NULL,
               sizeof(EventString) - EventStringTotalLength, sizeof(TempString));
           EventStringTotalLength =
-              OS_strnlen(EventString, CFE_MISSION_EVS_MAX_MESSAGE_LENGTH);
+              strnlen(EventString, CFE_MISSION_EVS_MAX_MESSAGE_LENGTH);
           BytePtr++;
         }
 
