@@ -1,0 +1,27 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/nos3/fsw/cfe/modules/core_api/fsw/inc",
+                "${workspaceFolder}/nos3/fsw/osal/src/os/inc",
+                "${workspaceFolder}/nos3/fsw/osal/src/os/shared/inc",
+                "${workspaceFolder}/nos3/fsw/psp/fsw/inc",
+                "${workspaceFolder}/nos3/fsw/cfe/modules/msg/fsw/inc",
+                "${workspaceFolder}/nos3/fsw/cfe/modules/sb/fsw/inc",
+                "${workspaceFolder}/nos3/fsw/cfe/modules/es/fsw/inc",
+                "${workspaceFolder}/nos3/fsw/cfe/modules/evs/fsw/inc",
+                "${workspaceFolder}/nos3/fsw/cfe/modules/tbl/fsw/inc",
+                "${workspaceFolder}/nos3/fsw/cfe/modules/time/fsw/inc",
+                "${workspaceFolder}/nos3/fsw/build/inc"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "linux-gcc-x64"
+        }
+    ],
+    "version": 4
+}

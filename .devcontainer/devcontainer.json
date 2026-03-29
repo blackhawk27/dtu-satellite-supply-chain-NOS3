@@ -6,7 +6,8 @@
             "version": "latest",
             "enableNonRootDocker": "true",
             "moby": "true"
-        }
+        },
+        "ghcr.io/devcontainers/features/node:1": {}
     },
     "customizations": {
         "vscode": {
@@ -14,9 +15,26 @@
                 "ms-vscode.cpptools",
                 "ms-vscode.cmake-tools",
                 "ms-azuretools.vscode-docker",
-                "ms-python.python"
+                "ms-python.python",
+                "Google.geminicodeassist",
+                "Google.gemini-cli-vscode-ide-companion"
             ]
         }
+    },
+    "forwardPorts": [
+        5601,
+        9200
+    ],
+    "portsAttributes": {
+        "5601": {
+            "label": "Kibana"
+        },
+        "9200": {
+            "label": "Elasticsearch"
+        }
+    },
+    "otherPortsAttributes": {
+        "onAutoForward": "ignore"
     },
     "postCreateCommand": "sudo apt-get update && sudo apt-get install -y python3-pip python3-venv python3-dev make git build-essential tmux terminator && bash .devcontainer/post-create.sh",
     "remoteUser": "vscode"

