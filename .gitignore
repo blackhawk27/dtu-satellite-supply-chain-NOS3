@@ -19,3 +19,6 @@ nos3/omni_logs/
 # General log file ignore
 *.log
 nos3/fsw_syslog_test.txt
+
+# Generated repo tree
+repo_tree.txt
