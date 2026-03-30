@@ -15,7 +15,12 @@ CFE_APP, hk,                        HK_AppMain,               HK,               
 CFE_APP, cs,                        CS_AppMain,               CS,               55, 16384, 0x0, 0;
 CFE_APP, md,                        MD_AppMain,               MD,               60, 16384, 0x0, 0;
 CFE_APP, mm,                        MM_AppMain,               MM,               61, 16384, 0x0, 0;
-
+CFE_APP, cf,                        CF_AppMain,               CF,               50, 32768, 0x0, 0;
+CFE_APP, ds,                        DS_AppMain,               DS,               51, 32768, 0x0, 0;
+CFE_APP, fm,                        FM_AppMain,               FM,               52, 32768, 0x0, 0;
+CFE_APP, lc,                        LC_AppMain,               LC,               53, 32768, 0x0, 0;
+CFE_APP, sbn,                       SBN_AppMain,              SBN,              63, 32768, 0x0, 0;
+CFE_APP, sc,                        SC_AppMain,               SC,               54, 32768, 0x0, 0;
 
 
 
@@ -28,12 +33,8 @@ OFF_APP, cpu_killer,                CPU_KILLER_Main,          CPU_KILLER,       
 !
 ! In NOS3, these are moved as part of the `make config` process depending on what is enabled
 !
-CFE_APP, cf,                        CF_AppMain,               CF,               50, 32768, 0x0, 0;
-CFE_APP, ds,                        DS_AppMain,               DS,               51, 32768, 0x0, 0;
-CFE_APP, fm,                        FM_AppMain,               FM,               52, 32768, 0x0, 0;
-CFE_APP, lc,                        LC_AppMain,               LC,               53, 32768, 0x0, 0;
-CFE_APP, sbn,                       SBN_AppMain,              SBN,              63, 32768, 0x0, 0;
-CFE_APP, sc,                        SC_AppMain,               SC,               54, 32768, 0x0, 0;
+
+
 
 CFE_APP, generic_adcs,              ADCS_AppMain,             ADCS,             60, 32768, 0x0, 0;
 CFE_APP, arducam,                   arducam_AppMain,          CAM,              61, 32768, 0x0, 0;

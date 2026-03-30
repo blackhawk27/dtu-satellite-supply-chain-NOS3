@@ -43,6 +43,7 @@
 #include "sc_msgids.h"
 #include "sch_msgids.h"
 #include "to_msgids.h"
+#include "sbn_msgids.h"
 
 /* Component Include Files */
 #include "cam_msgids.h"
@@ -78,8 +79,8 @@ SCH_MessageEntry_t SCH_DefaultMessageTable[SCH_MAX_MESSAGES] = {
 
     /* CFS housekeeping request messages */
     {{CFE_MAKE_BIG16(CS_SEND_HK_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}}, /* 6 CS */
-    {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}, /* 7 DS */
-    {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}, /* 8 FM */
+    {{CFE_MAKE_BIG16(DS_SEND_HK_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}}, /* 7 DS */
+    {{CFE_MAKE_BIG16(FM_SEND_HK_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}}, /* 8 FM */
 
     /* command ID #9 - Housekeeping HK Request */
     {{CFE_MAKE_BIG16(HK_SEND_HK_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}},
@@ -87,22 +88,22 @@ SCH_MessageEntry_t SCH_DefaultMessageTable[SCH_MAX_MESSAGES] = {
     /* command ID #10 - Health & Safety HK Request */
     {{CFE_MAKE_BIG16(HS_SEND_HK_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}},
 
-    {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}},                                                          /* 11 LC */
+    {{CFE_MAKE_BIG16(LC_SEND_HK_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}},  /* 11 LC */
     {{CFE_MAKE_BIG16(MD_SEND_HK_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}},  /* 12 MD */
     {{CFE_MAKE_BIG16(MM_SEND_HK_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}},  /* 13 MM */
-    {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}},                                                          /* 14 SC */
+    {{CFE_MAKE_BIG16(SC_SEND_HK_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}},  /* 14 SC */
     {{CFE_MAKE_BIG16(SCH_SEND_HK_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}}, /* 15 SCH */
 
     /* CFS routine messages 16 - 127 */
-    {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}, /* 16 */
-    {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}, /* 17 */
-    {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}, /* 18 */
-    {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}, /* 19 */
-    {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}, /* 20 */
-    {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}, /* 21 */
-    {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}, /* 22 */
-    {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}, /* 23 */
-    {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}, /* 24 */
+    {{CFE_MAKE_BIG16(CF_SEND_HK_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}},  /* 16 CF HK */
+    {{CFE_MAKE_BIG16(CF_WAKE_UP_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}},  /* 17 CF WAKEUP */
+    {{CFE_MAKE_BIG16(SBN_CMD_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0000), 0x0000}}, /* 18 SBN HK */
+    {{CFE_MAKE_BIG16(CS_BACKGROUND_CYCLE_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}}, /* 19 CS Cycle */
+    {{CFE_MAKE_BIG16(LC_SAMPLE_AP_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}}, /* 20 LC Wakeup */
+    {{CFE_MAKE_BIG16(SC_1HZ_WAKEUP_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}}, /* 21 SC Wakeup */
+    {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}, /* 22 SCH Unused */
+    {{CFE_MAKE_BIG16(MD_WAKEUP_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}}, /* 23 MD Wakeup */
+    {{CFE_MAKE_BIG16(HS_WAKEUP_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}}, /* 24 HS Wakeup */
     {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}, /* 25 */
     {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}, /* 26 */
     {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}, /* 27 */
@@ -204,8 +205,7 @@ SCH_MessageEntry_t SCH_DefaultMessageTable[SCH_MAX_MESSAGES] = {
     {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}, /* 123 */
     {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}, /* 124 */
     {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}, /* 125 */
-    {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}, /* 126 */
-    {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}  /* 127 */
+    {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}  /* 126 */
 };
 
 /*

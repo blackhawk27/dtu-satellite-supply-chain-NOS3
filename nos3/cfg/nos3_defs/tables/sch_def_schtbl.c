@@ -44,7 +44,7 @@
 */
 SCH_ScheduleEntry_t SCH_DefaultScheduleTable[SCH_TABLE_ENTRIES] = {
     /* slot #0 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 17, SCH_GROUP_CDH}, /* CF Wakeup */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
@@ -86,31 +86,31 @@ SCH_ScheduleEntry_t SCH_DefaultScheduleTable[SCH_TABLE_ENTRIES] = {
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #7 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 0, 7, SCH_GROUP_CFS_HK},  /* DS HK Request (Index 7) */
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 1, 8, SCH_GROUP_CFS_HK},  /* FM HK Request (Index 8) */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #8 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 0, 11, SCH_GROUP_CFS_HK}, /* LC HK Request (Index 11) */
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 1, 14, SCH_GROUP_CFS_HK}, /* SC HK Request (Index 14) */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #9 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 0, 18, SCH_GROUP_CFS_HK}, /* SBN HK Request (Husk at oprette SBN_SEND_HK_MID på index 18 i msgtbl) */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #10 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 0, 20, SCH_GROUP_NONE}, /* LC Sample AP Wakeup (peger på index 20) */
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 1, 21, SCH_GROUP_NONE}, /* SC 1Hz Wakeup (peger på index 21) */
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 2, 19, SCH_GROUP_NONE}, /* CS Background Cycle (peger på index 19) */
+    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE}, 
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 4, 23, SCH_GROUP_NONE}, /* MD Wakeup (peger på index 23) */
     /* slot #11 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 0, 24, SCH_GROUP_NONE}, /* HS Wakeup (peger på index 24) */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
