@@ -19,19 +19,19 @@
 
 /**
  * @file
- *   CFS Stored Command (SC) sample RTS table 1
+ *   CFS Stored Command (SC) Boot RTS table 1 — System initialization sequence
  *
- * The following source code demonstrates how to create a sample
- * Stored Command RTS table using the software defined command structures.
- * It's also possible to create this table via alternative tools
- * (ground system) and or system agnostic data definitions (XTCE/EDS/JSON).
+ * This RTS is triggered by ATS1 (see sc_ats1.c) during normal boot, and can
+ * also be started manually from the ground system to re-run initialization.
  *
- * This source file creates a sample RTS table that contains only
- * the following commands that are scheduled as follows:
+ * Sequence (relative time in ticks; 1 tick = SCH minor frame period ~100ms):
+ *   t=0:  SC NOOP  — verify SC itself is responsive at RTS start
+ *   t=5:  SC Enable RTS #2 — arm the safe-mode fallback RTS
+ *   t=5:  SC Start RTS #2  — chain into the secondary initialization RTS
  *
- * SC NOOP command, execution time relative to start of RTS = 0
- * SC Enable RTS #2 command, execution time relative to prev cmd = 5
- * SC Start RTS #2 command, execution time relative to prev cmd = 5
+ * Extend this sequence with LC SET_AP_STATE and MD START_DWELL commands
+ * once the exact command structures for those apps are imported here.
+ * Use CFE_MSG_CMD_HDR_INIT with the correct MID, CC, and checksum.
  */
 
 #include "cfe.h"

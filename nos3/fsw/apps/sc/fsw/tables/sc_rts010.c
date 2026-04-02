@@ -26,12 +26,11 @@
  * It's also possible to create this table via alternative tools
  * (ground system) and or system agnostic data definitions (XTCE/EDS/JSON).
  *
- * This source file creates a sample RTS table that contains only
- * the following commands that are scheduled as follows:
- *
- * SC NOOP command, execution time relative to start of RTS = 0
- * SC NOOP command, execution time relative to prev cmd = 5
- * SC NOOP command, execution time relative to prev cmd = 5
+ * Safe-mode response RTS triggered by LC AP#0 (EPS Battery Voltage Low).
+ * Command sequence (relative time in ticks; 1 tick = SCH minor frame ~100ms):
+ *   t= 0: SC NOOP            — confirm RTS started (observable in SC HK)
+ *   t= 5: SC RESET_COUNTERS  — clear post-trigger error counts
+ *   t=10: SC NOOP            — trailing sync
  */
 
 #include "cfe.h"
@@ -46,6 +45,9 @@
 /* Checksum for each sample command */
 #ifndef SC_NOOP_CKSUM
 #define SC_NOOP_CKSUM (0x8F)
+#endif
+#ifndef SC_RESET_COUNTERS_CKSUM
+#define SC_RESET_COUNTERS_CKSUM (0x8E)
 #endif
 
 /* Custom table structure, modify as needed to add desired commands */
@@ -78,7 +80,7 @@ SC_RtsTable010_t SC_Rts010 = {
 
     /* 2 */
     .hdr2.TimeTag   = 5,
-    .cmd2.CmdHeader = CFE_MSG_CMD_HDR_INIT(SC_CMD_MID, SC_MEMBER_SIZE(cmd2), SC_NOOP_CC, SC_NOOP_CKSUM),
+    .cmd2.CmdHeader = CFE_MSG_CMD_HDR_INIT(SC_CMD_MID, SC_MEMBER_SIZE(cmd2), SC_RESET_COUNTERS_CC, SC_RESET_COUNTERS_CKSUM),
 
     /* 3 */
     .hdr3.TimeTag   = 5,

@@ -19,24 +19,20 @@
 
 /**
  * @file
- *   CFS Stored Command (SC) sample ATS table 1
+ *   CFS Stored Command (SC) Mission ATS table 1 — Initialization timeline
  *
- * The following source code demonstrates how to create a sample
- * Stored Command ATS table using the software defined command structures.
- * It's also possible to create this table via alternative tools
- * (ground system) and or system agnostic data definitions (XTCE/EDS/JSON).
+ * Mission initialization sequence. Start this ATS immediately after boot
+ * by sending SC_START_ATS_CC with AtsId=1 from the ground system or from
+ * an operator command sequence. The ATS uses absolute MET (seconds):
  *
- * This source file creates a sample ATS table that contains only
- * the following commands that are scheduled as follows:
+ *   MET + 30:  SC NOOP — verify SC is alive
+ *   MET + 35:  SC Enable RTS #1 — arm the boot RTS
+ *   MET + 40:  SC Start RTS #1  — execute the boot RTS
+ *   MET + 100: SC Reset Counters — clear boot-phase command error counts
  *
- * SC NOOP command, execution time = SC_TEST_TIME + 30
- * SC Enable RTS #1 command, execution time = SC_TEST_TIME + 35
- * SC Start RTS #1 command, execution time = SC_TEST_TIME + 40
- * SC Reset Counters command, execution time = SC_TEST_TIME + 100
- *
- * Before starting the sample ATS, set time = SC_TEST_TIME.  The
- * user will then have 30 seconds to start the ATS before the
- * first command in the sample ATS is scheduled to execute.
+ * To use: send "SC Set Time" to current MET before issuing START_ATS.
+ * The operator then has 30 seconds to start the ATS before the first
+ * command fires. Extend SC_TEST_TIME if more lead time is required.
  */
 
 #include "cfe.h"

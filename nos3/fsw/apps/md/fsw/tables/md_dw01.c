@@ -31,19 +31,37 @@
 #include "md_tblstruct.h"
 #include "md_platform_cfg.h"
 
+/*
+** Dwell Table 1 — System Health Monitor
+** Dwell rate = sum(Delay) * SCH_wakeup_period = 5 * 1s = 5s per dwell packet.
+**
+** Entries use OSAL symbol table resolution: SymName is a global C symbol name,
+** Offset is the byte offset within that symbol's structure.
+** Length is bytes to dwell: 1 (uint8), 2 (uint16), 4 (uint32/float).
+** A zero-length entry with Delay > 0 is a pure wait step.
+** The table terminates at the first entry with Length=0 AND Delay=0.
+**
+** Symbol names below resolve at runtime — verify names with:
+**   nm <cfs_binary> | grep -i "LC_AppData\|SC_OperData\|CFE_ES_Global"
+*/
 MD_DwellTableLoad_t MD_Default_Dwell1_Tbl = {
-    /* Enabled State */ MD_Dwell_States_DISABLED,
+    /* Enabled State */ MD_Dwell_States_ENABLED,
 #if MD_INTERFACE_SIGNATURE_OPTION == 1
-    /* Signature     */ "Default Table 1",
+    /* Signature     */ "SysHealth-v1",
 #endif
-    /* Entry    Length    Delay    Offset           SymName     */
-    /*   1 */
+    /* Entry    Length  Delay  {Offset, SymName}                                        */
     {
-        {0, 0, {0, ""}},
-        /*   2 */ {0, 0, {0, ""}},
-        /*   3 */ {0, 0, {0, ""}},
-        /*   4 */ {0, 0, {0, ""}},
-        /*   5 */ {0, 0, {0, ""}},
+        /*  1 - LC WP results count (uint32) - how many WPs are currently failing */
+        {4, 1, {0,   "LC_AppData"}},
+        /*  2 - LC AP results bitmap (uint32) - which APs have fired */
+        {4, 1, {4,   "LC_AppData"}},
+        /*  3 - SC ATS state byte (uint8 padded to uint32 read) */
+        {4, 1, {0,   "SC_OperData"}},
+        /*  4 - ES registered app count (uint32) */
+        {4, 1, {0,   "CFE_ES_Global"}},
+        /*  5 - terminating wait (delay only, no data) */
+        {0, 1, {0,   ""}},
+        /*  6-25 unused */
         /*   6 */ {0, 0, {0, ""}},
         /*   7 */ {0, 0, {0, ""}},
         /*   8 */ {0, 0, {0, ""}},

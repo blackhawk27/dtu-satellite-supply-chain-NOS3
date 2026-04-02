@@ -31,18 +31,35 @@
 #include "md_tblstruct.h"
 #include "md_platform_cfg.h"
 
+/*
+** Dwell Table 2 — LC AppData baseline snapshot
+** Dwell rate = sum(Delay) * SCH_wakeup_period = 4 * 1s = 4s per dwell packet.
+** Reads three fields from LC_AppData_t (lc_app.h) for pre/post-attack comparison:
+**
+**   Offset 0: CmdCount    (uint16) — LC command counter
+**   Offset 2: CmdErrCount (uint16) — LC error counter
+**   Offset 4: APSampleCount (uint32) — total AP evaluation cycles
+**
+** WatchResults and ActionResults live in separate table allocations
+** (LC_OperData.WRTPtr / ARTPtr) and are not directly addressable via LC_AppData.
+** Use md_dw01.c Entry 1-2 (4-byte reads at offsets 0 and 4) for bulk LC state.
+*/
 MD_DwellTableLoad_t MD_Default_Dwell2_Tbl = {
-    /* Enabled State */ MD_Dwell_States_DISABLED,
+    /* Enabled State */ MD_Dwell_States_ENABLED,
 #if MD_INTERFACE_SIGNATURE_OPTION == 1
-    /* Signature     */ "Default Table 2",
+    /* Signature     */ "LCState-v1",
 #endif
-    /* Entry    Length    Delay    Offset           SymName     */
-    /*   1 */
+    /* Entry    Length  Delay  {Offset, SymName}                               */
     {
-        {0, 0, {0, ""}},
-        /*   2 */ {0, 0, {0, ""}},
-        /*   3 */ {0, 0, {0, ""}},
-        /*   4 */ {0, 0, {0, ""}},
+        /*  1 - LC CmdCount low byte (uint16 at offset 0 in LC_AppData_t) */
+        {1, 1, {0, "LC_AppData"}},
+        /*  2 - LC CmdErrCount low byte (uint16 at offset 2 in LC_AppData_t) */
+        {1, 1, {2, "LC_AppData"}},
+        /*  3 - LC APSampleCount (uint32 at offset 4 in LC_AppData_t) — FIXED: was duplicate of Entry 1 */
+        {4, 1, {4, "LC_AppData"}},
+        /*  4 - terminating wait */
+        {0, 1, {0, ""}},
+        /*  5-25 unused */
         /*   5 */ {0, 0, {0, ""}},
         /*   6 */ {0, 0, {0, ""}},
         /*   7 */ {0, 0, {0, ""}},

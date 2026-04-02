@@ -176,62 +176,69 @@ static CFE_TBL_FileDef_t CFE_TBL_FileDef
 /*
 ** Default actionpoint definition table (ADT) data
 */
+/*
+** Actionpoint notes:
+**   All APs below use LC_APSTATE_ACTIVE — after MaxFailsBeforeRTS=3 consecutive
+**   LC wakeup cycles with the watchpoint failing, SC will execute the mapped RTS.
+**   RTSId values 10–13 correspond to sc_rts010.c–sc_rts013.c safe-mode responses.
+**   MaxFailsBeforeRTS = 3 debounces transient glitches (3 × LC wakeup period ≈ 3s).
+*/
 LC_ADTEntry_t LC_DefaultADT[LC_MAX_ACTIONPOINTS] = {
-    /* #0 (unused) */
-    {.DefaultState      = LC_ACTION_NOT_USED,
-     .MaxPassiveEvents  = 0,
-     .MaxPassFailEvents = 0,
-     .MaxFailPassEvents = 0,
-     .RTSId             = 0,
-     .MaxFailsBeforeRTS = 0,
-     .EventType         = CFE_EVS_EventType_INFORMATION,
-     .EventID           = 0,
-     .EventText         = {" "},
+    /* #0 - EPS Battery Voltage Low (WP_0 fires) */
+    {.DefaultState      = LC_APSTATE_ACTIVE,
+     .MaxPassiveEvents  = 2,
+     .MaxPassFailEvents = 2,
+     .MaxFailPassEvents = 2,
+     .RTSId             = 10,
+     .MaxFailsBeforeRTS = 3,
+     .EventType         = CFE_EVS_EventType_ERROR,
+     .EventID           = LC_BASE_AP_EID + 0,
+     .EventText         = {"EPS: Battery voltage below threshold"},
      .RPNEquation =
          {/* (WP_0) */
           0, LC_RPN_EQUAL}},
 
-    /* #1 (unused) */
-    {.DefaultState      = LC_ACTION_NOT_USED,
-     .MaxPassiveEvents  = 0,
-     .MaxPassFailEvents = 0,
-     .MaxFailPassEvents = 0,
-     .RTSId             = 0,
-     .MaxFailsBeforeRTS = 0,
-     .EventType         = CFE_EVS_EventType_INFORMATION,
-     .EventID           = 0,
-     .EventText         = {" "},
+    /* #1 - EPS Device Communication Error (WP_1 fires) */
+    {.DefaultState      = LC_APSTATE_ACTIVE,
+     .MaxPassiveEvents  = 2,
+     .MaxPassFailEvents = 2,
+     .MaxFailPassEvents = 2,
+     .RTSId             = 11,
+     .MaxFailsBeforeRTS = 3,
+     .EventType         = CFE_EVS_EventType_ERROR,
+     .EventID           = LC_BASE_AP_EID + 1,
+     .EventText         = {"EPS: Device error count nonzero"},
      .RPNEquation =
-         {/* (WP_0) */
-          0, LC_RPN_EQUAL}},
+         {/* (WP_1) */
+          1, LC_RPN_EQUAL}},
 
-    /* #2 (unused) */
-    {.DefaultState      = LC_ACTION_NOT_USED,
-     .MaxPassiveEvents  = 0,
-     .MaxPassFailEvents = 0,
-     .MaxFailPassEvents = 0,
-     .RTSId             = 0,
-     .MaxFailsBeforeRTS = 0,
-     .EventType         = CFE_EVS_EventType_INFORMATION,
-     .EventID           = 0,
-     .EventText         = {" "},
+    /* #2 - Reaction Wheel 0 Communication Error (WP_2 fires) */
+    {.DefaultState      = LC_APSTATE_ACTIVE,
+     .MaxPassiveEvents  = 2,
+     .MaxPassFailEvents = 2,
+     .MaxFailPassEvents = 2,
+     .RTSId             = 12,
+     .MaxFailsBeforeRTS = 3,
+     .EventType         = CFE_EVS_EventType_ERROR,
+     .EventID           = LC_BASE_AP_EID + 2,
+     .EventText         = {"RW: Device 0 error count nonzero"},
      .RPNEquation =
-         {/* (WP_0) */
-          0, LC_RPN_EQUAL}},
+         {/* (WP_2) */
+          2, LC_RPN_EQUAL}},
 
-    /* #3 (unused) */
-    {.DefaultState      = LC_ACTION_NOT_USED,
-     .MaxPassiveEvents  = 0,
-     .MaxPassFailEvents = 0,
-     .MaxFailPassEvents = 0,
-     .RTSId             = 0,
-     .MaxFailsBeforeRTS = 0,
-     .EventType         = CFE_EVS_EventType_INFORMATION,
-     .EventID           = 0,
-     .EventText         = {" "},
+    /* #3 - GPS Unexpectedly Disabled (WP_3 fires) */
+    {.DefaultState      = LC_APSTATE_ACTIVE,
+     .MaxPassiveEvents  = 2,
+     .MaxPassFailEvents = 2,
+     .MaxFailPassEvents = 2,
+     .RTSId             = 13,
+     .MaxFailsBeforeRTS = 3,
+     .EventType         = CFE_EVS_EventType_ERROR,
+     .EventID           = LC_BASE_AP_EID + 3,
+     .EventText         = {"GPS: DeviceEnabled = 0 unexpectedly"},
      .RPNEquation =
-         {/* (WP_0) */
-          0, LC_RPN_EQUAL}},
+         {/* (WP_3) */
+          3, LC_RPN_EQUAL}},
 
     /* #4 (unused) */
     {.DefaultState      = LC_ACTION_NOT_USED,
