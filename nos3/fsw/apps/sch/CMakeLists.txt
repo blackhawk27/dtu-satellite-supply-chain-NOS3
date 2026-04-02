@@ -15,6 +15,10 @@ include_directories(../hk/fsw/src)
 
 include_directories(../hs/fsw/inc)
 include_directories(../hs/fsw/src)
+
+include_directories(../cs/fsw/inc)
+include_directories(../mm/fsw/inc)
+include_directories(../md/fsw/inc)
 # ---------------------------------------------------------
 
 aux_source_directory(fsw/src APP_SRC_FILES)
