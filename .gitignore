@@ -22,3 +22,17 @@ nos3/fsw_syslog_test.txt
 
 # Generated repo tree
 repo_tree.txt
+
+# AI agent tooling — local to each developer's environment
+.ai-memory/
+.claude/
+.codex
+.mcp.json
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+
+# Node / npm (used by local tooling only, not part of the project)
+node_modules/
+package.json
+package-lock.json
