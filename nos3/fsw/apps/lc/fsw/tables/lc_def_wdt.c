@@ -37,6 +37,11 @@
 #include "lc_extern_typedefs.h"
 #include "lc_tbldefs.h"
 
+/* Component MsgID headers for watchpoint message subscriptions */
+#include "generic_eps_msgids.h"
+#include "generic_reaction_wheel_msgids.h"
+#include "novatel_oem615_msgids.h"
+
 /*************************************************************************
 ** Examples
 ** (note that comment delimiters have been changed to '**')
@@ -97,53 +102,80 @@ static CFE_TBL_FileDef_t CFE_TBL_FileDef
 /*
 ** Default watchpoint definition table (WDT) data
 */
+/*
+** Watchpoint offset notes (all offsets from byte 0 of CCSDS message including primary header):
+**   CFE_MSG_TelemetryHeader_t = 12 bytes (6 primary + 6 secondary)
+**   GENERIC_EPS_Hk_tlm_t layout:
+**     [0-11]  TlmHeader
+**     [12]    CommandErrorCount (uint8)
+**     [13]    CommandCount (uint8)
+**     [14]    DeviceErrorCount (uint8)
+**     [15]    DeviceCount (uint8)
+**     [16-17] DeviceHK.BatteryVoltage (uint16 LE)
+**     [28-29] DeviceHK.SolarArrayVoltage (uint16 LE)
+**   GENERIC_RW_HkTlm_t layout:
+**     [0-11]  TlmHeader
+**     [12]    CommandErrorCounter (uint8)
+**     [13]    CommandCounter (uint8)
+**     [14]    DeviceErrorCount_RW0 (uint8)
+**   NOVATEL_OEM615_Hk_tlm_t layout:
+**     [0-11]  TlmHeader
+**     [12]    CommandErrorCount (uint8)
+**     [13]    CommandCount (uint8)
+**     [14]    DeviceErrorCount (uint8)
+**     [15]    DeviceCount (uint8)
+**     [16]    DeviceEnabled (uint8)
+**
+** CALIBRATION NOTE: Threshold values below are initial engineering estimates.
+** Run a 60-second simulation baseline and adjust based on observed nominal ranges.
+*/
 LC_WDTEntry_t LC_DefaultWDT[LC_MAX_WATCHPOINTS] = {
-    /* #0 (unused) */
+    /* #0 - EPS Battery Voltage low (alert if raw ADC < 7000; calibrate from nominal) */
     {
-        .DataType                   = LC_WATCH_NOT_USED,
-        .OperatorID                 = LC_NO_OPER,
-        .MessageID                  = CFE_SB_MSGID_RESERVED,
-        .WatchpointOffset           = 0,
+        .DataType                   = LC_DATA_UWORD_LE,
+        .OperatorID                 = LC_OPER_LT,
+        .MessageID                  = CFE_SB_MSGID_WRAP_VALUE(GENERIC_EPS_HK_TLM_MID),
+        .WatchpointOffset           = 16,
         .BitMask                    = LC_NO_BITMASK,
         .CustomFuncArgument         = 0,
-        .ResultAgeWhenStale         = 0,
-        .ComparisonValue.Unsigned32 = 0,
+        .ResultAgeWhenStale         = 4,
+        .ComparisonValue.Unsigned16 = 7000,
     },
 
-    /* #1 (unused) */
+    /* #1 - EPS Device Error Count nonzero (any EPS communication failure) */
     {
-        .DataType                   = LC_WATCH_NOT_USED,
-        .OperatorID                 = LC_NO_OPER,
-        .MessageID                  = CFE_SB_MSGID_RESERVED,
-        .WatchpointOffset           = 0,
+        .DataType                   = LC_DATA_UBYTE,
+        .OperatorID                 = LC_OPER_GT,
+        .MessageID                  = CFE_SB_MSGID_WRAP_VALUE(GENERIC_EPS_HK_TLM_MID),
+        .WatchpointOffset           = 14,
         .BitMask                    = LC_NO_BITMASK,
         .CustomFuncArgument         = 0,
-        .ResultAgeWhenStale         = 0,
-        .ComparisonValue.Unsigned32 = 0,
+        .ResultAgeWhenStale         = 4,
+        .ComparisonValue.Unsigned8  = 0,
     },
 
-    /* #2 (unused) */
+    /* #2 - Reaction Wheel 0 Device Error Count nonzero */
     {
-        .DataType                   = LC_WATCH_NOT_USED,
-        .OperatorID                 = LC_NO_OPER,
-        .MessageID                  = CFE_SB_MSGID_RESERVED,
-        .WatchpointOffset           = 0,
+        .DataType                   = LC_DATA_UBYTE,
+        .OperatorID                 = LC_OPER_GT,
+        .MessageID                  = CFE_SB_MSGID_WRAP_VALUE(GENERIC_RW_APP_HK_TLM_MID),
+        .WatchpointOffset           = 14,
         .BitMask                    = LC_NO_BITMASK,
         .CustomFuncArgument         = 0,
-        .ResultAgeWhenStale         = 0,
-        .ComparisonValue.Unsigned32 = 0,
+        .ResultAgeWhenStale         = 4,
+        .ComparisonValue.Unsigned8  = 0,
     },
 
-    /* #3 (unused) */
+    /* #3 - GPS DeviceEnabled = 0 (GPS subsystem unexpectedly disabled) */
     {
-        .DataType                   = LC_WATCH_NOT_USED,
-        .OperatorID                 = LC_NO_OPER,
-        .MessageID                  = CFE_SB_MSGID_RESERVED,
-        .WatchpointOffset           = 0,
+        .DataType                   = LC_DATA_UBYTE,
+        .OperatorID                 = LC_OPER_EQ,
+        .MessageID                  = CFE_SB_MSGID_WRAP_VALUE(NOVATEL_OEM615_HK_TLM_MID),
+        .WatchpointOffset           = 16,
         .BitMask                    = LC_NO_BITMASK,
         .CustomFuncArgument         = 0,
-        .ResultAgeWhenStale         = 0,
-        .ComparisonValue.Unsigned32 = 0,
+        .ResultAgeWhenStale         = 4,
+        .ComparisonValue.Unsigned8  = 0,
     },
 
     /* #4 (unused) */

@@ -11,6 +11,12 @@ set(APP_SRC_FILES
 
 include_directories(${APPLICATION_PLATFORM_INC_LIST})
 
+# Component platform_inc directories required by lc_def_wdt.c watchpoint MsgIDs
+# Relative to nos3/fsw/apps/lc/ → ../../../components/
+include_directories(../../../components/generic_eps/fsw/cfs/platform_inc)
+include_directories(../../../components/generic_reaction_wheel/fsw/cfs/platform_inc)
+include_directories(../../../components/novatel_oem615/fsw/cfs/platform_inc)
+
 # Create the app module
 add_cfe_app(lc ${APP_SRC_FILES})
 
