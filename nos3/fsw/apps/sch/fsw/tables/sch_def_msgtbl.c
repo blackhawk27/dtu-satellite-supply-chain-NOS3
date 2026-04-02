@@ -58,6 +58,9 @@
 #include "novatel_oem615_msgids.h"
 #include "sample_msgids.h"
 #include "syn_msgids.h"
+#include "cs_msgids.h"
+#include "mm_msgids.h"
+#include "md_msgids.h"
 
 /*
 ** Default command definition table data
@@ -74,9 +77,9 @@ SCH_MessageEntry_t SCH_DefaultMessageTable[SCH_MAX_MESSAGES] = {
     {{CFE_MAKE_BIG16(CFE_TBL_SEND_HK_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}},
 
     /* CFS housekeeping request messages */
-    {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}, /* 6 CS */
-    {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}, /* 7 DS */
-    {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}, /* 8 FM */
+    {{CFE_MAKE_BIG16(CS_SEND_HK_MID),  CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}}, /* 6 CS */
+    {{CFE_MAKE_BIG16(DS_SEND_HK_MID),  CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}}, /* 7 DS */
+    {{CFE_MAKE_BIG16(FM_SEND_HK_MID),  CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}}, /* 8 FM */
 
     /* command ID #9 - Housekeeping HK Request */
     {{CFE_MAKE_BIG16(HK_SEND_HK_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}},
@@ -84,20 +87,25 @@ SCH_MessageEntry_t SCH_DefaultMessageTable[SCH_MAX_MESSAGES] = {
     /* command ID #10 - Health & Safety HK Request */
     {{CFE_MAKE_BIG16(HS_SEND_HK_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}},
 
-    {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}},                                                          /* 11 LC */
-    {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}},                                                          /* 12 MD */
-    {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}},                                                          /* 13 MM */
-    {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}},                                                          /* 14 SC */
+    {{CFE_MAKE_BIG16(LC_SEND_HK_MID),   CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}}, /* 11 LC */
+    {{CFE_MAKE_BIG16(MD_SEND_HK_MID),   CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}}, /* 12 MD */
+    {{CFE_MAKE_BIG16(MM_SEND_HK_MID),   CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}}, /* 13 MM */
+    {{CFE_MAKE_BIG16(SC_SEND_HK_MID),   CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}}, /* 14 SC */
     {{CFE_MAKE_BIG16(SCH_SEND_HK_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}}, /* 15 SCH */
 
-    /* CFS routine messages 16 - 127 */
-    {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}, /* 16 */
-    {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}, /* 17 */
-    {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}, /* 18 */
-    {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}, /* 19 */
-    {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}, /* 20 */
-    {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}, /* 21 */
-    {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}, /* 22 */
+    /* Component housekeeping request messages 16 - 127 */
+    {{CFE_MAKE_BIG16(GENERIC_EPS_REQ_HK_MID),          CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}}, /* 16 EPS */
+    {{CFE_MAKE_BIG16(GENERIC_RW_APP_SEND_HK_MID),       CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}}, /* 17 RW  */
+    {{CFE_MAKE_BIG16(NOVATEL_OEM615_REQ_HK_MID),        CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}}, /* 18 GPS */
+    {{CFE_MAKE_BIG16(GENERIC_ADCS_REQ_HK_MID),          CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}}, /* 19 ADCS HK */
+    {{CFE_MAKE_BIG16(GENERIC_ADCS_ADAC_UPDATE_MID),     CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}}, /* 20 ADCS ADAC wakeup */
+    /* 21 - LC Sample AP (all actionpoints, 1 Hz wakeup)
+     *   StartIndex=0, EndIndex=LC_ALL_ACTIONPOINTS(0xFFFF), UpdateAge=1 (true), Padding=0
+     *   DataLength = sizeof(LC_SampleAP_t) - sizeof(CCSDS_PriHdr_t) - 1 = 16 - 6 - 1 = 9 */
+    {{CFE_MAKE_BIG16(LC_SAMPLE_AP_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0009), CFE_MAKE_BIG16(0x0000),
+      CFE_MAKE_BIG16(0x0000), CFE_MAKE_BIG16(LC_ALL_ACTIONPOINTS), CFE_MAKE_BIG16(0x0001), CFE_MAKE_BIG16(0x0000)}},
+    /* 22 - MD Dwell Wakeup (1 Hz — triggers dwell table sampling cycle) */
+    {{CFE_MAKE_BIG16(MD_WAKEUP_MID), CFE_MAKE_BIG16(0xC000), CFE_MAKE_BIG16(0x0001), 0x0000}},
     {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}, /* 23 */
     {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}, /* 24 */
     {{CFE_MAKE_BIG16(SCH_UNUSED_MID)}}, /* 25 */
