@@ -19,13 +19,14 @@ CFE_APP, cf,                        CF_AppMain,               CF,               
 CFE_APP, ds,                        DS_AppMain,               DS,               51, 32768, 0x0, 0;
 CFE_APP, fm,                        FM_AppMain,               FM,               52, 32768, 0x0, 0;
 CFE_APP, lc,                        LC_AppMain,               LC,               53, 32768, 0x0, 0;
+CFE_LIB, sbn_tcp,                   SBN_TCP_Init,             SBN_TCP,          0,  0,     0x0, 0;
 CFE_APP, sbn,                       SBN_AppMain,              SBN,              63, 32768, 0x0, 0;
 CFE_APP, sc,                        SC_AppMain,               SC,               54, 32768, 0x0, 0;
 
 
 
 OFF_APP, ===_DTU_THESIS_MENU_===,   CHANGE_CFE_TO_OFF,        TO_DISABLE,       0,  0,     0x0, 0;
-CFE_APP, noisy_app,                 NOISY_APP_Main,           NOISY_APP,        20, 16384, 0x0, 0;
+OFF_APP, noisy_app,                 NOISY_APP_Main,           NOISY_APP,        20, 16384, 0x0, 0;
 OFF_APP, cpu_killer,                CPU_KILLER_Main,          CPU_KILLER,       160, 16384, 0x0, 0;
 
 !

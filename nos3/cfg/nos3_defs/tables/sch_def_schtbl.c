@@ -50,15 +50,15 @@ SCH_ScheduleEntry_t SCH_DefaultScheduleTable[SCH_TABLE_ENTRIES] = {
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #1 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 25, SCH_GROUP_CFS_HK}, /* EPS HK Request (Index 25) */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #2 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 26, SCH_GROUP_CFS_HK}, /* ADCS HK Request (Peger på index 26) */
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 27, SCH_GROUP_CFS_HK}, /* CAM HK Request (Peger på index 27) */
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 28, SCH_GROUP_CFS_HK}, /* RADIO HK Request (Peger på index 28) */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #3 */
@@ -108,7 +108,7 @@ SCH_ScheduleEntry_t SCH_DefaultScheduleTable[SCH_TABLE_ENTRIES] = {
     {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 1, 21, SCH_GROUP_NONE}, /* SC 1Hz Wakeup (peger på index 21) */
     {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 2, 19, SCH_GROUP_NONE}, /* CS Background Cycle (peger på index 19) */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE}, 
-    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 4, 23, SCH_GROUP_NONE}, /* MD Wakeup (peger på index 23) */
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 3, 23, SCH_GROUP_NONE}, /* MD Wakeup (peger på index 23) */
     /* slot #11 */
     {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 0, 24, SCH_GROUP_NONE}, /* HS Wakeup (peger på index 24) */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
@@ -368,7 +368,7 @@ SCH_ScheduleEntry_t SCH_DefaultScheduleTable[SCH_TABLE_ENTRIES] = {
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #54 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 23, SCH_GROUP_NONE}, /* MD Wakeup (Index 23) @ 1Hz for attack script. Hos Oliver står der 4, 3, 23 */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},

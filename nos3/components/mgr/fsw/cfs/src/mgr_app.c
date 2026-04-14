@@ -573,9 +573,10 @@ void MGR_RestoreHkFile(void)
     if ((MGR_AppData.HkTelemetryPkt.SpacecraftMode != MGR_SAFE_REBOOT_MODE) &&
         (MGR_AppData.HkTelemetryPkt.SpacecraftMode != MGR_SCIENCE_REBOOT_MODE))
     {
-        MGR_AppData.HkTelemetryPkt.SpacecraftMode = MGR_SAFE_REBOOT_MODE;
+        // ÆNDRING: Tvinger satellitten til SCIENCE MODE i stedet for SAFE MODE
+        MGR_AppData.HkTelemetryPkt.SpacecraftMode = MGR_SCIENCE_REBOOT_MODE; 
         MGR_AppData.HkTelemetryPkt.AnomRebootCtr++;
-        OS_printf("MGR: Restore Hk Packet error: Anomalous reboot, returning to SAFE MODE\n");
+        OS_printf("MGR: Bypassed SAFE MODE for testing, booting directly to SCIENCE MODE\n");
     }
     else
     {
