@@ -36,7 +36,7 @@ while true; do
 
     if [ "$RUNNING" != "true" ]; then
         if [ "$STARTED" = "true" ]; then
-            # Container was running but has now stopped — NOS3 shut down
+            # Container was running but has now stopped - NOS3 shut down
             echo "CPU_MONITOR STATUS=CONTAINER_STOPPED" >> "$LOG_FILE"
             echo "NOS3 CPU Monitor: container stopped, exiting."
             exit 0

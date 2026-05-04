@@ -46,11 +46,11 @@ while true; do
     STARTED=true
 
     # --timestamps adds an ISO8601 prefix to each line, which Logstash can parse.
-    # stderr is where cFS often writes startup noise — redirect to same log.
+    # stderr is where cFS often writes startup noise - redirect to same log.
     docker logs -f --timestamps "$FSW_CONTAINER" 2>&1 | while IFS= read -r line; do
         echo "$line" >> "$LOG_FILE"
     done
 
-    # docker logs exited (container restarted?) — loop and reconnect
+    # docker logs exited (container restarted?) - loop and reconnect
     sleep 1
 done
