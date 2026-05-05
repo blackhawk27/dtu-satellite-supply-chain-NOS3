@@ -1,5 +1,5 @@
 <<<<<<<<<<<<<<< 42: InterProcess Comm Configuration File >>>>>>>>>>>>>>>>
-17                                      ! Number of Sockets
+20                                      ! Number of Sockets
 **********************************  RW 0 to 42   *****************************
 RX                                      ! IPC Mode (OFF,TX,RX,TXRX,ACS,WRITEFILE,READFILE)
 "State01.42"                            ! File name for WRITE or READ
@@ -64,10 +64,10 @@ FALSE                                   ! Echo to stdout
 1                                       ! Number of TX prefixes
 "SC"                                    ! Prefix 0
 **********************************  Thruster IPC  ****************************
-RX                                      ! IPC Mode (OFF,TX,RX,TXRX,ACS,WRITEFILE,READFILE)
+OFF                                     ! IPC Mode -- DTU: was RX, set OFF; thruster disabled
 "Thruster.Rx"                           ! File name for WRITE or READ
 SERVER                                  ! Socket Role (SERVER,CLIENT,GMSEC_CLIENT)
-fortytwo       4280                     ! Server Host Name, Port 
+fortytwo       4280                     ! Server Host Name, Port
 FALSE                                   ! Allow Blocking (i.e. wait on RX)
 FALSE                                   ! Echo to stdout
 1                                       ! Number of TX prefixes
@@ -139,10 +139,10 @@ FALSE                                   ! Echo to stdout
 "SC[0].Accel"                           ! Prefix 0
 "SC[0].Gyro"                            ! Prefix 1
 **********************************  Star Tracker IPC  *****************************
-TX                                      ! IPC Mode (OFF,TX,RX,TXRX,ACS,WRITEFILE,READFILE)
+OFF                                     ! IPC Mode -- DTU: was TX, set OFF; ST sim is synthetic now
 "ST.42"                                 ! File name for WRITE or READ
 SERVER                                  ! Socket Role (SERVER,CLIENT,GMSEC_CLIENT)
-fortytwo       4282                     ! Server Host Name, Port 
+fortytwo       4282                     ! Server Host Name, Port
 FALSE                                   ! Allow Blocking (i.e. wait on RX)
 FALSE                                   ! Echo to stdout
 1                                       ! Number of TX prefixes
@@ -151,7 +151,7 @@ FALSE                                   ! Echo to stdout
 TX                                      ! IPC Mode (OFF,TX,RX,TXRX,ACS,WRITEFILE,READFILE)
 "EPS.42"                                ! File name for WRITE or READ
 SERVER                                  ! Socket Role (SERVER,CLIENT,GMSEC_CLIENT)
-fortytwo       4283                     ! Server Host Name, Port 
+fortytwo       4283                     ! Server Host Name, Port
 FALSE                                   ! Allow Blocking (i.e. wait on RX)
 FALSE                                   ! Echo to stdout
 4                                       ! Number of TX prefixes
@@ -159,3 +159,31 @@ FALSE                                   ! Echo to stdout
 "SC[0].PosR"                            ! Prefix 1
 "SC[0].qn"                              ! Prefix 2
 "Orb[0].PosN"                           ! Prefix 3
+**********************************  Blackboard IPC  **********************
+TX                                      ! IPC Mode (OFF,TX,RX,TXRX,ACS,WRITEFILE,READFILE)
+"Blackboard.42"                         ! File name for WRITE or READ
+SERVER                                  ! Socket Role (SERVER,CLIENT,GMSEC_CLIENT)
+fortytwo       4285                     ! Server Host Name, Port
+FALSE                                   ! Allow Blocking (i.e. wait on RX)
+FALSE                                   ! Echo to stdout
+1                                       ! Number of TX prefixes
+"SC[0]"                                 ! Prefix 0
+**********************************  TT&C IPC  ****************************
+TX                                      ! IPC Mode -- DTU: tight prefixes; see journal
+"TTC.42"                                ! File name for WRITE or READ
+SERVER                                  ! Socket Role (SERVER,CLIENT,GMSEC_CLIENT)
+fortytwo       4286                     ! Server Host Name, Port
+FALSE                                   ! Allow Blocking (i.e. wait on RX)
+FALSE                                   ! Echo to stdout
+2                                       ! Number of TX prefixes
+"SC[0].GPS[0].PosW"                     ! Prefix 0
+"SC[0].GPS[0].VelW"                     ! Prefix 1
+**********************************  GNSS IPC  ****************************
+TX                                      ! IPC Mode -- DTU: tight prefix; see journal
+"GNSS.42"                               ! File name for WRITE or READ
+SERVER                                  ! Socket Role (SERVER,CLIENT,GMSEC_CLIENT)
+fortytwo       4287                     ! Server Host Name, Port
+FALSE                                   ! Allow Blocking (i.e. wait on RX)
+FALSE                                   ! Echo to stdout
+1                                       ! Number of TX prefixes
+"SC[0].GPS[0].PosW"                     ! Prefix 0
