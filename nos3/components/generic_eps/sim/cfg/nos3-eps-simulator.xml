@@ -21,6 +21,8 @@
                     <type>GENERIC_EPS_PROVIDER</type>
                 </data-provider>
                 <physical>
+                    <load-model-file>eps_load_model.json</load-model-file>
+                    <god-view-path>/attack_logs/cfs_god_view.json</god-view-path>
                     <bus>
                         <battery-voltage>24.0</battery-voltage>
                         <battery-temperature>30.0</battery-temperature>

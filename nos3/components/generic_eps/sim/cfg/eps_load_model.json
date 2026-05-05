@@ -1,0 +1,81 @@
+{
+  "activity_window_seconds": 10.0,
+  "default_tm_rate": "nominal",
+  "tm_rate_multiplier": {
+    "idle": 1.0,
+    "nominal": 1.0,
+    "high": 1.15
+  },
+  "default_thresholds": [
+    { "max_rate_hz": 0.05, "mode": "baseline" },
+    { "max_rate_hz": 1.0,  "mode": "nominal" },
+    { "mode": "transmit" }
+  ],
+  "apps": [
+    {
+      "name": "CFE_ES",
+      "mids": [],
+      "default_mode": "baseline",
+      "modes": { "baseline": 0.4, "nominal": 0.4, "transmit": 0.4 }
+    },
+    {
+      "name": "CI_LAB",
+      "mids": ["0x1884", "0x0884"],
+      "default_mode": "nominal",
+      "modes": { "baseline": 0.2, "nominal": 0.5, "transmit": 0.5 }
+    },
+    {
+      "name": "TO_LAB",
+      "mids": ["0x1880", "0x0880"],
+      "default_mode": "nominal",
+      "modes": { "baseline": 0.2, "nominal": 0.6, "transmit": 3.5 }
+    },
+    {
+      "name": "SC",
+      "mids": ["0x18A6", "0x08AA"],
+      "default_mode": "nominal",
+      "modes": { "baseline": 0.3, "nominal": 0.5, "transmit": 0.5 }
+    },
+    {
+      "name": "HK",
+      "mids": ["0x189B", "0x089B"],
+      "default_mode": "nominal",
+      "modes": { "baseline": 0.2, "nominal": 0.3, "transmit": 0.3 }
+    },
+    {
+      "name": "FM",
+      "mids": ["0x188C", "0x088C"],
+      "default_mode": "baseline",
+      "modes": { "baseline": 0.1, "nominal": 0.2, "transmit": 0.2 }
+    },
+    {
+      "name": "RADIO",
+      "mids": ["0x1930", "0x0930", "0x1931", "0x0931"],
+      "default_mode": "baseline",
+      "modes": { "baseline": 0.0, "nominal": 0.0, "transmit": 8.0 },
+      "thresholds": [
+        { "max_rate_hz": 0.05, "mode": "baseline" },
+        { "max_rate_hz": 0.5,  "mode": "nominal" },
+        { "mode": "transmit" }
+      ]
+    },
+    {
+      "name": "ADCS_MGR",
+      "mids": ["0x1940", "0x0940", "0x1941", "0x0941"],
+      "default_mode": "nominal",
+      "modes": { "baseline": 0.5, "nominal": 1.8, "transmit": 1.8 }
+    },
+    {
+      "name": "EPS_APP",
+      "mids": ["0x191A", "0x191B"],
+      "default_mode": "nominal",
+      "modes": { "baseline": 0.1, "nominal": 0.2, "transmit": 0.2 }
+    },
+    {
+      "name": "GPS_APP",
+      "mids": ["0x1870", "0x1871"],
+      "default_mode": "nominal",
+      "modes": { "baseline": 0.3, "nominal": 0.6, "transmit": 0.6 }
+    }
+  ]
+}
