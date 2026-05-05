@@ -1,6 +1,7 @@
 #!/bin/bash
 #
-# Script to start OnAIR
+# Start OnAIR AI/ML framework inside the FSW container.
+# Waits 20s for cFS and SBN to be ready before connecting.
 #
 
 sleep 20

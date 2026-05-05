@@ -17,7 +17,7 @@ if [ -d $SIM_DIR/bin ]; then
 fi 
 
 DATE=$(date "+%Y%m%d%H%M")
-NUM_CPUS="$( nproc )"
+NUM_CPUS="${NUM_CPUS:-$( nproc )}"
 
 USERDIR=$(cd ~/ && pwd)
 USER_NOS3_DIR=$(cd ~/ && pwd)/.nos3
@@ -50,9 +50,14 @@ fi
 #    DNETWORK="docker network"
 #else
     DCALL="docker"
-    DFLAGS="docker run --rm -it -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro -u $(id -u $(stat -c '%U' $SCRIPT_DIR/env.sh)):$(getent group $(stat -c '%G' $SCRIPT_DIR/env.sh) | cut -d: -f3)"
+    # Allocate a TTY only when stdin is one. Background builds (CI, agent
+    # bash) have no TTY and previously failed with "the input device is
+    # not a TTY" because `docker run -t` errors out. Keep -i so stdin is
+    # still wired through for interactive use.
+    if [ -t 0 ]; then DOCKER_TTY="-it"; else DOCKER_TTY="-i"; fi
+    DFLAGS="docker run --rm $DOCKER_TTY -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro -u $(id -u $(stat -c '%U' $SCRIPT_DIR/env.sh)):$(getent group $(stat -c '%G' $SCRIPT_DIR/env.sh) | cut -d: -f3)"
     DFLAGS_CPUS="$DFLAGS --cpus=$NUM_CPUS"
-    DCREATE="docker create --rm -it"
+    DCREATE="docker create --rm $DOCKER_TTY"
     DNETWORK="docker network"
 #fi
 
