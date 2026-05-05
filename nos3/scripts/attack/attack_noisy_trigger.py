@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-attack_noisy_trigger.py — Scenario 1 Phase B: Arm noisy_app via BEACON_PING_FC
+attack_noisy_trigger.py - Scenario 1 Phase B: Arm noisy_app via BEACON_PING_FC
 
 Sends 3 BEACON_PING_FC (FC=2) commands to MID 0x18F0 (MALWARE_TRIGGER_MID)
 to arm noisy_app. After the third ping the app exits its dormant polling loop
@@ -122,7 +122,7 @@ def main() -> None:
 
         sock.sendto(packet, (args.host, args.port))
         print(f"    Ping {i + 1}/{TRIGGER_THRESHOLD} sent")
-        time.sleep(0.1)   # 100ms — matches noisy_app OS_TaskDelay(100) polling period
+        time.sleep(0.1)   # 100ms - matches noisy_app OS_TaskDelay(100) polling period
 
     sock.close()
     print("[+] Trigger sequence complete. noisy_app should be armed.")

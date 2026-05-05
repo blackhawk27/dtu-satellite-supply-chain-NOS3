@@ -34,7 +34,7 @@ def clean_test_runner_targets(input_file, output_file, sc_root):
         if enabled:
             continue
 
-        print(f"[REMOVE] {comp_key} disabled — removing REQUIRE_UTILITY lines.")
+        print(f"[REMOVE] {comp_key} disabled - removing REQUIRE_UTILITY lines.")
         lines_to_remove.update({
             f"REQUIRE_UTILITY '{comp_key}'"
         })
