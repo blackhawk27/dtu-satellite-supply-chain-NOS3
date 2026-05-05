@@ -51,7 +51,7 @@ Newer NASA apps (such as **CS, MD,** and **MM**) are tagged as "cFS Draco." Thes
 
 Because NOS3 utilizes an older version of cFE, this macro is not supported out of the box. When adding a Draco-era app, you must implement a shim by manually creating a header file with hardcoded values.
 
-*(Note: Older apps predating Draco—like LC, DS, HK, HS, TO, CI, SCH, CF, FM, and SC—already include hardcoded `_msgids.h` files and do **not** require this step).*
+*(Note: Older apps predating Draco-like LC, DS, HK, HS, TO, CI, SCH, CF, FM, and SC-already include hardcoded `_msgids.h` files and do **not** require this step).*
 
 ### How to Implement the Shim
 
