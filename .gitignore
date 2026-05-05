@@ -36,3 +36,10 @@ GEMINI.md
 node_modules/
 package.json
 package-lock.json
+
+# Maven / Gradle build output for Yamcs subprojects
+nos3/gsw/yamcs/**/target/
+
+# Python bytecode caches
+__pycache__/
+*.pyc
