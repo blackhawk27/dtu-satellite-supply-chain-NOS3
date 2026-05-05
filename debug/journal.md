@@ -1553,3 +1553,124 @@ User-side verification still pending (same caveats as the prior session):
   in HEAD because of `core.fileMode=false`. Sidestepped via interpreter
   prefixes in the Makefile recipe; mode bit can be re-applied in a
   later cleanup if any caller wants `./scripts/X` form.
+
+## 2026-05-05 - generic_tt_c and generic_gnss FSW bootstrap fix
+
+After the launch-parity port (Phase 1-4), end-to-end inspection
+surfaced a load-bearing gap: nos3/components/generic_tt_c/fsw/cfs/
+and nos3/components/generic_gnss/fsw/cfs/ produced .so files at
+build time, but never made it into the cFS image. The MID registry
+(0x1950, 0x1951, 0x1952, 0x1953, 0x0950, 0x0951, 0x0952, 0x0953,
+0x0954) and ELK Logstash translate filters already expected the
+two apps; two whole Kibana dashboards (EO1 TT&C Downlink Validation
+and EO1 GNSS-GS Validation) plus panels on Mission Denmark depended
+on telemetry that was never being emitted.
+
+### Wiring changes (commit 2b5a0b9b)
+
+- targets.cmake adds generic_tt_c/fsw/cfs and generic_gnss/fsw/cfs
+  to MISSION_GLOBAL_APPLIST.
+- cpu1_cfe_es_startup.scr carries TT_C_AppMain (priority 77) and
+  GNSS_AppMain (priority 76) in the disabled pool.
+- configure.py reads `<components/tt_c/enable>` and
+  `<components/gnss/enable>` and lifts the startup-script lines
+  into the active region when enabled, mirroring the eps and radio
+  pattern.
+- sc-minimal, sc-research, sc-fprime spacecraft configs gain the
+  matching XML elements (sc-mission already had them).
+- cpu1_platform_cfg.h bumps CFE_PLATFORM_ES_MAX_APPLICATIONS from
+  32 to 40. With tt_c, gnss, and torquer added, the previous limit
+  rejected the last three apps with "No free application slots
+  available", blocking torquer's load too.
+
+### Pre-existing SCH bugs surfaced during validation (commit 265b2f01)
+
+The first validation run with the wiring in place revealed the SCH
+App was terminating at boot, so no scheduled HK was firing on the
+software bus. Two distinct table-data bugs in HEAD:
+
+- sch_def_schtbl.c entry 54 (MD Wakeup) had freq=4 with rem=4. SCH
+  rejects entries where rem >= freq; fixed to rem=3.
+- sch_def_msgtbl.c was declared SCH_MessageEntry_t[SCH_MAX_MESSAGES]
+  (size 128) but only initialised 127 entries. The C compiler
+  zero-filled slot 127, producing a 0x0 MID that failed verify.
+  Added an explicit SCH_UNUSED_MID at index 127. The SBN HK entry
+  at index 18 also had third 16-bit word 0x0000 (length-field
+  invalid) instead of 0x0001 like every other entry; aligned to
+  the rest.
+
+Both bugs predate this branch (SCH commits in HEAD: b5055809,
+2111b907) but they only surface when SCH actually parses the table
+and emits SCH_BAD_TBL_DATA / SCH_BAD_MSG_ID; without them, SCH
+terminates and the cFS image runs in a degraded mode where only
+self-scheduled apps emit telemetry.
+
+### Validation outcome
+
+Phase A (cold launch + cFS app registration):
+- generic_gnss App Initialized. Version 1.0.0.0
+- generic_tt_c App Initialized. Version 1.0.0.0
+- generic_torquer also recovers (was failing under the old 32-app
+  limit).
+- No "No free application slots available" errors after the bump.
+- After SCH bug fixes, no "Schedule tbl verify error" or "Message
+  tbl verify err" entries; SCH stays alive across the run.
+
+Phase B (telemetry presence):
+- Heritage HK MIDs flow on schedule once SCH is alive: DS_HK_TLM,
+  FM_HK_TLM, HS_HK_TLM, LC_HK_TLM, MD_HK_TLM, MM_HK_TLM, SC_HK_TLM,
+  CS_HK_TLM.
+- Self-scheduled simulator telemetry continues unchanged
+  (eps_battery_soc_pct ~1600 docs, gps_lat ~800 docs from
+  system_log type entries via Logstash on omni_logs/).
+- Component HK MIDs (GENERIC_TT_C_HK_TLM_MID,
+  GENERIC_GNSS_HK_TLM_MID, GENERIC_RW_APP_HK_TLM_MID,
+  GENERIC_EPS_HK_TLM_MID, MGR_HK_TLM_MID, etc.) do NOT flow.
+  Reason: sch_def_msgtbl.c does not contain entries for the
+  per-component _SEND_HK_MID or _REQ_HK_MID values, so SCH never
+  triggers them and the apps never emit HK packets. Pre-existing
+  state, outside the scope of the bootstrap-wiring fix.
+
+Phase C/D (dashboard validation, Denmark closed loop):
+- Dashboards relying on system_log fields (Power Budget, FSW
+  Health, parts of Mission Validation) populate normally.
+- Dashboards relying on per-component HK_TLM (TT&C Downlink
+  Validation, GNSS-GS Validation, ADCS Health rw_momentum/st_q0,
+  Mission Denmark in_denmark_box closed loop) remain empty for
+  the same reason as Phase B.
+- Denmark pass cadence (61.6deg / RAAN 346) puts the next pass
+  hours away; not in the 30-min validation window.
+
+### Out of scope (recorded for follow-up)
+
+- Per-component _SEND_HK_MID entries in sch_def_msgtbl.c plus
+  matching schtbl scheduling so the FSW emits HK for tt_c, gnss,
+  rw, eps, mgr, st, etc. This is a deeper SCH wiring task,
+  separate from the bootstrap fix.
+- generic-tt_c-sim and generic-gnss-sim containers in
+  ci_launch.sh. Without the simulator side, the FSW apps run with
+  device_disabled state but their HK still emits link-state IDLE,
+  zeroed pass counts, etc., which is fine for wiring validation
+  but not for dashboard closure. Bundled with the deferred
+  ci_launch.sh sim-container work behind the X11 guard rail.
+- Denmark closed-loop end-to-end validation (in_denmark_box=1 AND
+  in_science_mode=1 co-occurring) requires both the per-component
+  HK pipeline above and a sim run that includes a Danish overflight
+  (~6 h cadence in the current orbit).
+
+### Commits in this batch
+
+- 2b5a0b9b feat(fsw): wire generic_tt_c and generic_gnss into cFS bootstrap
+- 265b2f01 fix(sch): keep SCH App alive by correcting schtbl rem and msgtbl size
+- 9e3a96f3 feat(components): port generic_gnss component from Draco fork
+- f7e1084a feat(components): port generic_tt_c component from Draco fork
+- c6849d1e feat(gsw): add Cosmos GENERIC_GNSS target and headless cmdtlmserver
+- 38cbcd67 feat(eps-sim): port Draco load-model-driven EPS simulator
+- 8cbd9f85 chore(42-cfg): refresh 42 InOut, mission XML, and sc-mission profile
+- 5e6816c0 chore(scripts): tune attack scripts and Cosmos target generators
+- 2e81e32f chore(launch): port Draco launch tweaks staying on the X11 guard rail
+- 41ffee60 docs(cfs-limits): add cFS resource-limits reference series
+- 7dad8281 docs(thesis): add thesis structure and per-app/per-subsystem chapters
+- cd71a38e docs(reference): add CCSDS, mission, postmortem, and walkthrough docs
+- d1399d23 chore(debug): record Draco port diff snapshot
+- 33382df4 chore(repo): ignore Yamcs target trees and pycache, add ELK .env
