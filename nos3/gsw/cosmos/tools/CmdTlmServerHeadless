@@ -1,0 +1,41 @@
+#!/usr/bin/env ruby
+# encoding: ascii-8bit
+
+# Headless variant of cosmos-4.5 CmdTlmServer for nos3 `make launch`.
+# Loads the same Cosmos::CmdTlmServer the GUI-flavoured executable wraps, but
+# skips Qt entirely so no X server (and therefore no xvfb apt-install) is
+# needed inside the cosmos-openc3-operator-1 container. Background tasks
+# defined in cmd_tlm_server.txt (CFDP_ENGINE, GNSS_GS_RESPONDER) still run
+# because they are owned by CmdTlmServer, not by the GUI layer. The GUI flavour
+# (`gsw/cosmos/tools/CmdTlmServer`) stays in place for `make cosmos-gui`.
+
+require "bundler/setup"
+require "cosmos"
+require "cosmos/tools/cmd_tlm_server/cmd_tlm_server"
+
+config_file = ARGV[0] || Cosmos::CmdTlmServer::DEFAULT_CONFIG_FILE
+$stdout.sync = true
+$stderr.sync = true
+
+# Without the GUI, Cosmos::Logger defaults to UNKNOWN and silently drops
+# INFO/WARN/ERROR. Lower it to INFO so the GNSS GS Responder background
+# task and interface lifecycle messages reach our redirected stdout (the
+# /tmp/cmd_tlm_server.log captured by ci_launch.sh).
+Cosmos::Logger.level = Cosmos::Logger::INFO
+
+server = Cosmos::CmdTlmServer.new(config_file, false, false, :CMD_TLM_SERVER, false)
+
+stop = lambda do
+  begin
+    server.stop
+  rescue StandardError => e
+    Cosmos::Logger.error("CmdTlmServerHeadless stop error: #{e.message}")
+  end
+  exit 0
+end
+
+trap("INT",  &stop)
+trap("TERM", &stop)
+
+Cosmos::Logger.info("CmdTlmServerHeadless: started with #{config_file}; sleeping main thread")
+sleep
