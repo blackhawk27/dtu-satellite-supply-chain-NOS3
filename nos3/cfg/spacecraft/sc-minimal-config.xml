@@ -54,6 +54,12 @@
         <radio>
             <enable>false</enable>
         </radio>
+        <tt_c>
+            <enable>false</enable>
+        </tt_c>
+        <gnss>
+            <enable>false</enable>
+        </gnss>
         <rw>
             <enable>false</enable>
         </rw>

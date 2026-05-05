@@ -119,6 +119,7 @@ list(APPEND MISSION_GLOBAL_APPLIST
         generic_css/fsw/cfs
         generic_eps/fsw/cfs
         generic_fss/fsw/cfs
+        generic_gnss/fsw/cfs
         generic_imu/fsw/cfs
         generic_mag/fsw/cfs
         generic_reaction_wheel/fsw/cfs
@@ -126,6 +127,7 @@ list(APPEND MISSION_GLOBAL_APPLIST
         generic_star_tracker/fsw/cfs
         generic_thruster/fsw/cfs
         generic_torquer/fsw/cfs
+        generic_tt_c/fsw/cfs
         mgr/fsw/cfs
         novatel_oem615/fsw/cfs
         onair
