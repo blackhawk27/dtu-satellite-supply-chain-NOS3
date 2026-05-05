@@ -1,0 +1,68 @@
+=== Per-area diff stats: 40a90ef2..draco-upstream/main ===
+
+--- nos3/cfg ---
+ nos3/cfg/spacecraft/sc-fprime-config.xml           |  172 +-
+ nos3/cfg/spacecraft/sc-minimal-config.xml          |  172 +-
+ nos3/cfg/spacecraft/sc-mission-config.xml          |  178 +-
+ nos3/cfg/spacecraft/sc-research-config.xml         |  172 +-
+ 93 files changed, 22185 insertions(+), 20721 deletions(-)
+
+--- nos3/components ---
+ .../synopsis/test/data/instrument_pair_rules.json  |    404 +-
+ .../synopsis/test/data/instrument_pair_rules.srd   |     28 +-
+ .../syn/synopsis/test/itc_synopsis_test.cpp        |    808 +-
+ .../components/syn/synopsis/test/synopsis_test.cpp |   1284 +-
+ 3052 files changed, 2830166 insertions(+), 2825518 deletions(-)
+
+--- nos3/elk ---
+ nos3/elk/index_template.json                   |  216 ++
+ nos3/elk/load_dashboards.py                    |  165 ++
+ nos3/elk/logstash.conf                         | 2231 ++++++++++++--------
+ nos3/elk/refresh_index_pattern_fields.py       |  259 +++
+ 7 files changed, 4789 insertions(+), 869 deletions(-)
+
+--- nos3/fsw/apps ---
+ nos3/fsw/apps/to_lab/fsw/src/to_lab_events.h       |  102 +-
+ nos3/fsw/apps/to_lab/fsw/src/to_lab_msg.h          |  296 +-
+ nos3/fsw/apps/to_lab/fsw/src/to_lab_version.h      |  128 +-
+ nos3/fsw/apps/to_lab/fsw/tables/to_lab_sub.c       |  214 +-
+ 1374 files changed, 228252 insertions(+), 225023 deletions(-)
+
+--- nos3/gsw ---
+ .../src/test/resources/indirect-param.xml          |   106 +-
+ .../src/test/resources/ipre-no-instance.xml        |    64 +-
+ .../yamcs-xtce/src/test/resources/ranges-test.xml  |   146 +-
+ .../yamcs-xtce/src/test/resources/to-string.xml    |    64 +-
+ 4044 files changed, 493601 insertions(+), 493292 deletions(-)
+
+--- nos3/scripts ---
+ nos3/scripts/mid/mid_groupings.yaml             | 158 ++++++
+ nos3/scripts/sim_logs_capture.sh                |  92 +++-
+ nos3/scripts/stop.sh                            |  19 +-
+ nos3/scripts/stop_sim.sh                        |  90 ++++
+ 36 files changed, 1593 insertions(+), 1033 deletions(-)
+
+--- nos3/sims ---
+ nos3/sims/truth_42_sim/src/README.md               |    8 +-
+ nos3/sims/truth_42_sim/src/truth_42_data_point.cpp |  304 ++---
+ .../truth_42_sim/src/truth_42_data_provider.cpp    |   76 +-
+ .../truth_42_sim/src/truth_42_hardware_model.cpp   |  504 ++++----
+ 53 files changed, 5270 insertions(+), 5270 deletions(-)
+
+--- docs ---
+ docs/thesis/08-figures/figures.md                  |  756 +++++++++
+ docs/thesis/09-glossary.md                         |  142 ++
+ docs/thesis/README.md                              |   23 +
+ docs/wsl2-build-knobs-windows-quickstart.md        |  215 +++
+ 103 files changed, 13783 insertions(+), 288 deletions(-)
+
+--- .devcontainer ---
+ .devcontainer/devcontainer.json | 16 +++++-----
+ .devcontainer/post-create.sh    | 70 ++++++++++++++++++++---------------------
+ 2 files changed, 42 insertions(+), 44 deletions(-)
+
+--- Makefile ---
+
+--- .gitignore ---
+ .gitignore | 107 +++++++++++++++++++++++++++++++++++++++----------------------
+ 1 file changed, 69 insertions(+), 38 deletions(-)

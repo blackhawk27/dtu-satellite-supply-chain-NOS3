@@ -1,0 +1,6 @@
+merge-base: 40a90ef236701174aab7ebfdc452ac52e58e3773
+merge-base date: 2026-04-02 03:06:34 +0200
+merge-base message: docs: add developer guide for adding new cFS apps with resource limits
+
+origin/main commits ahead of merge-base: 1
+draco-upstream/main commits ahead of merge-base: 112
