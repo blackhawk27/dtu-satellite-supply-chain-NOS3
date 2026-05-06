@@ -207,6 +207,12 @@ for (( i=1; i<=$SATNUM; i++ )); do
             --log-driver json-file --log-opt max-size=5m --log-opt max-file=3 \
             -e DISPLAY=$DISPLAY -v "$USER_NOS3_DIR:$USER_NOS3_DIR" \
             -v /tmp/.X11-unix:/tmp/.X11-unix:ro -w "$USER_NOS3_DIR/42" $DBOX $USER_NOS3_DIR/42/42 NOS3InOut
+        # Mirror 42 stdout/stderr to omni_logs/. The fortytwo container
+        # is removed by `make stop` before anyone can `docker logs` it,
+        # so a fast exit on InitInterProcessComm or InitDisplay is
+        # otherwise invisible. Double-fork keeps launch.sh from waiting.
+        ( $DCALL logs -f "${SC_NUM}-fortytwo" \
+            > "$BASE_DIR/omni_logs/nos3-fortytwo.log" 2>&1 & )
     fi
 
     echo "$SC_NUM - Flight Software..."

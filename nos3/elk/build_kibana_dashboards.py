@@ -63,6 +63,43 @@ def sid(prefix):
     return prefix + "-" + uuid.uuid4().hex[:8]
 
 
+def ensure_data_view(dv_id, title="nos3-telemetry-*",
+                     time_field="@timestamp"):
+    """Create the index-pattern saved object with a fixed UUID if it
+    does not already exist. Idempotent: 200 from GET means done, 404
+    means POST. Without this, the very first launch against a fresh
+    ELK volume hits 'saved object missing (404)' from
+    refresh_index_pattern_fields.py because both this script and the
+    refresh script reference the data view by hardcoded ID, but
+    nothing in the modern launch flow creates it (only the legacy
+    `make load-dashboards` ndjson import did)."""
+    r = subprocess.run(
+        ["curl", "-sS", "-o", "/dev/null", "-w", "%{http_code}",
+         f"{KIBANA}/api/saved_objects/index-pattern/{dv_id}"],
+        capture_output=True, text=True)
+    if r.stdout.strip() == "200":
+        return
+    body = {"attributes": {"title": title, "timeFieldName": time_field}}
+    r = subprocess.run(
+        ["curl", "-sS", "-X", "POST",
+         f"{KIBANA}/api/saved_objects/index-pattern/{dv_id}",
+         "-H", "kbn-xsrf: true",
+         "-H", "Content-Type: application/json",
+         "-d", json.dumps(body)],
+        capture_output=True, text=True)
+    try:
+        resp = json.loads(r.stdout)
+    except Exception:
+        print(f"[WARN] ensure_data_view {dv_id}: non-JSON response "
+              f"{r.stdout[:200]!r}", file=sys.stderr)
+        return
+    if "error" in resp:
+        print(f"[WARN] ensure_data_view {dv_id} POST failed: {resp}",
+              file=sys.stderr)
+        return
+    print(f"[OK] Created data view {dv_id} -> {title}")
+
+
 def refresh_data_view_fields(dv_id, index_pattern):
     """Pull the live field list from Elasticsearch (via Kibana's
     _fields_for_wildcard endpoint) and write it back into the data view's
@@ -2636,6 +2673,7 @@ if __name__ == "__main__":
     selected = cli_filter(only=only, exclude=exclude)
 
     if not args.no_refresh:
+        ensure_data_view(IP, title="nos3-telemetry-*")
         refresh_data_view_fields(IP, "nos3-telemetry*")
 
     delete_obsolete(KIBANA, OBSOLETE_OBJECTS)

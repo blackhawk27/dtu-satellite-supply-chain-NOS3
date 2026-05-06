@@ -41,6 +41,12 @@ $DNETWORK ls --filter=name="cosmos-openc3-operator-1" | xargs $DNETWORK rm > /de
 rm /dev/shm/Blackboard 2> /dev/null
 
 # 42
+# 42 runs as root inside its container (ci_launch.sh has no -u flag)
+# and writes its working files (Dyn.42, State.42, Inp_IPC.txt, ...) as
+# root:root. Reclaim ownership before rm so this script (running as the
+# vscode user) can clean up. Symmetric with the sudo cp/rm at
+# ci_launch.sh:197-198.
+sudo chown -R "$(id -u):$(id -g)" "$USER_NOS3_DIR/42/NOS3InOut" 2>/dev/null || true
 rm -rf $USER_NOS3_DIR/42/NOS3InOut
 rm -rf /tmp/gpio*
 

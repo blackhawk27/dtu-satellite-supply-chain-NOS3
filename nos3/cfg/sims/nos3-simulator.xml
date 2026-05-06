@@ -525,7 +525,7 @@
                     <type>TRUTH42PROVIDER</type>
                     <hostname>fortytwo</hostname>
                     <port>9999</port>
-                    <max-connection-attempts>30</max-connection-attempts>
+                    <max-connection-attempts>180</max-connection-attempts>
                     <retry-wait-seconds>1</retry-wait-seconds>
                     <orbit>0</orbit>
                     <spacecraft>0</spacecraft>
@@ -731,6 +731,66 @@
                     <retry-wait-seconds>5</retry-wait-seconds>
                     <spacecraft>0</spacecraft>
                 </data-provider>
+            </hardware-model>
+        </simulator>
+
+        <simulator>
+            <name>generic-tt_c-sim</name>
+            <active>true</active>
+            <library>libgeneric_tt_c_sim.so</library>
+            <hardware-model>
+                <type>GENERIC_TT_C</type>
+                <connections>
+                    <connection><type>command</type>
+                        <bus-name>command</bus-name>
+                        <node-name>tt_c-command</node-name>
+                    </connection>
+                    <connection><type>time</type>
+                        <bus-name>command</bus-name>
+                    </connection>
+                </connections>
+                <data-provider>
+                    <type>GENERIC_TT_C_42_PROVIDER</type>
+                    <hostname>fortytwo</hostname>
+                    <port>4286</port>
+                    <max-connection-attempts>180</max-connection-attempts>
+                    <retry-wait-seconds>1</retry-wait-seconds>
+                    <spacecraft>0</spacecraft>
+                </data-provider>
+                <elevation-mask-deg>5.0</elevation-mask-deg>
+                <carrier-hz>2200000000.0</carrier-hz>
+                <ticks-per-emission>100</ticks-per-emission>
+            </hardware-model>
+        </simulator>
+
+        <simulator>
+            <name>generic-gnss-sim</name>
+            <active>true</active>
+            <library>libgeneric_gnss_sim.so</library>
+            <hardware-model>
+                <type>GENERIC_GNSS</type>
+                <connections>
+                    <connection><type>command</type>
+                        <bus-name>command</bus-name>
+                        <node-name>gnss-command</node-name>
+                    </connection>
+                    <connection><type>time</type>
+                        <bus-name>command</bus-name>
+                    </connection>
+                    <connection><type>usart</type>
+                        <bus-name>usart_29</bus-name>
+                        <node-port>29</node-port>
+                    </connection>
+                </connections>
+                <data-provider>
+                    <type>GENERIC_GNSS_42_PROVIDER</type>
+                    <hostname>fortytwo</hostname>
+                    <port>4287</port>
+                    <max-connection-attempts>180</max-connection-attempts>
+                    <retry-wait-seconds>1</retry-wait-seconds>
+                    <spacecraft>0</spacecraft>
+                </data-provider>
+                <ticks-per-emission>100</ticks-per-emission>
             </hardware-model>
         </simulator>
 
