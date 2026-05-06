@@ -8,7 +8,11 @@ INSTALLPREFIX ?= exe
 FSWBUILDDIR ?= $(CURDIR)/fsw/build
 GSWBUILDDIR ?= $(CURDIR)/gsw/build
 SIMBUILDDIR ?= $(CURDIR)/sims/build
-COVERAGEDIR ?= $(CURDIR)/fsw/build/amd64-posix/default_cpu1
+# Coverage uses an isolated build tree so it does not stomp on the regular
+# fsw/build/ artifacts produced by `make fsw`. ENABLE_UNIT_TESTS=true flips
+# cpu1_SYSTEM to amd64-posix in targets.cmake, hence the subdirectory layout.
+COVBUILDDIR ?= $(CURDIR)/fsw/build-cov
+COVERAGEDIR ?= $(COVBUILDDIR)/amd64-posix/default_cpu1
 
 SC1_CFG ?= 
 
@@ -39,7 +43,7 @@ endif
 
 # The "LOCALTGTS" defines the top-level targets that are implemented in this makefile
 # Any other target may also be given, in that case it will simply be passed through.
-LOCALTGTS := all build-kibana-dashboards checkout clean clean-docker clean-fsw clean-sim clean-gsw code-coverage config debug fsw gcov gsw help help-all launch list-kibana-dashboards load-dashboards load-run log prep purge-logs refresh-kibana-fields save-run sim start-elk stop stop-gsw stop-sim uninstall
+LOCALTGTS := all build-kibana-dashboards checkout clean clean-docker clean-fsw clean-sim clean-gsw code-coverage code-coverage-clean code-coverage-internal config cosmos-gui debug fsw gcov gsw help help-all launch list-kibana-dashboards load-dashboards load-run log prep purge-logs refresh-kibana-fields save-run scriptrunner sim start-elk stop stop-gsw stop-sim uninstall
 OTHERTGTS := $(filter-out $(LOCALTGTS),$(MAKECMDGOALS))
 
 # As this makefile does not build any real files, treat everything as a PHONY target
@@ -156,13 +160,52 @@ gcov: ## Build Code Coverage results
 	lcov -c --directory . --output-file $(COVERAGEDIR)/coverage.info
 	genhtml $(COVERAGEDIR)/coverage.info --output-directory $(COVERAGEDIR)/results
 
-code-coverage: ## Build code coverage file, does not work via shared folders in VirtualBox
-	$(MAKE) build-test 
-	$(MAKE) test-fsw
+code-coverage: ## Build cFS unit tests with coverage instrumentation, run them, and emit XML+HTML reports under docs/coverage/ (incremental: re-runs after a kill resume from where they stopped)
+	./scripts/coverage.sh
+
+code-coverage-clean: ## Wipe the coverage build tree (incl. the host-side $HOME/.nos3-cov-build dir scripts/coverage.sh bind-mounts)
+	@HOST_DIR="$${NOS3_COV_BUILD_DIR:-$$HOME/.nos3-cov-build}"; \
+	  echo "Removing $$HOST_DIR..."; \
+	  rm -rf "$$HOST_DIR"
+	rm -rf $(COVBUILDDIR)
+	rm -f docs/coverage/coverage_report.*
+
+code-coverage-internal: ## (in-container) cmake+ctest+gcovr step driven by scripts/coverage.sh; do not invoke directly on the host
+	mkdir -p $(COVBUILDDIR)
+	# Re-run cmake every time so changes to ENABLE_UNIT_TESTS / PREP_OPTS
+	# take effect, but do NOT wipe the tree: cFE+OSAL+PSP+app UT coverage
+	# is a 1-2 hour build from scratch on slow filesystems, and incremental
+	# rebuilds save the user from waiting 90 min when they only changed one
+	# file. To force a clean rebuild, run `make code-coverage-clean` first.
+	cd $(COVBUILDDIR) && cmake $(PREP_OPTS) -DENABLE_UNIT_TESTS=true ../cfe
+	$(MAKE) --no-print-directory -C $(COVBUILDDIR) mission-install
+	cd $(COVERAGEDIR) && ctest --output-on-failure -O ctest.log || true
 	mkdir -p docs/coverage
-	gcovr --gcov-ignore-parse-errors --merge-mode-functions=merge-use-line-0 --xml-pretty -o docs/coverage/coverage_report.xml
-	gcovr --gcov-ignore-parse-errors --merge-mode-functions=merge-use-line-0 --html --html-details -o docs/coverage/coverage_report.html
-	chmod 777 ./docs/coverage/coverage_report.*
+	gcovr --gcov-ignore-parse-errors --merge-mode-functions=merge-use-line-0 \
+	      --root $(CURDIR) \
+	      --filter '$(CURDIR)/fsw/.*' \
+	      --filter '$(CURDIR)/components/.*' \
+	      --exclude '.*/ut-coverage/.*' \
+	      --exclude '.*/ut-stubs/.*' \
+	      --exclude '.*/unit-test-coverage/.*' \
+	      --exclude '.*/unit-tests/.*' \
+	      --print-summary \
+	      --xml-pretty -o docs/coverage/coverage_report.xml \
+	      $(COVBUILDDIR)
+	gcovr --gcov-ignore-parse-errors --merge-mode-functions=merge-use-line-0 \
+	      --root $(CURDIR) \
+	      --filter '$(CURDIR)/fsw/.*' \
+	      --filter '$(CURDIR)/components/.*' \
+	      --exclude '.*/ut-coverage/.*' \
+	      --exclude '.*/ut-stubs/.*' \
+	      --exclude '.*/unit-test-coverage/.*' \
+	      --exclude '.*/unit-tests/.*' \
+	      --html --html-details -o docs/coverage/coverage_report.html \
+	      $(COVBUILDDIR)
+	chmod -f 666 ./docs/coverage/coverage_report.* || true
+	@echo ""
+	@echo "Coverage report written to:"
+	@echo "  docs/coverage/coverage_report.html  (open in a browser)"
 
 gsw: ## Build Ground Software binaries
 	./scripts/gsw/build_cryptolib.sh
@@ -214,14 +257,17 @@ help-all: ## Displays advanced help information
 	@printf "\t%-20s %s\n" "gsw"            "Build Ground Software Binaries"
 	@printf "\t%-20s %s\n" "sim"            "Build Simulation Binaries"
 	@printf "\t%-20s %s\n" "cosmos-operator" "Launch as COSMOS operator viewpoint - requires configuration"
+	@printf "\t%-20s %s\n" "cosmos-gui"     "Full launch with COSMOS Launcher GUI (replaces headless cosmos)"
+	@printf "\t%-20s %s\n" "scriptrunner"   "Alias for cosmos-gui; opens COSMOS Script Runner for GNSS GS responder"
 	@printf "\t%-20s %s\n" "yamcs-operator" "Launch as YAMCS operator viewpoint - requires configuration"
 
 	@echo ""
 	@echo "Testing:"
-	@printf "\t%-20s %s\n" "code-coverage"  "Produce code coverage report (does not work via shared folders)"
-	@printf "\t%-20s %s\n" "ci-launch"      "Headless Launch for System Testing"
-	@printf "\t%-20s %s\n" "system-tests"   "GUI Launch for System Testing"
-	@printf "\t%-20s %s\n" "test-fsw"       "Test Flight Software"
+	@printf "\t%-25s %s\n" "code-coverage"          "Run cFS UT with coverage; emit XML+HTML reports under docs/coverage/"
+	@printf "\t%-25s %s\n" "code-coverage-clean"    "Wipe the isolated coverage build tree and host-side cache dir"
+	@printf "\t%-25s %s\n" "ci-launch"              "Headless Launch for System Testing"
+	@printf "\t%-25s %s\n" "system-tests"           "GUI Launch for System Testing"
+	@printf "\t%-25s %s\n" "test-fsw"               "Test Flight Software"
 
 	@echo ""
 	@echo "ELK / Kibana:"
@@ -288,6 +334,14 @@ launch: ## Launch NOS3 System
 	done
 	@$(MAKE) --no-print-directory build-kibana-dashboards
 	@$(MAKE) --no-print-directory refresh-kibana-fields
+
+cosmos-gui: ## Full launch (ELK + sims + FSW) with the COSMOS Launcher GUI instead of headless COSMOS. Requires X11 (run xeyes to verify).
+	@$(MAKE) --no-print-directory launch
+	@echo "Replacing headless cosmos-openc3-operator-1 with GUI Launcher..."
+	@docker rm -f cosmos-openc3-operator-1 > /dev/null 2>&1 || true
+	./scripts/ci_launch.sh --use-cosmos-gui
+
+scriptrunner: cosmos-gui ## Alias for cosmos-gui. After it loads, click "Script Runner" in the NOS3 Launcher window. Open COMPONENTS/GENERIC_GNSS/procedures/gnss_gs_responder.rb to manually exercise the GNSS GS responder.
 
 start-elk: ## Bring up the ELK stack (idempotent). Waits for Elasticsearch to leave RED so the launch target can DELETE stale indices and Logstash can index fresh telemetry. No-op if nos3-elasticsearch is already running.
 	@docker network inspect nos3-core > /dev/null 2>&1 || docker network create nos3-core > /dev/null
