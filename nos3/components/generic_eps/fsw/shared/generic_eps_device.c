@@ -55,9 +55,14 @@ int32_t GENERIC_EPS_CommandDevice(i2c_bus_info_t *device, uint8_t cmd, uint8_t v
         write_data[1] = value;
         write_data[2] = GENERIC_EPS_CRC8(write_data, 2);
 
-        /* Initiate transaction */
-        i2c_master_transaction(device, GENERIC_EPS_CFG_I2C_ADDRESS, write_data, 3, NULL, 0,
-                               GENERIC_EPS_CFG_I2C_TIMEOUT);
+        /* Initiate transaction; surface bus-level errors to the caller so HK
+         * can increment DeviceErrorCount instead of silently treating a
+         * non-responsive sim as success. */
+        if (i2c_master_transaction(device, GENERIC_EPS_CFG_I2C_ADDRESS, write_data, 3, NULL, 0,
+                                   GENERIC_EPS_CFG_I2C_TIMEOUT) != OS_SUCCESS)
+        {
+            status = OS_ERROR;
+        }
     }
     else
     {
@@ -85,9 +90,14 @@ int32_t GENERIC_EPS_RequestHK(i2c_bus_info_t *device, GENERIC_EPS_Device_HK_tlm_
     write_data[1] = 0;
     write_data[2] = GENERIC_EPS_CRC8(write_data, 2);
 
-    /* Initiate transaction */
-    i2c_master_transaction(device, GENERIC_EPS_CFG_I2C_ADDRESS, write_data, 3, read_data, GENERIC_EPS_DEVICE_HK_LEN + 1,
-                           GENERIC_EPS_CFG_I2C_TIMEOUT);
+    /* Initiate transaction; if the bus call itself fails (e.g. sim not
+     * responding), skip CRC + decode and return OS_ERROR so HK reports the
+     * device as errored rather than publishing zeros that look valid. */
+    if (i2c_master_transaction(device, GENERIC_EPS_CFG_I2C_ADDRESS, write_data, 3, read_data,
+                               GENERIC_EPS_DEVICE_HK_LEN + 1, GENERIC_EPS_CFG_I2C_TIMEOUT) != OS_SUCCESS)
+    {
+        return OS_ERROR;
+    }
 
     /* Confirm CRC */
     calc_crc = GENERIC_EPS_CRC8(read_data, GENERIC_EPS_DEVICE_HK_LEN);
@@ -124,7 +134,7 @@ int32_t GENERIC_EPS_RequestHK(i2c_bus_info_t *device, GENERIC_EPS_Device_HK_tlm_
 
 #ifdef GENERIC_EPS_CFG_DEBUG
     OS_printf("  GENERIC_EPS_RequestHK read: ");
-    for (uint8_t i; i < GENERIC_EPS_DEVICE_HK_LEN + 1; i++)
+    for (uint8_t i = 0; i < GENERIC_EPS_DEVICE_HK_LEN + 1; i++)
     {
         OS_printf("0x%02x ", read_data[i]);
     }

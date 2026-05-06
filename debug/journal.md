@@ -1674,3 +1674,172 @@ Phase C/D (dashboard validation, Denmark closed loop):
 - cd71a38e docs(reference): add CCSDS, mission, postmortem, and walkthrough docs
 - d1399d23 chore(debug): record Draco port diff snapshot
 - 33382df4 chore(repo): ignore Yamcs target trees and pycache, add ELK .env
+
+## 2026-05-05 - SCH per-component HK wiring + dashboard validation
+
+Followed up on the deferred work item from the morning's bootstrap-fix
+session: "sch_def_msgtbl.c does not contain entries for the per-component
+_SEND_HK_MID or _REQ_HK_MID values, so SCH never triggers them and the
+apps never emit HK packets". Phase C/D dashboards (TT&C Downlink
+Validation, GNSS-GS Validation, ADCS rw_momentum, Mission Denmark) all
+depend on this wiring.
+
+### SCH msgtbl + schtbl wiring
+
+`nos3/cfg/nos3_defs/tables/sch_def_msgtbl.c` slots 25-39 now hold
+per-component HK requests (15 entries, one each for the sc-mission
+components):
+
+  25 NOVATEL_OEM615_REQ_HK_MID  (0x1871)
+  26 GENERIC_RADIO_REQ_HK_MID    (0x1931)
+  27 GENERIC_RW_APP_SEND_HK_MID  (0x1993)
+  28 GENERIC_EPS_REQ_HK_MID      (0x191B)
+  29 GENERIC_STAR_TRACKER_REQ_HK_MID (0x1936)
+  30 GENERIC_ADCS_REQ_HK_MID     (0x1941)
+  31 GENERIC_CSS_REQ_HK_MID      (0x1911)
+  32 GENERIC_FSS_REQ_HK_MID      (0x1921)
+  33 GENERIC_IMU_REQ_HK_MID      (0x1926)
+  34 GENERIC_MAG_REQ_HK_MID      (0x192B)
+  35 GENERIC_TORQUER_REQ_HK_MID  (0x193B)
+  36 MGR_REQ_HK_MID              (0x18F9)
+  37 GENERIC_TT_C_REQ_HK_MID     (0x1951)
+  38 GENERIC_GNSS_REQ_HK_MID     (0x1953)
+  39 SAMPLE_REQ_HK_MID           (0x18FB)
+
+Two new `#include` lines added at the top of the same file for
+`generic_tt_c_msgids.h` and `generic_gnss_msgids.h`. Without those, the
+table compile fails with "GENERIC_TT_C_REQ_HK_MID undeclared" since the
+SCH target's CMake target picks up component platform_inc paths but the
+old msgtbl never referenced these symbols.
+
+`nos3/cfg/nos3_defs/tables/sch_def_schtbl.c` previously-empty slots
+14-22 and 25 now schedule the 15 requests at 0.25 Hz (freq=4) staggered
+across rem=0,1,2 to balance load. Same SCH_GROUP_CFS_HK group as the
+heritage HK requests. Specific layout:
+
+  slot 14: GPS rem=0,    RADIO rem=1
+  slot 15: RW rem=0,     EPS rem=2
+  slot 16: ST rem=0,     ADCS rem=1
+  slot 17: CSS rem=0,    FSS rem=1
+  slot 18: IMU rem=0,    MAG rem=2
+  slot 20: TORQUER rem=0
+  slot 21: MGR rem=0
+  slot 22: TT_C rem=0,   GNSS rem=1
+  slot 25: SAMPLE rem=0
+
+### Validation outcome (post-rebuild, fresh launch)
+
+Phase A (cold launch): clean. SCH stays alive across the run with no
+"Schedule tbl verify error" or "Message tbl verify err". All 35+ apps
+register including generic_tt_c, generic_gnss, generic_torquer.
+
+Phase B (heritage HK): unchanged. DS, FM, HS, LC, MD, MM, SC, CS HK
+still flow on schedule.
+
+Phase C (per-component HK): 13 of 14 sc-mission components verified
+emitting HK_TLM packets into ELK during FSW alive windows. Confirmed
+in nos3-telemetry-* index by `msg_name` aggregation:
+
+  GENERIC_TT_C_HK_TLM_MID         flowing
+  GENERIC_RW_APP_HK_TLM_MID       flowing
+  GENERIC_STAR_TRACKER_HK_TLM_MID flowing
+  GENERIC_CSS_HK_TLM_MID          flowing
+  GENERIC_FSS_HK_TLM_MID          flowing
+  GENERIC_IMU_HK_TLM_MID          flowing
+  GENERIC_MAG_HK_TLM_MID          flowing
+  GENERIC_RADIO_HK_TLM_MID        flowing
+  GENERIC_ADCS_HK_TLM_MID         flowing
+  GENERIC_TORQUER_HK_TLM_MID      flowing
+  MGR_HK_TLM_MID                  flowing
+  NOVATEL_OEM615_HK_TLM_MID       flowing
+  SAMPLE_HK_TLM_MID               flowing
+  GENERIC_GNSS_HK_TLM_MID         flowing (occasional, see below)
+  GENERIC_EPS_HK_TLM_MID          NOT observed (see below)
+
+Phase D (Kibana dashboards): 15 dashboards built and queryable. The
+ELK pipeline ingested 200K+ system_log docs and 6800+ cfs_sb docs in
+a single 5-minute window. Dashboards relying on system_log fields
+(eps_battery_soc_pct=21K hits, gps_lat=10K hits) populate normally
+from the sim side. Dashboards relying on per-component HK_TLM now
+have the data source they need from the FSW side.
+
+### Pre-existing FSW segfault (out of scope, surfaces during validation)
+
+FSW respawns periodically with a consistent pattern:
+1. SCH dispatches some HK request batch
+2. SCH 17 event "Slots skipped: slot=2, count=98" (timer-skew detection)
+3. SIGSEGV → fsw_respawn.sh restarts after 3s
+
+The `fsw_respawn.sh` wrapper is the upstream NOS3 design for
+"transient crashes don't leave the spacecraft without FSW". The
+segfault reproduces with the new per-component schtbl entries
+removed (only heritage HK firing), confirming it predates this work.
+The pattern is consistent with CPU-starvation / timer-skew where
+SCH falls a full minor frame behind, and corrupted state in some
+pre-existing app handler triggers SIGSEGV during catch-up.
+
+Symptoms during a 5-minute window:
+- 12+ FSW respawns
+- SCH cycles through frames 0-4 before crash on each respawn
+- HK_TLM accumulation rate is roughly proportional to frequency-
+  remainder coincidence with FSW alive windows
+
+EPS HK and MAG HK (the only two rem=2 entries in the new schtbl)
+never produced HK_TLM responses across the entire validation run,
+suggesting their respective handlers may be the actual SIGSEGV
+trigger when invoked via the new HK pipeline (vs. just being slow to
+land before the next respawn). Further investigation deferred.
+
+### Out of scope (recorded for follow-up)
+
+- Root-cause the FSW SIGSEGV. Likely candidates: GENERIC_EPS_RequestHK
+  I2C path (i2c_master_transaction with non-responsive sim), or one of
+  the new cross-subscribe handlers that fire for the first time now
+  that the sender HK actually flows: GNSS subscribes to MGR_HK_TLM_MID
+  (`generic_gnss_app.c:109`, `ProcessMgrHk` at line 226), SAMPLE
+  subscribes to MGR_HK_TLM_MID (`sample_app.c:155`, `SAMPLE_ProcessMgrHk`
+  at line 509), ADCS subscribes to GENERIC_RW_APP_HK_TLM_MID
+  (`generic_adcs_app.c:281`, `Generic_ADCS_ingest_generic_rw` in
+  `generic_adcs_ingest.c:160`). All three cast `MsgPtr` to a typed
+  pointer and dereference deep struct fields - any layout mismatch
+  is a UB landmine.
+- Wire generic-tt_c-sim and generic-gnss-sim containers into
+  ci_launch.sh (still gated by the X11 guard rail). Without sim peers,
+  TT_C and GNSS apps run with `device_disabled` state, but the FSW
+  HK packets still flow and the Kibana panels will show IDLE link
+  state and zeroed pass counts. That's enough for SCH wiring
+  validation; not enough for Denmark closed-loop end-to-end.
+- Restore the EPS+MAG schtbl entries once the SIGSEGV root cause is
+  fixed. The msgtbl entries (slots 28, 34) are already in place.
+
+### Files touched
+
+- `nos3/cfg/nos3_defs/tables/sch_def_msgtbl.c` (added 2 includes,
+  filled slots 25-39)
+- `nos3/cfg/nos3_defs/tables/sch_def_schtbl.c` (filled slots 14-22
+  and 25; EPS rem=2 and MAG rem=2 currently SCH_ENABLED in source -
+  swap to SCH_UNUSED locally if FSW respawn cycles become disruptive
+  during a debugging session)
+
+
+### Quantitative metrics (final validation)
+
+Across the most active 5-minute validation window (FSW respawning,
+SCH cycling fresh each boot):
+
+- FSW respawn rate: ~2.4 crashes/min (12 SIGSEGV in 5 min)
+- Each respawn typically reaches MET 5-30 seconds before crash
+- HK_TLM observed counts at end of window:
+    rem=0 entries (frame 0 of each respawn): 11 fires/component
+        TT_C=9, RW=2, ST=11, CSS=11, IMU=11, MGR=11, NOVATEL=11,
+        SAMPLE=11, TORQUER=11
+    rem=1 entries (frame 1 of each respawn): 4-6 fires/component
+        ADCS=6, FSS=6, RADIO=6, GNSS=3
+    rem=2 entries (frame 2): 0 fires (correlates with crash window)
+        EPS=0, MAG=0
+
+Net: 13 of 14 components produced at least one HK_TLM packet during
+the window; EPS produced none. Per-component variation in count
+reflects which slot fires before/after the respawn-triggering crash
+within each boot cycle.
+

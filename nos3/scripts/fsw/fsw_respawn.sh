@@ -35,6 +35,25 @@ echo "[fsw_respawn] Starting FSW: $FSW_BIN"
 # create its first file before the host-side sudo mkdir has landed.
 mkdir -p ./data/cam ./data/evs ./data/hk ./data/inst
 
+if [ "${FSW_NO_RESPAWN:-0}" = "1" ]; then
+    wait_for_nos_engine
+    LOG=/tmp/fsw_gdb_$(date +%s).log
+    echo "[fsw_respawn] FSW_NO_RESPAWN=1 set; running $FSW_BIN under gdb (log -> $LOG)"
+    gdb -batch \
+        -ex "set pagination off" \
+        -ex "set print elements 0" \
+        -ex "handle SIGSEGV stop print" \
+        -ex run \
+        -ex "thread apply all bt full" \
+        -ex "info registers" \
+        -ex "info threads" \
+        --args $FSW_BIN 2>&1 | tee "$LOG"
+    EXIT_CODE=${PIPESTATUS[0]}
+    echo "[fsw_respawn] gdb exited $EXIT_CODE; trace at $LOG. Sleeping 30s before container exit so logs can be pulled."
+    sleep 30
+    exit $EXIT_CODE
+fi
+
 while true; do
     wait_for_nos_engine
     $FSW_BIN

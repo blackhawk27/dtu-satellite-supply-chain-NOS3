@@ -193,14 +193,17 @@ SCH_ScheduleEntry_t SCH_DefaultScheduleTable[SCH_TABLE_ENTRIES] = {
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    /* Per-component HK requests, Draco-aligned: one component per slot,
+     * freq=1 rem=0 (1 Hz). Removes the rem=2 collision pattern that
+     * correlated with the 2026-05-05 SCH "Slots skipped count=98" event. */
     /* slot #25 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 28, SCH_GROUP_CFS_HK}, /* EPS HK Request (msgtbl idx 28) */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #26 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 25, SCH_GROUP_CFS_HK}, /* GPS (Novatel) HK Request (msgtbl idx 25) */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
@@ -212,31 +215,31 @@ SCH_ScheduleEntry_t SCH_DefaultScheduleTable[SCH_TABLE_ENTRIES] = {
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #28 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 30, SCH_GROUP_GNC_HK}, /* ADCS HK Request (msgtbl idx 30) */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #29 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 33, SCH_GROUP_GNC_HK}, /* IMU HK Request (msgtbl idx 33) */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #30 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 31, SCH_GROUP_GNC_HK}, /* CSS HK Request (msgtbl idx 31) */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #31 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 32, SCH_GROUP_GNC_HK}, /* FSS HK Request (msgtbl idx 32) */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #32 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 34, SCH_GROUP_GNC_HK}, /* MAG HK Request (msgtbl idx 34) */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
@@ -248,49 +251,49 @@ SCH_ScheduleEntry_t SCH_DefaultScheduleTable[SCH_TABLE_ENTRIES] = {
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #34 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 27, SCH_GROUP_GNC_HK}, /* RW HK Request (msgtbl idx 27) */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #35 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 26, SCH_GROUP_CFS_HK}, /* RADIO HK Request (msgtbl idx 26) */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #36 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 29, SCH_GROUP_GNC_HK}, /* ST (Star Tracker) HK Request (msgtbl idx 29) */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #37 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 35, SCH_GROUP_GNC_HK}, /* TORQUER HK Request (msgtbl idx 35) */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #38 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 36, SCH_GROUP_CFS_HK}, /* MGR HK Request (msgtbl idx 36) */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #39 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 38, SCH_GROUP_CFS_HK}, /* GNSS HK Request (msgtbl idx 38) */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #40 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 37, SCH_GROUP_CFS_HK}, /* TT_C HK Request (msgtbl idx 37) */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #41 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 39, SCH_GROUP_CFS_HK}, /* SAMPLE HK Request (msgtbl idx 39) */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
