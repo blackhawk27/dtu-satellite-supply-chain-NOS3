@@ -1,0 +1,49 @@
+TELEMETRY GENERIC_TT_C GENERIC_TT_C_HK_TLM LITTLE_ENDIAN "GENERIC_TT_C_Hk_tlm_t (link-budget housekeeping; emitted by FSW each HK tick)"
+  APPEND_ID_ITEM CCSDS_STREAMID       16 UINT 0x0950  "CCSDS Packet Identification" BIG_ENDIAN
+  APPEND_ITEM    CCSDS_SEQUENCE       16 UINT         "CCSDS Packet Sequence Control" BIG_ENDIAN
+  APPEND_ITEM    CCSDS_LENGTH         16 UINT         "CCSDS Packet Data Length" BIG_ENDIAN
+  APPEND_ITEM    CCSDS_SECONDS        32 UINT         "CCSDS Telemetry Secondary Header (seconds)" BIG_ENDIAN
+  APPEND_ITEM    CCSDS_SUBSECS        16 UINT         "CCSDS Telemetry Secondary Header (subseconds)" BIG_ENDIAN
+  APPEND_ITEM    CCSDS_SPARE          32 UINT         ""
+
+  APPEND_ITEM    CMD_ERR_COUNT         8 UINT         "Command Error Count"
+  APPEND_ITEM    CMD_COUNT             8 UINT         "Command Count"
+  APPEND_ITEM    DEVICE_ERR_COUNT      8 UINT         "Device Command Error Count"
+  APPEND_ITEM    DEVICE_COUNT          8 UINT         "Device Command Count"
+  APPEND_ITEM    DEVICE_ENABLED        8 UINT         "1 = TT_C app enabled"
+
+  # GENERIC_TT_C_Device_HK_tlm_t (packed)
+  APPEND_ITEM    LINK_STATE            8 UINT         "0 = IDLE, 1 = ACQUIRED"
+    STATE IDLE     0
+    STATE ACQUIRED 1
+  APPEND_ITEM    GROUND_STATION      192 STRING       "Active ground-station label (24 chars, NUL-padded)"
+  APPEND_ITEM    ELEVATION_DEG        32 FLOAT        "Current pass elevation (deg)"
+  APPEND_ITEM    SLANT_RANGE_KM       32 FLOAT        "Slant range to ground station (km)"
+  APPEND_ITEM    DOPPLER_HZ           32 FLOAT        "Doppler shift on the link (Hz)"
+  APPEND_ITEM    PASS_NUMBER          32 UINT         "Current pass number"
+  APPEND_ITEM    PASS_COUNT           32 UINT         "Total passes since boot"
+  APPEND_ITEM    PACKETS_DOWNLINKED   32 UINT         "Total downlinked packets"
+  APPEND_ITEM    BYTES_DOWNLINKED     32 UINT         "Total downlinked bytes"
+  APPEND_ITEM    PACKETS_DROPPED      32 UINT         "Total dropped packets"
+
+
+TELEMETRY GENERIC_TT_C GENERIC_TT_C_DEVICE_TLM LITTLE_ENDIAN "GENERIC_TT_C_Device_tlm_t (link-budget device telemetry)"
+  APPEND_ID_ITEM CCSDS_STREAMID       16 UINT 0x0951  "CCSDS Packet Identification" BIG_ENDIAN
+  APPEND_ITEM    CCSDS_SEQUENCE       16 UINT         "CCSDS Packet Sequence Control" BIG_ENDIAN
+  APPEND_ITEM    CCSDS_LENGTH         16 UINT         "CCSDS Packet Data Length" BIG_ENDIAN
+  APPEND_ITEM    CCSDS_SECONDS        32 UINT         "CCSDS Telemetry Secondary Header (seconds)" BIG_ENDIAN
+  APPEND_ITEM    CCSDS_SUBSECS        16 UINT         "CCSDS Telemetry Secondary Header (subseconds)" BIG_ENDIAN
+  APPEND_ITEM    CCSDS_SPARE          32 UINT         ""
+
+  APPEND_ITEM    LINK_STATE            8 UINT         "0 = IDLE, 1 = ACQUIRED"
+    STATE IDLE     0
+    STATE ACQUIRED 1
+  APPEND_ITEM    GROUND_STATION      192 STRING       "Active ground-station label (24 chars, NUL-padded)"
+  APPEND_ITEM    ELEVATION_DEG        32 FLOAT        "Current pass elevation (deg)"
+  APPEND_ITEM    SLANT_RANGE_KM       32 FLOAT        "Slant range to ground station (km)"
+  APPEND_ITEM    DOPPLER_HZ           32 FLOAT        "Doppler shift on the link (Hz)"
+  APPEND_ITEM    PASS_NUMBER          32 UINT         "Current pass number"
+  APPEND_ITEM    PASS_COUNT           32 UINT         "Total passes since boot"
+  APPEND_ITEM    PACKETS_DOWNLINKED   32 UINT         "Total downlinked packets"
+  APPEND_ITEM    BYTES_DOWNLINKED     32 UINT         "Total downlinked bytes"
+  APPEND_ITEM    PACKETS_DROPPED      32 UINT         "Total dropped packets"
