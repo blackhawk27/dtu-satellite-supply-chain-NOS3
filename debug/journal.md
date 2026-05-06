@@ -2062,3 +2062,147 @@ appear on the Windows desktop within ~10-20 s of the
   diagnosis)
 - `debug/journal.md` (this entry)
 
+
+## Validation run - feat/port-draco-features (2026-05-07 ~01:00-01:46 CEST / 2026-05-06 23:00-23:46 UTC)
+
+### Session metadata
+
+- Operator: handoff continuation (auto mode)
+- Branch: `feat/port-draco-features` at `f44059b2`
+- Goal: cold launch + smoke check + walk all 15 Kibana dashboards
+  programmatically (Kibana / ES API rather than browser) and capture a
+  baseline run for the Draco port branch before merging.
+- Commands run from `/workspaces/dtu-satellite-supply-chain-NOS3/nos3`:
+  `make stop && make purge-logs && make clean-docker && make launch`.
+  Launch ran from a VS Code integrated terminal so `DISPLAY=:0` and
+  `/tmp/.X11-unix/X0` were both live; `ci_launch.sh` DISPLAY guard
+  passed without intervention.
+
+### Cold launch outcome
+
+- All 28 expected containers came up (1 nos3-core + 19 sims +
+  cosmos-openc3-operator-1 + ELK trio + nos-time-driver +
+  sc01-nos-fsw + sc01-fortytwo + supporting nos-{terminal,
+  udp-terminal, sim-bridge}).
+- `build-kibana-dashboards` succeeded: 15 dashboards + 1 saved
+  search rebuilt; `[purge]` step swept 4 obsolete dashboard ids and
+  several legacy TSVB visualizations that were left over from a
+  previous schema. Expected total = 15, actual = 15.
+- `refresh-kibana-fields` partial: timed out waiting for fields
+  `gnss_truth_alt_m`, `gnss_truth_lat`, `gnss_truth_lon`,
+  `in_denmark_box`, `in_science_mode`, `last_ping_seq`,
+  `last_ping_time`, `ping_count`. These fields require the GS
+  responder (cosmos ScriptRunner) to be exercised manually; with
+  headless cosmos and no operator, they never get emitted.
+  Symptom-only, not a regression.
+- 42 IPC: All 17 expected listener sockets (4277, 4278, 4279, 4227,
+  4234, 4245, 4377, 4378, 4477, 4478, 4281, 4283, 4284, 4285,
+  4286, 4287, 9999) came up ESTABLISHED on the 42 side per
+  `/proc/net/tcp` inspection. The 42 docker log truncates after
+  `Server is listening on port 9999` because of stdout buffering;
+  this is cosmetic, not a stall. The journal fix proposed at line
+  ~2055 ("port 9999 TX -> OFF") was NEVER applied to source - git
+  log on `cfg/InOut/Inp_IPC.txt` shows only the initial flatten
+  and one upstream refresh - and applying it now would BREAK the
+  truth42->COSMOS path. Treat that proposed fix as stale notes;
+  do not apply.
+
+### FSW state during validation
+
+- Single SIGSEGV at MET ~30 s, identical signature to the
+  pre-existing crash documented at this journal's line 1766:
+  `SCH 17: Slots skipped: slot=3, count=97` -> `MGR: TimeTics =
+  4300000000000600` -> `LC 42: Invalid AP sample msg length: ID =
+  0x000018A6, CC = 0, Len = 8, Expected = 16` -> SIGSEGV (exit 139).
+- Possible regression vs. journal line 1830 ("FSW respawn rate:
+  ~2.4 crashes/min"): in this run the second respawn hung in
+  `initializing nos engine link...` and never produced another
+  segfault. core-cpu1 PID 103 stayed in `futex_wait_queue` for the
+  remaining ~40 minutes. cpu_monitor kept emitting (it does
+  `docker exec ... top` and does not depend on FSW state), so ELK
+  ingest never completely stopped. Worth a follow-up but
+  deliberately deferred per the journal's "out of scope" tag on
+  the SIGSEGV root cause.
+- Net effect on validation data: ~30 s of FSW telemetry, 617
+  software_bus docs, 5 hk_decoded docs. EPS / GPS sims emitted
+  their full DEBUG init burst (1304 EPS rows, 705 GPS rows) before
+  going silent.
+
+### Per-dashboard verdict (Kibana / ES API walk, headless)
+
+Field availability checked via `_count?q=_exists_:<field>` against
+`nos3-telemetry-*` (single shard, 12.1 K docs). VERDICTs use
+the criteria in the run plan: OK = key field has hundreds+ docs;
+PARTIAL = key field has some docs but coverage is thin or
+incomplete; DARK = key field has zero hits.
+
+| # | Dashboard | Key field(s) checked | Doc count | Verdict |
+|---|-----------|---------------------|-----------|---------|
+| 1 | NOS3 Standard Telemetry Overview | msg_id / eps_battery_soc_pct | 622 / 1304 | PARTIAL (pre-crash window only) |
+| 2 | NOS3 Standard Mission Validation | sci_pass_count / spacecraft_mode | 1 / 1 | PARTIAL (FSW MET <30 s) |
+| 3 | NOS3 Mission: Denmark | in_denmark_box / gnss_truth_lat | 0 / 0 | DARK (needs GS responder + alive FSW) |
+| 4 | NOS3 EO1: Power Budget | eps_battery_soc_pct / eps_solar_power_w | 1304 / 1304 | OK |
+| 5 | NOS3 EO1: ADCS Health | rw0..2_momentum / t42_q0..3 / t42_gyro_x | 1 / 60 / 60 | PARTIAL (truth42 quats present, FSW RW HK never landed) |
+| 6 | NOS3 EO1: FSW Health | hs_cpu_pct / hs_cpu_util_peak / NUM_PIDS | 1 / 1 / 651 | PARTIAL (HS_SYSMON fired once before crash; OBC-side cpu_monitor compensates) |
+| 7 | NOS3 EO1: TT&C Downlink Validation | link_state / doppler_hz / packets_downlinked | 0 / 0 / 0 | DARK (FSW never reached the TT_C HK pipeline; not specific to the new sim XML) |
+| 8 | NOS3 EO1: GNSS-to-GS Validation | gnss_lat / last_ping_seq / in_denmark_box | 0 / 0 / 0 | DARK (same root cause as 7) |
+| 9 | NOS3 HK Telemetry Flow | msg_id / msg_name | 622 / 617 | PARTIAL (pre-crash SB capture only) |
+| 10 | NOS3 HS CPU Monitor | TOTAL_CPU_PCT / NUM_PIDS | 651 / 651 | OK (continuously updating from `cpu_monitor.sh`) |
+| 11 | NOS3 Spacecraft Mode Changes | spacecraft_mode / spacecraft_mode_name | 1 / present | PARTIAL (single mode entry from boot) |
+| 12 | NOS3 Sensor Ground Truth | t42_pos_x / t42_q0..3 / t42_gyro_x | 60 / 60 / 60 | PARTIAL (~6 s of truth42 stream before FSW crash backpressured the bus) |
+| 13 | NOS3 Thesis: Cyber-Physical Attack Radar | n/a | n/a | SKIP per plan (orphaned legacy ndjson; rebuilder now manages it as `nos3-thesis-attack-radar` but no panel-data validation in scope) |
+| 14 | NOS3 OBC Performance Monitor | TOTAL_CPU_PCT / CPU_PCT / NUM_PIDS | 651 / 233 / 651 | OK |
+| 15 | NOS3 FSW vs Sim Cross-Reference | eps_battery_mv / msg_id / t42_q0 | 1304 / 622 / 60 | PARTIAL (compare panels render but only across 30 s; xref window is too short for a usable trend) |
+
+Headline: 3 OK (Power Budget, HS CPU Monitor, OBC Performance Monitor),
+8 PARTIAL, 3 DARK, 1 SKIP. None of the DARK panels are NEW failures
+caused by this branch's commits - all three trace to the pre-existing
+SIGSEGV at journal line 1766 plus the absence of an active GS
+responder pass during the validation window. Power-side and
+host-CPU-side dashboards (the ones that DO NOT depend on alive cFS)
+populate normally, confirming the ELK pipeline itself is healthy.
+
+### Triage ladder applied to DARK panels
+
+Per the run plan:
+1. `tail -F nos3/omni_logs/nos3-<comp>.log` - for TT&C and GNSS,
+   the sim logs froze at 23:06:24 with `Connection refused` on
+   ports 4286/4287, but `/proc/net/tcp` confirms ESTABLISHED
+   connections on 42 side. Sim docker stdout buffering, not a
+   genuine connection failure (sims are alive in `ps -ef`).
+2. `docker logs nos3-logstash --tail 200 | grep -i grok` - 0 hits
+   on `_grokparsefailure`. Logstash filters are clean.
+3. Kibana Discover `_exists_:<field>` on each DARK field - all
+   confirmed zero, so the panels really are dark for the right
+   reason (no source data), not for a Logstash/grok reason.
+4. No need to rebuild dashboards: `build-kibana-dashboards`
+   already ran cleanly during launch.
+
+### Baseline run capture
+
+`make save-run RUN_LABEL=baseline_legacy_2026-05-07` archived
+into `~/nos3_runs/baseline_legacy_2026-05-07/`:
+- `omni_logs/` (~2 MB; mostly the `nos3-eps.log` and `nos3-gps.log`
+  init bursts plus the 36-min `cpu_monitor.log` continuous stream)
+- `attack_logs/cfs_god_view.json` (35.5 KB; pre-crash SB capture)
+- The Kibana index `nos3-telemetry-2026.05.06` is preserved by
+  `KEEP_TLM=1` semantics inherited from save-run.
+
+### Files touched
+
+- `debug/journal.md` (this entry only). No source changes.
+
+### Followups (not blocking the baseline)
+
+- Investigate the second-respawn hang in `fsw_respawn.sh` (FSW
+  stalling in `initializing nos engine link...` instead of
+  proceeding to the next SCH/SIGSEGV cycle). The journal's
+  documented behavior is a 2.4 crashes/min loop; today produced
+  one crash followed by an indefinite hang. Could be a stale
+  nos-engine peer state from the dead first instance.
+- Reconcile the stale "port 9999 TX -> OFF" journal section
+  (the GUI fix block ending at line ~2063): the proposed fix
+  would break truth42, was never committed, and the actual root
+  cause was stdout buffering masking later listen messages.
+  Either correct that section or strike it.
+
