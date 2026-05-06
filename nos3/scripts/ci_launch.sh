@@ -30,6 +30,24 @@ done
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source "$SCRIPT_DIR/env.sh"
 
+if [ -z "${DISPLAY}" ] && [ "${NOS3_HEADLESS:-0}" != "1" ]; then
+    echo ""
+    echo "ERROR: \$DISPLAY is empty. NOS3 expects an X server because the 42"
+    echo "       dynamics simulator opens GUI windows (42 Cam, 42 Map, 42 Unit Sphere)."
+    echo ""
+    echo "  In a VS Code devcontainer integrated terminal, DISPLAY=:0 is injected"
+    echo "  automatically by VS Code. If you are launching from an agent shell,"
+    echo "  cron/systemd, plain 'docker exec', or an SSH session without -X,"
+    echo "  DISPLAY will be empty."
+    echo ""
+    echo "  Options:"
+    echo "    1) Run 'make launch' from a VS Code integrated terminal."
+    echo "    2) export DISPLAY=:0 in this shell, then re-run."
+    echo "    3) NOS3_HEADLESS=1 make launch  (skips xhost + 42 GUI; CI / agent path)."
+    echo ""
+    exit 1
+fi
+
 if [ ! -d $USER_NOS3_DIR ]; then
     echo ""
     echo "    Need to run make prep first!"
@@ -178,11 +196,18 @@ for (( i=1; i<=$SATNUM; i++ )); do
     echo "$SC_NUM - 42..."
     sudo rm -rf $USER_NOS3_DIR/42/NOS3InOut
     sudo cp -r $BASE_DIR/cfg/build/InOut $USER_NOS3_DIR/42/NOS3InOut
-    xhost +local:*
-    $DCALL run -d --name ${SC_NUM}-fortytwo -h fortytwo --network=$SC_NET \
-        --log-driver json-file --log-opt max-size=5m --log-opt max-file=3 \
-        -e DISPLAY=$DISPLAY -v "$USER_NOS3_DIR:$USER_NOS3_DIR" \
-        -v /tmp/.X11-unix:/tmp/.X11-unix:ro -w "$USER_NOS3_DIR/42" $DBOX $USER_NOS3_DIR/42/42 NOS3InOut
+    if [ "${NOS3_HEADLESS:-0}" = "1" ]; then
+        $DCALL run -d --name ${SC_NUM}-fortytwo -h fortytwo --network=$SC_NET \
+            --log-driver json-file --log-opt max-size=5m --log-opt max-file=3 \
+            -v "$USER_NOS3_DIR:$USER_NOS3_DIR" \
+            -w "$USER_NOS3_DIR/42" $DBOX $USER_NOS3_DIR/42/42 NOS3InOut
+    else
+        xhost +local:*
+        $DCALL run -d --name ${SC_NUM}-fortytwo -h fortytwo --network=$SC_NET \
+            --log-driver json-file --log-opt max-size=5m --log-opt max-file=3 \
+            -e DISPLAY=$DISPLAY -v "$USER_NOS3_DIR:$USER_NOS3_DIR" \
+            -v /tmp/.X11-unix:/tmp/.X11-unix:ro -w "$USER_NOS3_DIR/42" $DBOX $USER_NOS3_DIR/42/42 NOS3InOut
+    fi
 
     echo "$SC_NUM - Flight Software..."
     $DCALL run -dit --name ${SC_NUM}-nos-fsw -h nos-fsw --network=$SC_NET \

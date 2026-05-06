@@ -1843,3 +1843,105 @@ the window; EPS produced none. Per-component variation in count
 reflects which slot fires before/after the respawn-triggering crash
 within each boot cycle.
 
+
+## Session metadata - X11 launch guard rail rewrite (2026-05-05)
+
+- Operator: handoff continuation (auto mode)
+- Trigger: prior session's `make launch` aborted on
+  `nos3/scripts/ci_launch.sh:181` (`xhost +local:*`, exit on
+  "unable to open display ''"). The previous CLAUDE.md X11 guard
+  rail blamed devcontainer divergence from origin/main and forbade
+  any `runArgs`/`containerEnv`/WSLg additions, but the actual
+  environment is a VS Code Remote Containers devcontainer, not raw
+  Docker Desktop, so that rule was inherited from a different repo
+  and did not match reality here.
+
+### Diagnostic evidence collected before any edit
+
+- `node` PID 322 inside the devcontainer
+  (`/home/vscode/.vscode-server/.../node`
+  `/tmp/vscode-remote-containers-server-*.js`) owns
+  `/tmp/.X11-unix/X0`. Confirmed with `lsof /tmp/.X11-unix/X0`
+  and `ss -lxn | grep /tmp/.X11-unix/X0` (LISTEN row present).
+  This is VS Code's own X11 tunnel; `/mnt/wslg` does not exist
+  inside the container, so Docker-Desktop-WSLg framing in the old
+  CLAUDE.md was wrong.
+- Eight interactive bash sessions had `DISPLAY=:0` in their
+  environment when probed via `/proc/<pid>/environ`. None of them
+  had `XAUTHORITY` set; the tunnel doesn't require it.
+- The Claude Code session that ran `make launch` had
+  `WAYLAND_DISPLAY=vscode-wayland-...sock` and
+  `XDG_RUNTIME_DIR=/tmp/user/1000` but **no `DISPLAY`**. That
+  explains the abort: `xhost +local:*` against an empty `DISPLAY`
+  exits non-zero and `set -e` killed the script.
+- 42 binary at `~/.nos3/42/42` is built with `_ENABLE_GUI_`;
+  `cfg/build/InOut/Inp_Graphics.txt` lines 4 & 6 enable Map and
+  Unit Sphere windows; `Inp_Sim.txt` has `Graphics Front End? =
+  TRUE`. So nothing about the 42 build or sim config blocks the
+  popups; this was purely shell-env plumbing.
+
+### Resolution
+
+1. `nos3/scripts/ci_launch.sh`: added an early `DISPLAY` guard
+   immediately after the `source env.sh` line. If `DISPLAY` is
+   empty AND `NOS3_HEADLESS` is not `1`, print an actionable
+   error (suggest VS Code integrated terminal,
+   `export DISPLAY=:0`, or `NOS3_HEADLESS=1`) and exit before any
+   container starts. Also wrapped the 42 docker run in a
+   `NOS3_HEADLESS` branch so CI / agent contexts can launch
+   without `xhost` and without the X mounts. The unwrapped
+   `xhost +local:*` for the GUI path is preserved (loud-fail on
+   real X outages).
+2. `CLAUDE.md`: replaced both X11 sections (the load-bearing
+   "DO NOT REVERT" entry and the "GUI / X11 Forwarding Guard
+   Rail" section) with VS-Code-devcontainer-accurate text. The
+   new rules document the node tunnel, VS Code's
+   `DISPLAY` injection, the `NOS3_HEADLESS` escape hatch, and an
+   updated diagnostic ladder
+   (`pgrep -af vscode-remote-containers-server`,
+   `ss -lxn | grep /tmp/.X11-unix/X0`).
+3. `.devcontainer/devcontainer.json`: untouched. The user has
+   verified `make launch` works from VS Code integrated terminals
+   with the current settings, so no rebuild is required.
+
+### Verification (to run from a VS Code integrated terminal)
+
+```bash
+echo "$DISPLAY"                              # expect :0
+xhost                                        # expect access-control line
+cd nos3
+make stop
+docker rm -f sc01-fortytwo sc01-nos-fsw cosmos-openc3-operator-1 \
+    2>/dev/null || true
+make launch
+docker ps --filter name=fortytwo --format '{{.Names}}\t{{.Status}}'
+```
+
+Three popups (42 Cam, 42 Map, 42 Unit Sphere Viewer) should
+appear on the Windows desktop within ~10-20 s of the
+`sc01 - 42...` log line. Optional headless smoke test:
+`make stop && NOS3_HEADLESS=1 make launch` (skips xhost; 42
+container starts but may log "no display"; the rest of the stack
+should come up cleanly).
+
+### Out of scope (recorded for follow-up)
+
+- Resume the prior session's SIGSEGV diagnosis once the launch is
+  green. Use either the `FSW_NO_RESPAWN=1` gdb gate already in
+  `nos3/scripts/fsw/fsw_respawn.sh`, or
+  `docker exec sc01-nos-fsw gdb -p $(docker exec sc01-nos-fsw
+  pgrep -f core-cpu1)` and `c` until SIGSEGV.
+- Validate `NOS3_HEADLESS=1` end-to-end. The path skips X but 42
+  with `_ENABLE_GUI_` may still fail on no-display; if so, the
+  follow-up is to also flip `Graphics Front End?` to `FALSE` in
+  `Inp_Sim.txt` under that env var, or build a no-GUI 42 binary.
+  Defer until the GUI path is observed working.
+
+### Files touched
+
+- `nos3/scripts/ci_launch.sh` (early DISPLAY guard, NOS3_HEADLESS
+  branch around the 42 docker run)
+- `CLAUDE.md` (rewrote both X11 sections to match VS Code
+  devcontainer reality)
+- `debug/journal.md` (this entry)
+
