@@ -1945,3 +1945,120 @@ should come up cleanly).
   devcontainer reality)
 - `debug/journal.md` (this entry)
 
+---
+
+## 2026-05-06 - 42 GUI windows: WSLg off-screen + port 9999 accept() block
+
+### Symptom
+
+Branch `feat/port-draco-features`. After devcontainer restart,
+`make launch` finished cleanly but no 42 Cam / 42 Map / 42 Unit
+Sphere Viewer windows appeared. `xeyes` from a VS Code integrated
+terminal hung alive without a visible window.
+
+### Diagnosis chain (the full trace, in order it played out)
+
+1. Verified the in-container X stack was healthy: `DISPLAY=:0`,
+   `/tmp/.X11-unix/X0` socket present and `LISTEN`-state, VS Code
+   remote-containers node tunnel (PID 509) owned the X0 socket,
+   `xhost` returned "access control disabled". `xdpyinfo` reported
+   `vendor string: Microsoft Corporation` (= WSLg X server reached
+   via XWayland) and completed full round-trips. `xset q` worked.
+2. Tested `xeyes &` in a VS Code integrated terminal: process stayed
+   alive in `S` state but no window. Cross-checked `xclock` and
+   `xlogo`: same behavior. `xwininfo -root -tree` showed all three
+   at absolute position `+-32730+-32709` (near INT16_MIN) inside a
+   parent at INT16_MIN itself - off any visible monitor. Forcing
+   `-geometry +200+200` honored relative coords (`+38+59`) but the
+   absolute position stayed off-screen. Conclusion at this point:
+   WSLg / XWayland placement bug on the Windows host.
+3. User performed Windows-side recovery (`wsl --shutdown`,
+   reopened VS Code into the devcontainer). Re-ran
+   `xeyes -geometry +200+200`: visible window at `+206+227` on the
+   Windows desktop. WSLg fixed.
+4. Re-ran `make launch`. Still no 42 GUI windows.
+5. Inside `sc01-fortytwo`: process alive as PID 1
+   (`42 NOS3InOut`), `DISPLAY=:0` set, `/tmp/.X11-unix/X0`
+   bind-mounted, no `cannot open display` errors in
+   `omni_logs/nos3-fortytwo.log`. `xdpyinfo` from inside the 42
+   container also worked. `xlsclients` from devcontainer showed
+   ZERO clients connected to X. `ls /proc/1/fd/` for 42 had no
+   X11-unix file descriptor. So 42 was alive but had never opened
+   an X connection.
+6. Confirmed binary was built with `_ENABLE_GUI_`: `HandoffToGui`
+   present in `strings /home/vscode/.nos3/42/42`, and the call site
+   in `Object/42exec.o` had an undefined reference to it.
+   `Inp_Sim.txt` line 7 was `TRUE`. So GUI code path was compiled
+   in and `GLEnable` should have been TRUE.
+7. Read 42 log carefully. The "Server is listening on port N" /
+   "Server side of socket established." pairs ran cleanly through
+   ports 4278, 4277, 4378, 4377, 4478, 4477, 4279, 4245, 4227,
+   4234. Then `Server is listening on port 9999` appeared with NO
+   matching `Server side of socket established.` line. 42 was
+   stuck in `accept()` on port 9999. After the IPC init loop, the
+   next thing in `42exec.c:402-407` is `HandoffToGui(...)`, whose
+   first action is `printf("Initializing GLUT\n")` - never seen.
+8. Read `iokit.c:174-227` (`InitSocketServer`): it performs
+   `accept()` synchronously and only sets `O_NONBLOCK` on the
+   resulting client socket via `fcntl`. The `AllowBlocking=FALSE`
+   field in the IPC entry does NOT make the initial accept
+   non-blocking. So with no client ever connecting to
+   `fortytwo:9999`, 42 hangs forever.
+9. Confirmed no consumer of `fortytwo:9999`: grep across
+   `scripts/`, `gsw/cosmos/config/`, `components/`, `sims/` found
+   only the `Inp_IPC.txt` build copies themselves - no client
+   anywhere in the project connects to that port. The next IPC
+   entry (port 6008, `WRITEFILE` mode) writes the same truth state
+   to a file `State.42`, so no truth-data path is lost.
+10. Verified the same `TX` value exists in `origin/main` -
+    upstream-shipped, not a regression. Friend's prior clone that
+    "worked" presumably had something connecting; current branch
+    does not.
+
+### Fix
+
+- `nos3/cfg/InOut/Inp_IPC.txt` line 103: `TX` -> `OFF` for the
+  "Truth data to sim to pass to COSMOS" entry (port 9999).
+- Same change in `cfg/build/InOut/Inp_IPC.txt`,
+  `Inp_IPC.sockets.txt`, `Inp_IPC.shmem.txt` so a `make config`
+  switch between IPC backends does not regress.
+- New "DO NOT REVERT" entry in `CLAUDE.md` documenting the
+  diagnosis, alongside the existing port-4282 and port-4280
+  entries (same class of bug).
+- `docs/postmortem_42_gui.md` already updated earlier in the
+  session with the third-occurrence WSLg-placement diagnosis from
+  steps 1-3.
+
+### Verification (to be performed by user after this entry)
+
+```bash
+make stop
+make launch
+```
+
+In the launch output, watch for the new line in 42 stdout
+(captured by `omni_logs/nos3-fortytwo.log`):
+
+```
+Server is listening on port 9999
+Server side of socket established.   <-- previously missing
+Initializing GLUT                    <-- previously never reached
+Initializing Cam Window
+```
+
+Three GUI windows (42 Cam, 42 Map, 42 Unit Sphere Viewer) should
+appear on the Windows desktop within ~10-20 s of the
+`sc01 - 42...` log line.
+
+### Files touched
+
+- `nos3/cfg/InOut/Inp_IPC.txt` (port 9999 TX -> OFF)
+- `nos3/cfg/build/InOut/Inp_IPC.txt` (same)
+- `nos3/cfg/build/InOut/Inp_IPC.sockets.txt` (same)
+- `nos3/cfg/build/InOut/Inp_IPC.shmem.txt` (same)
+- `CLAUDE.md` (new DO NOT REVERT entry)
+- `docs/postmortem_42_gui.md` (third-occurrence section appended
+  earlier in the session, covering the WSLg off-screen-placement
+  diagnosis)
+- `debug/journal.md` (this entry)
+

@@ -296,3 +296,118 @@ Replace step 1 of the original "Debugging directive for future debugging session
 ### Files touched by this fix
 
 None in the repo. The fix was a single `docker rm -f cosmos-openc3-operator-1` followed by `make launch`. The repo configuration was already correct.
+
+---
+
+## Third Occurrence (2026-05-06) - WSLg off-screen window placement
+
+### Summary
+
+Same surface symptom as before (`make launch` finishes, no 42 GUI windows on Windows desktop), but the cause is neither devcontainer regression (first occurrence) nor stale container (second occurrence). The X stack inside the devcontainer is fully healthy: protocol round-trips, every X client connects, windows ARE created. They are placed at absolute coordinates `+-32730+-32709` (close to `INT16_MIN`) inside a parent at `INT16_MIN`, so they render to a virtual location that is not on any visible monitor. The defect lives in WSLg / XWayland on the Windows host, not in the repo.
+
+### Symptoms (subtly different from prior occurrences)
+
+- `DISPLAY=:0` is set in the VS Code integrated terminal.
+- `xeyes` does not return to the prompt and does not error -- it hangs alive (visible in `ps`) but no window appears.
+- `make launch` would behave identically: 42 starts, runs, and produces no visible windows.
+
+### Pre-flight checks ruled out the prior root causes
+
+In a read-only ladder before any action:
+
+1. `git diff origin/main -- .devcontainer/devcontainer.json` was empty -- first-occurrence regression does not apply.
+2. `docker ps -a` was empty -- no stale `cosmos-openc3-operator-1` to conflict; second-occurrence cause does not apply either.
+3. `nos3/scripts/ci_launch.sh` had working-tree edits from the active feature branch but preserved the load-bearing pieces (early `DISPLAY` guard, unwrapped `xhost +local:*` on the GUI path, `NOS3_HEADLESS` branch).
+
+### Diagnostic ladder that found the off-screen placement
+
+```bash
+echo $DISPLAY                                     # :0
+ls /tmp/.X11-unix/                                # X0 socket present
+ss -lxn | grep /tmp/.X11-unix/X0                  # u_str LISTEN ...
+pgrep -af 'vscode-remote-containers-server'       # node PID alive
+xhost                                             # access control disabled, ...
+xdpyinfo | head -20                               # vendor: Microsoft Corporation
+                                                  # full X round-trip succeeds
+xset q | head -5                                  # X server responds with full config
+
+xeyes &
+XPID=$!
+sleep 2
+ps -p $XPID -o pid,stat,cmd                       # alive in 'S' state
+xwininfo -root -tree | grep xeyes
+# 0x60000a "xeyes": ...  150x100+38+59  +-32730+-32709
+#                                       ^^^^^^^^^^^^^^^
+# This is the absolute on-root position. -32730,-32709 is OFF-SCREEN.
+
+xclock -geometry 200x200+300+300 &
+sleep 2; xwininfo -root -tree | grep xclock
+# 0x... "xclock": ...  200x200+38+59  +-32730+-32709
+# Same exact off-screen coords. Forced -geometry was ignored at absolute level.
+
+xlogo &; sleep 2; xwininfo -root -tree | grep xlogo
+# Same coords. Universal across X clients.
+```
+
+The signature pattern is: every X client lands at absolute `+-32730+-32709`, parent at `INT16_MIN`, regardless of `-geometry` hints.
+
+### Root cause
+
+WSLg / XWayland (or the VS Code Wayland-X bridge currently in path) is placing X clients into a virtual parent at `INT16_MIN`, so all windows render off any visible monitor. The chain is:
+
+devcontainer X client -> /tmp/.X11-unix/X0 (in devcontainer) -> VS Code Remote-Containers tunnel -> WSL2 host -> WSLg / XWayland -> Windows compositor
+
+Inside the devcontainer, every step responds correctly. The breakdown is at the WSLg/XWayland or Windows compositor stage on the host. Possible triggers (cannot be confirmed from inside the devcontainer):
+
+- A WSLg version that has a placement regression (`wsl --update` may resolve)
+- A Windows display configuration change (monitor unplugged, scaling changed, virtual desktop swap) confused WSLg's coordinate space
+- A VS Code Windows-host build with a Wayland bridge regression
+- Long-running VS Code or WSL session in a stuck state
+
+### Fix (Windows-side)
+
+In increasing cost; stop as soon as a fresh `xeyes` test shows a window inside `(0,0)..(1440,900)`:
+
+1. Windows PowerShell: `wsl --shutdown`. Reopen VS Code and the devcontainer. Verify with the snippet below.
+2. Windows PowerShell: `wsl --update`, then `wsl --shutdown`. Reopen.
+3. Windows display settings: confirm only intended monitors are active and scaling is at a known-good value. Restart WSL.
+4. Help -> Check for Updates in VS Code on the Windows host. Reopen container.
+5. Reboot Windows.
+
+### Verification command
+
+After any attempt, from a fresh VS Code integrated terminal in the devcontainer:
+
+```bash
+xeyes -geometry 200x200+200+200 &
+sleep 2
+xwininfo -root -tree | grep xeyes
+# Working:  absolute coords like +200+200 (somewhere inside 0..1440 x 0..900)
+# Broken:   +-32730+-32709
+kill %1 2>/dev/null
+```
+
+A visible window on the Windows desktop is the gold standard; the `xwininfo` coordinate is the fast proxy.
+
+### Workaround if Windows-side fix has to wait
+
+```bash
+NOS3_HEADLESS=1 make launch
+```
+
+The `NOS3_HEADLESS` branch in `ci_launch.sh` skips the X mount and DISPLAY pass-through to the 42 container, so FSW, sims, and ELK still come up. No GUI windows, but the rest of the stack is unblocked.
+
+### Updated diagnostic protocol
+
+Before reaching for `git checkout`, `docker rm -f`, or any infrastructure change, run THIS triage in order:
+
+1. `docker ps -a --filter name=fortytwo` -- did 42 actually start? (covers second-occurrence cause)
+2. `git diff origin/main -- .devcontainer/devcontainer.json` -- is the devcontainer clean? (covers first-occurrence cause)
+3. `xdpyinfo | head -5` -- does the X server round-trip? If yes, devcontainer X is fine.
+4. `xeyes &; sleep 2; xwininfo -root -tree | grep xeyes` -- where is the window placed? If absolute coords are `+-32730+-32709` or any value far outside the root window dimensions, the bug is WSLg-side (third-occurrence cause).
+
+The fix is determined entirely by which step first produces a non-healthy result. Do not start editing files until the failing step is identified.
+
+### Files touched by this fix
+
+None in the repo. The fix is entirely Windows-side (WSLg/VS Code/host display).
