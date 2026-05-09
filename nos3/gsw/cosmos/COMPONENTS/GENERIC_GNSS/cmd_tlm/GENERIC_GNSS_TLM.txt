@@ -1,0 +1,73 @@
+TELEMETRY GENERIC_GNSS GENERIC_GNSS_HK_TLM LITTLE_ENDIAN "GENERIC_GNSS_Hk_tlm_t"
+  APPEND_ID_ITEM CCSDS_STREAMID       16 UINT 0x0952  "CCSDS Packet Identification" BIG_ENDIAN
+  APPEND_ITEM    CCSDS_SEQUENCE       16 UINT         "CCSDS Packet Sequence Control" BIG_ENDIAN
+  APPEND_ITEM    CCSDS_LENGTH         16 UINT         "CCSDS Packet Data Length" BIG_ENDIAN
+  APPEND_ITEM    CCSDS_SECONDS        32 UINT         "CCSDS Telemetry Secondary Header (seconds)" BIG_ENDIAN
+  APPEND_ITEM    CCSDS_SUBSECS        16 UINT         "CCSDS Telemetry Secondary Header (subseconds)" BIG_ENDIAN
+  APPEND_ITEM    CCSDS_SPARE          32 UINT         ""
+  APPEND_ITEM    CMD_ERR_COUNT         8 UINT         "Command Error Count"
+  APPEND_ITEM    CMD_COUNT             8 UINT         "Command Count"
+  APPEND_ITEM    DEVICE_ERR_COUNT      8 UINT         "Device Command Error Count"
+  APPEND_ITEM    DEVICE_COUNT          8 UINT         "Device Command Count"
+  APPEND_ITEM    DEVICE_ENABLED        8 UINT         "1 = UART open"
+
+  # GENERIC_GNSS_Device_HK_tlm_t (constellation + DOP, untouched)
+  APPEND_ITEM    SOLUTION_TYPE         8 UINT         "0=NONE 1=FLOAT 2=FIX_3D"
+  APPEND_ITEM    NUM_SATS_TOTAL        8 UINT         "Total satellites visible"
+  APPEND_ITEM    NUM_SATS_GPS          8 UINT         "GPS satellites"
+  APPEND_ITEM    NUM_SATS_GLONASS      8 UINT         "GLONASS satellites"
+  APPEND_ITEM    NUM_SATS_GALILEO      8 UINT         "Galileo satellites"
+  APPEND_ITEM    NUM_SATS_BEIDOU       8 UINT         "BeiDou satellites"
+  APPEND_ITEM    PDOP                 32 FLOAT        "Position dilution of precision"
+  APPEND_ITEM    HDOP                 32 FLOAT        "Horizontal DOP"
+  APPEND_ITEM    VDOP                 32 FLOAT        "Vertical DOP"
+
+  # GNSS-to-GS Validation extension (read off the UART each tick by the FSW)
+  APPEND_ITEM    GNSS_LAT             64 FLOAT        "WGS84 latitude (deg)"
+  APPEND_ITEM    GNSS_LON             64 FLOAT        "WGS84 longitude (deg)"
+  APPEND_ITEM    IN_DENMARK_BOX        8 UINT         "1 if 55-58 N and 8-16 E"
+  APPEND_ITEM    IN_SCIENCE_MODE       8 UINT         "1 if MGR.SpacecraftMode == SCIENCE"
+  APPEND_ITEM    LAST_PING_SEQ        32 UINT         "Last GS_PING_CC sequence echoed"
+  APPEND_ITEM    LAST_PING_TIME       64 UINT         "CFE_TIME microseconds at last ping"
+  APPEND_ITEM    PING_COUNT           32 UINT         "Total GS_PING_CC handled"
+
+
+TELEMETRY GENERIC_GNSS GENERIC_GNSS_DEVICE_TLM LITTLE_ENDIAN "GENERIC_GNSS_Device_tlm_t (SCIENCE-gated DATA TLM)"
+  APPEND_ID_ITEM CCSDS_STREAMID       16 UINT 0x0953  "CCSDS Packet Identification" BIG_ENDIAN
+  APPEND_ITEM    CCSDS_SEQUENCE       16 UINT         "CCSDS Packet Sequence Control" BIG_ENDIAN
+  APPEND_ITEM    CCSDS_LENGTH         16 UINT         "CCSDS Packet Data Length" BIG_ENDIAN
+  APPEND_ITEM    CCSDS_SECONDS        32 UINT         "CCSDS Telemetry Secondary Header (seconds)" BIG_ENDIAN
+  APPEND_ITEM    CCSDS_SUBSECS        16 UINT         "CCSDS Telemetry Secondary Header (subseconds)" BIG_ENDIAN
+  APPEND_ITEM    CCSDS_SPARE          32 UINT         ""
+
+  APPEND_ITEM    SOLUTION_TYPE         8 UINT         "0=NONE 1=FLOAT 2=FIX_3D"
+  APPEND_ITEM    NUM_SATS_TOTAL        8 UINT         "Total satellites visible"
+  APPEND_ITEM    NUM_SATS_GPS          8 UINT         "GPS satellites"
+  APPEND_ITEM    NUM_SATS_GLONASS      8 UINT         "GLONASS satellites"
+  APPEND_ITEM    NUM_SATS_GALILEO      8 UINT         "Galileo satellites"
+  APPEND_ITEM    NUM_SATS_BEIDOU       8 UINT         "BeiDou satellites"
+  APPEND_ITEM    PDOP                 32 FLOAT        "Position dilution of precision"
+  APPEND_ITEM    HDOP                 32 FLOAT        "Horizontal DOP"
+  APPEND_ITEM    VDOP                 32 FLOAT        "Vertical DOP"
+  APPEND_ITEM    GNSS_LAT             64 FLOAT        "WGS84 latitude (deg)"
+  APPEND_ITEM    GNSS_LON             64 FLOAT        "WGS84 longitude (deg)"
+  APPEND_ITEM    IN_DENMARK_BOX        8 UINT         "1 if 55-58 N and 8-16 E"
+  APPEND_ITEM    IN_SCIENCE_MODE       8 UINT         "1 if MGR.SpacecraftMode == SCIENCE"
+  APPEND_ITEM    LAST_PING_SEQ        32 UINT         "Last GS_PING_CC sequence echoed"
+  APPEND_ITEM    LAST_PING_TIME       64 UINT         "CFE_TIME microseconds at last ping"
+  APPEND_ITEM    PING_COUNT           32 UINT         "Total GS_PING_CC handled"
+
+
+TELEMETRY GENERIC_GNSS GENERIC_GNSS_SAT_HELLO_TLM LITTLE_ENDIAN "GENERIC_GNSS_SatHello_tlm_t (1 Hz beacon while in Denmark FOV)"
+  APPEND_ID_ITEM CCSDS_STREAMID       16 UINT 0x0954  "CCSDS Packet Identification" BIG_ENDIAN
+  APPEND_ITEM    CCSDS_SEQUENCE       16 UINT         "CCSDS Packet Sequence Control" BIG_ENDIAN
+  APPEND_ITEM    CCSDS_LENGTH         16 UINT         "CCSDS Packet Data Length" BIG_ENDIAN
+  APPEND_ITEM    CCSDS_SECONDS        32 UINT         "CCSDS Telemetry Secondary Header (seconds)" BIG_ENDIAN
+  APPEND_ITEM    CCSDS_SUBSECS        16 UINT         "CCSDS Telemetry Secondary Header (subseconds)" BIG_ENDIAN
+  APPEND_ITEM    CCSDS_SPARE          32 UINT         ""
+
+  APPEND_ITEM    HELLO_SEQ            32 UINT         "Monotonic per-app-lifetime beacon sequence"
+  APPEND_ITEM    GNSS_TIME_US         64 UINT         "CFE_TIME microseconds at emit"
+  APPEND_ITEM    GNSS_LAT             64 FLOAT        "WGS84 latitude (deg) at emit"
+  APPEND_ITEM    GNSS_LON             64 FLOAT        "WGS84 longitude (deg) at emit"
+  APPEND_ITEM    IN_DENMARK_BOX        8 UINT         "Always 1 when packet is emitted"
