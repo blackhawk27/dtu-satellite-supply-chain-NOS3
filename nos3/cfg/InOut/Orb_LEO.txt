@@ -14,10 +14,10 @@ KEP                           !  Use Keplerian elements (KEP) or (RV) or FILE
 PA                            !  Use Peri/Apoapsis (PA) or min alt/ecc (AE)
 400.0      400.0              !  Periapsis & Apoapsis Altitude, km
 400.0  2.0                    !  Min Altitude (km), Eccentricity
-52.0                          !  Inclination (deg)
-180.0                         !  Right Ascension of Ascending Node (deg)
+60.0                          !  Inclination (deg) - DTU: bumped from 52 so ground track reaches Denmark (55-58 N)
+346.0                         !  Right Ascension of Ascending Node (deg) - DTU: empirically tuned so the sub-sat point enters the Denmark bbox at t~1.3 min and exits at t~2.3 min
 0.0                           !  Argument of Periapsis (deg)
-0.0                           !  True Anomaly (deg)
+61.6                          !  True Anomaly (deg) - DTU: argument of latitude at epoch; with RAAN above places sub-sat at lat~50 N lon~3 W pre-pass
 6678.0  0.0  0.0              !  RV Initial Position (km)
 0.0  8.5  0.0                 !  RV Initial Velocity (km/sec)
 TRV                           !  TLE, TRV, or SPLINE file format
