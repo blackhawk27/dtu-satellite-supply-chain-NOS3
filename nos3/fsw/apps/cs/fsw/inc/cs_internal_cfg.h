@@ -177,7 +177,16 @@
  *       This can either be CS_ChecksumState_ENABLED or CS_ChecksumState_DISABLED
  */
 #define CS_OSCS_CHECKSUM_STATE                  CS_INTERNAL_CFGVAL(OSCS_CHECKSUM_STATE)
-#define DEFAULT_CS_INTERNAL_OSCS_CHECKSUM_STATE CS_ChecksumState_ENABLED
+/* DTU 2026-05-07: Default disabled on 64-bit POSIX hosts.  cs_init.c
+ * stores the kernel text-segment base into CS_Res_EepromMemory_Table_
+ * Entry_t::StartAddress, which is a CFE_ES_MemAddress_t (uint32) and
+ * truncates the upper 32 bits of the cpuaddr.  When CS_BackgroundOS
+ * later dereferences the truncated value via CFE_ES_MEMADDRESS_TO_PTR,
+ * the access lands on an unmapped low-memory page and the OS faults
+ * the cFS process (signal 11 in the CS thread).  Re-enable from the
+ * ground only when targeting a 32-bit address space.  See debug
+ * journal 2026-05-07 entry for the full diagnosis. */
+#define DEFAULT_CS_INTERNAL_OSCS_CHECKSUM_STATE CS_ChecksumState_DISABLED
 
 /**
  * \brief Desired state of the checksumming of CFE core checksum at power on
@@ -190,7 +199,11 @@
  *       This can either be CS_ChecksumState_ENABLED or CS_ChecksumState_DISABLED
  */
 #define CS_CFECORE_CHECKSUM_STATE                  CS_INTERNAL_CFGVAL(CFECORE_CHECKSUM_STATE)
-#define DEFAULT_CS_INTERNAL_CFECORE_CHECKSUM_STATE CS_ChecksumState_ENABLED
+/* DTU 2026-05-07: Same 64-bit truncation issue as OSCS_CHECKSUM_STATE
+ * above.  cs_init.c writes the cFE text-segment base address (~0x5c1c
+ * 85e7c000 on a typical PIE load) into a uint32 field, the upper bits
+ * are dropped, and CS later reads from the truncated low address. */
+#define DEFAULT_CS_INTERNAL_CFECORE_CHECKSUM_STATE CS_ChecksumState_DISABLED
 
 /**
  * \brief Desired state of the EEPROM table at power on
@@ -229,7 +242,11 @@
  *       This can either be CS_ChecksumState_ENABLED or CS_ChecksumState_DISABLED
  */
 #define CS_APPS_TBL_POWERON_STATE                  CS_INTERNAL_CFGVAL(APPS_TBL_POWERON_STATE)
-#define DEFAULT_CS_INTERNAL_APPS_TBL_POWERON_STATE CS_ChecksumState_ENABLED
+/* DTU 2026-05-07: App code addresses are obtained at runtime from
+ * CFE_ES_GetAppInfo() and copied into CS_Res_App_Table_Entry_t::
+ * StartAddress (uint32 CFE_ES_MemAddress_t), which truncates the
+ * 64-bit cpuaddr.  See OSCS_CHECKSUM_STATE comment above. */
+#define DEFAULT_CS_INTERNAL_APPS_TBL_POWERON_STATE CS_ChecksumState_DISABLED
 
 /**
  * \brief Desired state of the Tables table at power on
@@ -242,7 +259,11 @@
  *       This can either be CS_ChecksumState_ENABLED or CS_ChecksumState_DISABLED
  */
 #define CS_TABLES_TBL_POWERON_STATE                  CS_INTERNAL_CFGVAL(TABLES_TBL_POWERON_STATE)
-#define DEFAULT_CS_INTERNAL_TABLES_TBL_POWERON_STATE CS_ChecksumState_ENABLED
+/* DTU 2026-05-07: Table buffer addresses come from CFE_TBL_GetAddress
+ * and are stored in CS_Res_Tables_Table_Entry_t::StartAddress (uint32
+ * CFE_ES_MemAddress_t), truncating the 64-bit pointer.  See
+ * OSCS_CHECKSUM_STATE comment above. */
+#define DEFAULT_CS_INTERNAL_TABLES_TBL_POWERON_STATE CS_ChecksumState_DISABLED
 
 /**
  * \brief Whether to preserve checksum states on processor reset
