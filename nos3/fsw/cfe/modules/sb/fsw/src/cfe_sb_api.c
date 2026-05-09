@@ -1304,19 +1304,6 @@ CFE_Status_t CFE_SB_TransmitMsg(const CFE_MSG_Message_t *MsgPtr, bool UpdateHead
 
     Status = CFE_SB_TransmitMsgValidate(MsgPtr, &MsgId, &Size, &RouteId);
 
-    /* --- DTU THESIS: ELK STACK JSON GOD VIEW --- */
-    if (Status == CFE_SUCCESS)
-    {
-        FILE *dtu_log = fopen("/workspaces/dtu-satellite-supply-chain-NOS3/nos3/attack_logs/cfs_god_view.json", "a");
-        if (dtu_log != NULL)
-        {
-            fprintf(dtu_log, "{\"log_type\":\"cfs_sb\", \"msg_id\":\"0x%04X\", \"length\":%lu}\n",
-                    (unsigned int)CFE_SB_MsgIdToValue(MsgId), (unsigned long)Size);
-            fclose(dtu_log);
-        }
-    }
-    /* ------------------------------------------- */
-
     CFE_SB_LockSharedData(__func__, __LINE__);
 
     if (Status == CFE_SUCCESS && CFE_SBR_IsValidRouteId(RouteId))
