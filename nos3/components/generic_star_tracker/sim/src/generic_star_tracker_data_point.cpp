@@ -1,5 +1,6 @@
 #include <ItcLogger/Logger.hpp>
 #include <generic_star_tracker_data_point.hpp>
+#include <cmath>
 
 namespace Nos3
 {
@@ -9,12 +10,21 @@ namespace Nos3
     {
         sim_logger->trace("Generic_star_trackerDataPoint::Generic_star_trackerDataPoint:  Defined Constructor executed");
 
-        /* Do calculations based on provided data */
+        /* Synthetic data path: emit a unit quaternion representing a slow
+         * rotation about the tilted axis n=(1,1,1)/sqrt(3) so all four
+         * components vary and |q|=1 holds by construction. The previous
+         * count*{0.001,0.002,0.003,0.004} formula produced non-rotation
+         * vectors with sum-of-squares well above 1, saturating the uint16
+         * encoding downstream. */
         _generic_star_tracker_data_is_valid = true;
-        _generic_star_tracker_data[0] = count * 0.001;
-        _generic_star_tracker_data[1] = count * 0.002;
-        _generic_star_tracker_data[2] = count * 0.003;
-        _generic_star_tracker_data[3] = count * 0.004;
+        const double theta = count * 0.001; /* radians per request */
+        const double s = std::sin(theta * 0.5);
+        const double c = std::cos(theta * 0.5);
+        const double inv_sqrt3 = 0.57735026918962576451; /* 1/sqrt(3) */
+        _generic_star_tracker_data[0] = c;
+        _generic_star_tracker_data[1] = s * inv_sqrt3;
+        _generic_star_tracker_data[2] = s * inv_sqrt3;
+        _generic_star_tracker_data[3] = s * inv_sqrt3;
     }
 
     Generic_star_trackerDataPoint::Generic_star_trackerDataPoint(int16_t spacecraft, int16_t star_tracker, const boost::shared_ptr<Sim42DataPoint> dp) : _dp(*dp), _sc(spacecraft), _st(star_tracker), _not_parsed(true)
