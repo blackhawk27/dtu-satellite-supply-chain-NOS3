@@ -33,11 +33,9 @@ fsw_identified = 0
 if (fsw_cfg == 'fprime'):
     fsw_identified = 1
     os.system('cp ./scripts/fsw/fsw_fprime_build.sh ./cfg/build/fsw_build.sh')
-    os.system('cp ./scripts/fsw/fsw_fprime_launch.sh ./cfg/build/launch.sh')
 if (fsw_cfg == 'cfs'):
     fsw_identified = 1
     os.system('cp ./scripts/fsw/fsw_cfs_build.sh ./cfg/build/fsw_build.sh')
-    os.system('cp ./scripts/fsw/fsw_cfs_launch.sh ./cfg/build/launch.sh')
 if (fsw_identified == 0):
     print('Invalid FSW in configuration file!')
     print('Exiting due to error...')
@@ -48,30 +46,20 @@ gsw_cfg = mission_root.find(gsw_str).text
 print(' ', gsw_str, ':', gsw_cfg)
 gsw_identified = 0
 if (gsw_cfg == 'openc3'):
-    # Copy openc3 scripts into ./cfg/build
     gsw_identified = 1
     os.system('cp ./scripts/gsw/gsw_openc3_build.sh ./cfg/build/gsw_build.sh')
-    os.system('cp ./scripts/gsw/gsw_openc3_launch.sh ./cfg/build/gsw_launch.sh')
 if (gsw_cfg == 'cosmos'):
-    # Copy cosmos scripts into ./cfg/build
     gsw_identified = 1
     os.system('cp ./scripts/gsw/gsw_cosmos_build.sh ./cfg/build/gsw_build.sh')
-    os.system('cp ./scripts/gsw/gsw_cosmos_launch.sh ./cfg/build/gsw_launch.sh')
 if (gsw_cfg == 'fprime'):
-    # Copy fprime scripts into ./cfg/build
     gsw_identified = 1
     os.system('cp ./scripts/gsw/gsw_fprime_build.sh ./cfg/build/gsw_build.sh')
-    os.system('cp ./scripts/gsw/gsw_fprime_launch.sh ./cfg/build/gsw_launch.sh')
 if (gsw_cfg == 'ait'):
-    # Copy ait scripts into ./cfg/build
     gsw_identified = 1
     os.system('cp ./scripts/gsw/gsw_ait_build.sh ./cfg/build/gsw_build.sh')
-    os.system('cp ./scripts/gsw/gsw_ait_launch.sh ./cfg/build/gsw_launch.sh')
 if (gsw_cfg == 'yamcs'):
-    # Copy yamcs scripts into ./cfg/build
     gsw_identified = 1
     os.system('cp ./scripts/gsw/gsw_yamcs_build.sh ./cfg/build/gsw_build.sh')
-    os.system('cp ./scripts/gsw/gsw_yamcs_launch.sh ./cfg/build/gsw_launch.sh')
 if (gsw_identified == 0):
     print('Invalid GSW in configuration file!')
     print('Exiting due to error...')
@@ -173,11 +161,15 @@ else:
             torquer_line = ""
             thruster_line = ""
             
-            # Parse lines
-            for line in lines:
-                if line.find('!') != -1:
-                    if (lines.index(line)) < sc_startup_eof:
-                        sc_startup_eof = lines.index(line)
+            # First pass: find the ! EOF marker position
+            for i, line in enumerate(lines):
+                if line.find('!') != -1 and i < sc_startup_eof:
+                    sc_startup_eof = i
+
+            # Second pass: only scan lines AFTER the ! marker (the disabled pool).
+            # This prevents re-injecting apps that are already in the active heritage
+            # section above the ! marker, which would produce duplicate app entries.
+            for line in lines[sc_startup_eof + 1:]:
                 if line.find('CF,') != -1:
                     if (sc_cf_en == 'true'):
                         cf_line = line

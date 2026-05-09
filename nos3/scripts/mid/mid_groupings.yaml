@@ -1,0 +1,158 @@
+# MID classification rules - name-prefix → {layer, subsystem}.
+# Read by scripts/mid/gen_mid_registry.py at `make config` time.
+#
+# Longest matching prefix wins, so list more specific prefixes (e.g. CFE_TIME_)
+# without worrying about ordering vs. shorter ones (CFE_).
+#
+# Layers (used for Kibana faceting):
+#   FSW_CORE      - cFE OS services: ES, EVS, SB, TBL, TIME
+#   FSW_HERITAGE  - standard cFS apps: SCH, TO, CI, DS, FM, CF, LC, SC, HK,
+#                   HS, CS, MD, MM, SBN, MGR, TO_LAB, CI_LAB
+#   COMPONENT     - NOS3 generic_* hardware-component FSW apps
+#   RESEARCH      - DTU-added research apps (BEACON_APP, NOISY_APP, ...)
+
+# ── cFE core (FSW_CORE) ─────────────────────────────────────────────────────
+- prefix: CFE_ES_
+  layer: FSW_CORE
+  subsystem: ES
+- prefix: CFE_EVS_
+  layer: FSW_CORE
+  subsystem: EVS
+- prefix: CFE_SB_
+  layer: FSW_CORE
+  subsystem: SB
+- prefix: CFE_TBL_
+  layer: FSW_CORE
+  subsystem: TBL
+- prefix: CFE_TIME_
+  layer: FSW_CORE
+  subsystem: TIME
+
+# ── cFS heritage apps (FSW_HERITAGE) ────────────────────────────────────────
+- prefix: SCH_
+  layer: FSW_HERITAGE
+  subsystem: SCH
+- prefix: TO_LAB_
+  layer: FSW_HERITAGE
+  subsystem: TO_LAB
+- prefix: TO_
+  layer: FSW_HERITAGE
+  subsystem: TO
+- prefix: CI_LAB_
+  layer: FSW_HERITAGE
+  subsystem: CI_LAB
+- prefix: CI_
+  layer: FSW_HERITAGE
+  subsystem: CI
+- prefix: DS_
+  layer: FSW_HERITAGE
+  subsystem: DS
+- prefix: FM_
+  layer: FSW_HERITAGE
+  subsystem: FM
+- prefix: CF_
+  layer: FSW_HERITAGE
+  subsystem: CF
+- prefix: LC_
+  layer: FSW_HERITAGE
+  subsystem: LC
+- prefix: SC_
+  layer: FSW_HERITAGE
+  subsystem: SC
+- prefix: HK_
+  layer: FSW_HERITAGE
+  subsystem: HK
+- prefix: HS_
+  layer: FSW_HERITAGE
+  subsystem: HS
+- prefix: CS_
+  layer: FSW_HERITAGE
+  subsystem: CS
+- prefix: MD_
+  layer: FSW_HERITAGE
+  subsystem: MD
+- prefix: MM_
+  layer: FSW_HERITAGE
+  subsystem: MM
+- prefix: SBN_
+  layer: FSW_HERITAGE
+  subsystem: SBN
+- prefix: MGR_
+  layer: FSW_HERITAGE
+  subsystem: MGR
+
+# ── DTU research apps (RESEARCH) ────────────────────────────────────────────
+- prefix: BEACON_APP_
+  layer: RESEARCH
+  subsystem: BEACON
+- prefix: NOISY_APP_
+  layer: RESEARCH
+  subsystem: NOISY_APP
+- prefix: CPU_KILLER_
+  layer: RESEARCH
+  subsystem: CPU_KILLER
+
+# ── NOS3 generic hardware components (COMPONENT) ────────────────────────────
+- prefix: GENERIC_EPS_
+  layer: COMPONENT
+  subsystem: EPS
+- prefix: GENERIC_RW_
+  layer: COMPONENT
+  subsystem: RW
+- prefix: GENERIC_RADIO_
+  layer: COMPONENT
+  subsystem: RADIO
+- prefix: GENERIC_ADCS_
+  layer: COMPONENT
+  subsystem: ADCS
+- prefix: GENERIC_CSS_
+  layer: COMPONENT
+  subsystem: CSS
+- prefix: GENERIC_FSS_
+  layer: COMPONENT
+  subsystem: FSS
+- prefix: GENERIC_GNSS_
+  layer: COMPONENT
+  subsystem: GENERIC_GNSS
+- prefix: GENERIC_IMU_
+  layer: COMPONENT
+  subsystem: IMU
+- prefix: GENERIC_MAG_
+  layer: COMPONENT
+  subsystem: MAG
+- prefix: GENERIC_STAR_TRACKER_
+  layer: COMPONENT
+  subsystem: STAR_TRACKER
+- prefix: GENERIC_TORQUER_
+  layer: COMPONENT
+  subsystem: TORQUER
+- prefix: GENERIC_THRUSTER_
+  layer: COMPONENT
+  subsystem: THRUSTER
+- prefix: GENERIC_TT_C_
+  layer: COMPONENT
+  subsystem: GENERIC_TT_C
+- prefix: NOVATEL_OEM615_
+  layer: COMPONENT
+  subsystem: GPS
+- prefix: NOVATEL_GPS_
+  layer: COMPONENT
+  subsystem: GPS
+- prefix: CAM_
+  layer: COMPONENT
+  subsystem: CAM
+- prefix: ARDUCAM_
+  layer: COMPONENT
+  subsystem: CAM
+- prefix: SAMPLE_APP_
+  layer: COMPONENT
+  subsystem: SAMPLE
+- prefix: SAMPLE_
+  layer: COMPONENT
+  subsystem: SAMPLE
+- prefix: SYN_
+  layer: COMPONENT
+  subsystem: SYN
+- prefix: HWLIB_
+  layer: COMPONENT
+  subsystem: HWLIB

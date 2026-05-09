@@ -17,7 +17,7 @@ if [ -d $SIM_DIR/bin ]; then
 fi 
 
 DATE=$(date "+%Y%m%d%H%M")
-NUM_CPUS="$( nproc )"
+NUM_CPUS="${NUM_CPUS:-$( nproc )}"
 
 USERDIR=$(cd ~/ && pwd)
 USER_NOS3_DIR=$(cd ~/ && pwd)/.nos3
