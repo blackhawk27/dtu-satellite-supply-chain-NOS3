@@ -27,7 +27,9 @@ repo_tree.txt
 .ai-memory/
 .claude/
 .codex
+.cursorrules
 .mcp.json
+.windsurfrules
 AGENTS.md
 CLAUDE.md
 GEMINI.md
@@ -36,3 +38,10 @@ GEMINI.md
 node_modules/
 package.json
 package-lock.json
+
+# Python bytecode caches
+__pycache__/
+*.pyc
+
+# Maven build output (yamcs ground software)
+nos3/gsw/yamcs/**/target/
