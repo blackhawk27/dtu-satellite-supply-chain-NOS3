@@ -49,11 +49,17 @@
 			<enable>true</enable>
 		</mgr>
 		<onair>
-			<enable>false</enable>
+			<enable>true</enable>
 		</onair>
 		<radio>
 			<enable>true</enable>
 		</radio>
+		<tt_c>
+			<enable>true</enable>
+		</tt_c>
+		<gnss>
+			<enable>true</enable>
+		</gnss>
 		<rw>
 			<enable>true</enable>
 		</rw>
