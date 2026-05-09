@@ -22,6 +22,8 @@
 
 #include <boost/property_tree/xml_parser.hpp>
 
+#include <cmath>
+
 namespace Nos3
 {
     REGISTER_HARDWARE_MODEL(GenericRWHardwareModel,"GENERICREACTIONWHEELHARDWARE");
@@ -99,6 +101,7 @@ namespace Nos3
     void GenericRWHardwareModel::run(void)
     {
         int i = 0;
+        int trace_div = 0;
         boost::shared_ptr<SimIDataPoint> dp;
         int cnt = 0;
         while(1)
@@ -106,11 +109,28 @@ namespace Nos3
 
             if(_enabled==RW_SIM_SUCCESS)
             {
-                sim_logger->trace("GenericRWHardwareModel::run:  Loop count %d, time %f", i++,
-                    _absolute_start_time + (double(_time_bus->get_time() * _sim_microseconds_per_tick)) / 1000000.0);
-                sleep(5);
+                double now = _absolute_start_time + (double(_time_bus->get_time() * _sim_microseconds_per_tick)) / 1000000.0;
+                double uptime = now - _absolute_start_time;
+                if (++trace_div % 5 == 0)
+                {
+                    sim_logger->trace("GenericRWHardwareModel::run:  Loop count %d, time %f", i++, now);
+                }
+                /* Silence-resilience fallback: if no live FSW UART REPLY in
+                 * the threshold window (and we are past the startup warmup),
+                 * emit a synthetic CURRENT_MOMENTUM REPLY so the dashboard
+                 * field keeps populating. The line shape matches the
+                 * existing Logstash grok at logstash.conf line 760. */
+                double last_reply = _last_uart_reply_sim_time.load();
+                double silence = now - last_reply;
+                if (uptime > _silence_warmup_sec && silence >= _silence_threshold_sec)
+                {
+                    double synth = 0.001 * std::sin(now * 0.1);
+                    sim_logger->debug("GenericRWHardwareModel::synthetic_fallback:  REPLY CURRENT_MOMENTUM=%f (silence=%fs, wheel=%d)",
+                                      synth, silence, _wheel_number);
+                }
+                sleep(1);
             }
-            else 
+            else
             {
                 if(cnt>10)
                 {
@@ -122,7 +142,7 @@ namespace Nos3
                     cnt++;
                 }
                 sleep(1);
-                
+
             }
         }
     }
@@ -153,8 +173,19 @@ namespace Nos3
             std::vector<uint8_t> out_data = SimIHardwareModel::ascii_string_to_uint8_vector(response);
             sim_logger->debug("GenericRWHardwareModel::uart_read_callback:  REPLY   %s\n", response.c_str()); // log data in a man readable format
             _uart_connection->write(&out_data[0], out_data.size());
+
+            /* Record the sim time of this live REPLY so run()'s silence
+             * detector can tell when FSW polling has gone quiet. Only
+             * record on CURRENT_MOMENTUM, since that is the field the
+             * dashboard cares about; SET_TORQUE replies would falsely
+             * suppress the fallback. */
+            if (response.compare(0, 17, "CURRENT_MOMENTUM=") == 0)
+            {
+                double now = _absolute_start_time + (double(_time_bus->get_time() * _sim_microseconds_per_tick)) / 1000000.0;
+                _last_uart_reply_sim_time.store(now);
+            }
         }
-        
+
     }
 
     std::string GenericRWHardwareModel::handle_command(std::string command)

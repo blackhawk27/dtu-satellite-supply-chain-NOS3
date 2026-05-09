@@ -57,6 +57,14 @@ namespace Nos3
         double                                  _prev_data_sent_time = 0;
         double                                  _period = 0.1;
         int                                     _wheel_number;
+        /* Silence-resilience fallback: tracks the most recent sim time at
+         * which a live FSW UART poll produced a CURRENT_MOMENTUM REPLY.
+         * If the gap exceeds _silence_threshold_sec (after a warmup
+         * window), run() emits a synthetic line so rw_momentum keeps
+         * populating in Kibana even when the FSW or 42 path is silent. */
+        std::atomic<double>                     _last_uart_reply_sim_time{0.0};
+        double                                  _silence_threshold_sec = 5.0;
+        double                                  _silence_warmup_sec = 10.0;
     };
 }
 

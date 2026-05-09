@@ -54,7 +54,14 @@ namespace Nos3
             std::string key;
             key.append("SC[").append(std::to_string(_sc)).append("].Whl[").append(std::to_string(_reactionwheel)).append("].H");
 
-            _momentum = std::stod(_dp.get_value_for_key(key));
+            /* First-tick race: 42 frame may not yet have populated this key.
+             * Defer parsing to the next tick rather than throw / log error. */
+            std::string val = _dp.get_value_for_key(key);
+            if (val.empty()) {
+                sim_logger->debug("GenericRWDataPoint::do_parsing:  empty SC[%d].Whl[%d] frame, deferring to next tick", _sc, _reactionwheel);
+                return;
+            }
+            _momentum = std::stod(val);
         } catch (const std::exception& e) {
             sim_logger->error("GenericRWDataPoint::GenericRWDataPoint:  Parsing exception %s", e.what());
         }
