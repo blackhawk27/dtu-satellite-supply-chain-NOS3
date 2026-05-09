@@ -36,6 +36,6 @@
     "otherPortsAttributes": {
         "onAutoForward": "ignore"
     },
-    "postCreateCommand": "sudo apt-get update && sudo apt-get install -y python3-pip python3-venv python3-dev make git build-essential tmux terminator && bash .devcontainer/post-create.sh",
+    "postCreateCommand": "bash .devcontainer/install-deps.sh && bash .devcontainer/post-create.sh",
     "remoteUser": "vscode"
 }
