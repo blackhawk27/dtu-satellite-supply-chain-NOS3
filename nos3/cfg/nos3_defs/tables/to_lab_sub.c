@@ -69,6 +69,8 @@
 #include "generic_star_tracker_msgids.h"
 #include "mgr_msgids.h"
 #include "syn_msgids.h"
+#include "generic_tt_c_msgids.h"
+#include "generic_gnss_msgids.h"
 
 /*
 ** Local Structure Declarations
@@ -134,6 +136,10 @@ TO_LAB_Subs_t TO_LAB_Subs =
         {CFE_SB_MSGID_WRAP_VALUE(GENERIC_STAR_TRACKER_HK_TLM_MID),{0,0},  32},
         {CFE_SB_MSGID_WRAP_VALUE(GENERIC_STAR_TRACKER_DEVICE_TLM_MID),{0,0},  32},
         {CFE_SB_MSGID_WRAP_VALUE(GENERIC_THRUSTER_HK_TLM_MID),  {0,0},  32},
+        {CFE_SB_MSGID_WRAP_VALUE(GENERIC_TT_C_HK_TLM_MID),      {0,0},  32},
+        {CFE_SB_MSGID_WRAP_VALUE(GENERIC_TT_C_DEVICE_TLM_MID),  {0,0},  32},
+        {CFE_SB_MSGID_WRAP_VALUE(GENERIC_GNSS_HK_TLM_MID),      {0,0},  32},
+        {CFE_SB_MSGID_WRAP_VALUE(GENERIC_GNSS_DEVICE_TLM_MID),  {0,0},  32},
         {CFE_SB_MSGID_WRAP_VALUE(MGR_HK_TLM_MID),               {0,0},  32},
         {CFE_SB_MSGID_WRAP_VALUE(SYN_HK_TLM_MID),               {0,0},  32},
         {CFE_SB_MSGID_WRAP_VALUE(SCH_HK_TLM_MID),               {0,0},  32},
@@ -287,6 +293,7 @@ TO_LAB_Subs_t TO_LAB_Subs =
         {CFE_SB_MSGID_WRAP_VALUE(SAMPLE_CMD_MID), {0, 0}, 4},
         {CFE_SB_MSGID_WRAP_VALUE(SAMPLE_REQ_HK_MID), {0, 0}, 4},
         {CFE_SB_MSGID_WRAP_VALUE(SAMPLE_HK_TLM_MID), {0, 0}, 32},
+        {CFE_SB_MSGID_WRAP_VALUE(SAMPLE_DEVICE_TLM_MID), {0, 0}, 32},
 
         /* ========================================================= */
         /* COMPONENT SPECIFICS (ADCS, EPS, CAM, RADIO, etc.)         */
@@ -322,22 +329,27 @@ TO_LAB_Subs_t TO_LAB_Subs =
         {CFE_SB_MSGID_WRAP_VALUE(GENERIC_CSS_CMD_MID), {0, 0}, 4},
         {CFE_SB_MSGID_WRAP_VALUE(GENERIC_CSS_REQ_HK_MID), {0, 0}, 4},
         {CFE_SB_MSGID_WRAP_VALUE(GENERIC_CSS_HK_TLM_MID), {0, 0}, 32},
+        {CFE_SB_MSGID_WRAP_VALUE(GENERIC_CSS_DEVICE_TLM_MID), {0, 0}, 32},
         /* Fine Sun Sensor (FSS) */
         {CFE_SB_MSGID_WRAP_VALUE(GENERIC_FSS_CMD_MID), {0, 0}, 4},
         {CFE_SB_MSGID_WRAP_VALUE(GENERIC_FSS_REQ_HK_MID), {0, 0}, 4},
         {CFE_SB_MSGID_WRAP_VALUE(GENERIC_FSS_HK_TLM_MID), {0, 0}, 32},
+        {CFE_SB_MSGID_WRAP_VALUE(GENERIC_FSS_DEVICE_TLM_MID), {0, 0}, 32},
         /* IMU */
         {CFE_SB_MSGID_WRAP_VALUE(GENERIC_IMU_CMD_MID), {0, 0}, 4},
         {CFE_SB_MSGID_WRAP_VALUE(GENERIC_IMU_REQ_HK_MID), {0, 0}, 4},
         {CFE_SB_MSGID_WRAP_VALUE(GENERIC_IMU_HK_TLM_MID), {0, 0}, 32},
+        {CFE_SB_MSGID_WRAP_VALUE(GENERIC_IMU_DEVICE_TLM_MID), {0, 0}, 32},
         /* Magnetometer (MAG) */
         {CFE_SB_MSGID_WRAP_VALUE(GENERIC_MAG_CMD_MID), {0, 0}, 4},
         {CFE_SB_MSGID_WRAP_VALUE(GENERIC_MAG_REQ_HK_MID), {0, 0}, 4},
         {CFE_SB_MSGID_WRAP_VALUE(GENERIC_MAG_HK_TLM_MID), {0, 0}, 32},
+        {CFE_SB_MSGID_WRAP_VALUE(GENERIC_MAG_DEVICE_TLM_MID), {0, 0}, 32},
         /* Star Tracker */
         {CFE_SB_MSGID_WRAP_VALUE(GENERIC_STAR_TRACKER_CMD_MID), {0, 0}, 4},
         {CFE_SB_MSGID_WRAP_VALUE(GENERIC_STAR_TRACKER_REQ_HK_MID), {0, 0}, 4},
         {CFE_SB_MSGID_WRAP_VALUE(GENERIC_STAR_TRACKER_HK_TLM_MID), {0, 0}, 32},
+        {CFE_SB_MSGID_WRAP_VALUE(GENERIC_STAR_TRACKER_DEVICE_TLM_MID), {0, 0}, 32},
         /* Torquer */
         {CFE_SB_MSGID_WRAP_VALUE(GENERIC_TORQUER_CMD_MID), {0, 0}, 4},
         {CFE_SB_MSGID_WRAP_VALUE(GENERIC_TORQUER_REQ_HK_MID), {0, 0}, 4},
@@ -354,7 +366,14 @@ TO_LAB_Subs_t TO_LAB_Subs =
 
         /* Mgr / SYN */
         {CFE_SB_MSGID_WRAP_VALUE(MGR_HK_TLM_MID), {0, 0}, 32},
-        {CFE_SB_MSGID_WRAP_VALUE(SYN_HK_TLM_MID), {0, 0}, 32}
+        {CFE_SB_MSGID_WRAP_VALUE(SYN_HK_TLM_MID), {0, 0}, 32},
+        /* GNSS */
+        {CFE_SB_MSGID_WRAP_VALUE(GENERIC_GNSS_HK_TLM_MID), {0, 0}, 32},
+        {CFE_SB_MSGID_WRAP_VALUE(GENERIC_GNSS_DEVICE_TLM_MID), {0, 0}, 32},
+        {CFE_SB_MSGID_WRAP_VALUE(GENERIC_GNSS_SAT_HELLO_TLM_MID), {0, 0}, 32},
+        /* TT&C */
+        {CFE_SB_MSGID_WRAP_VALUE(GENERIC_TT_C_HK_TLM_MID), {0, 0}, 32},
+        {CFE_SB_MSGID_WRAP_VALUE(GENERIC_TT_C_DEVICE_TLM_MID), {0, 0}, 32}
     }
 };
 

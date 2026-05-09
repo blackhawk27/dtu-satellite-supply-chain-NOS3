@@ -219,33 +219,43 @@ LC_ADTEntry_t LC_DefaultADT[LC_MAX_ACTIONPOINTS] = {
          {/* (WP_0) */
           0, LC_RPN_EQUAL}},
 
-    /* #3 (unused) */
-    {.DefaultState      = LC_ACTION_NOT_USED,
-     .MaxPassiveEvents  = 0,
-     .MaxPassFailEvents = 0,
-     .MaxFailPassEvents = 0,
-     .RTSId             = 0,
-     .MaxFailsBeforeRTS = 0,
+    /* #3 SCIENCE_OVERFLY: WP6 (GENERIC_GNSS InDenmarkBox == 1) -> RTS 2 (SCIENCE entry).
+     * GENERIC_GNSS evaluates the 55-58 N / 8-16 E box from cached lat/lon and
+     * publishes the boolean atomically. MaxFailsBeforeRTS=10 absorbs jitter on
+     * the boundary. RTS 2 issues MGR SET_MODE SCIENCE plus housekeeping and
+     * re-arms AP4 so the next FOV exit can fire RTS 5.
+     */
+    {.DefaultState      = LC_APSTATE_ACTIVE,
+     .MaxPassiveEvents  = 5,
+     .MaxPassFailEvents = 2,
+     .MaxFailPassEvents = 2,
+     .RTSId             = 2,
+     .MaxFailsBeforeRTS = 10,
      .EventType         = CFE_EVS_EventType_INFORMATION,
      .EventID           = LC_BASE_AP_EID + 3,
-     .EventText         = {" "},
+     .EventText         = {"Science overfly: in FOV"},
      .RPNEquation =
-         {/* (WP_0) */
-          0, LC_RPN_EQUAL}},
+         {/* (WP_6) */
+          6, LC_RPN_EQUAL}},
 
-    /* #4 (unused) */
-    {.DefaultState      = LC_ACTION_NOT_USED,
-     .MaxPassiveEvents  = 0,
-     .MaxPassFailEvents = 0,
-     .MaxFailPassEvents = 0,
-     .RTSId             = 0,
-     .MaxFailsBeforeRTS = 0,
+    /* #4 SCIENCE_EXIT: NOT WP6 -> RTS 5 (SAFE entry + AP3 rearm).
+     * RPN order: push WP6, NOT (toggle), EQUAL terminates. NOT must come BEFORE
+     * EQUAL or the equation evaluates the same as AP3 and both fire together.
+     * Fires once the spacecraft has been outside the Denmark FOV for
+     * MaxFailsBeforeRTS consecutive SCH cycles.
+     */
+    {.DefaultState      = LC_APSTATE_ACTIVE,
+     .MaxPassiveEvents  = 5,
+     .MaxPassFailEvents = 2,
+     .MaxFailPassEvents = 2,
+     .RTSId             = 5,
+     .MaxFailsBeforeRTS = 10,
      .EventType         = CFE_EVS_EventType_INFORMATION,
      .EventID           = LC_BASE_AP_EID + 4,
-     .EventText         = {" "},
+     .EventText         = {"Science overfly: left FOV"},
      .RPNEquation =
-         {/* (WP_0) */
-          0, LC_RPN_EQUAL}},
+         {/* !(WP_6) */
+          6, LC_RPN_NOT, LC_RPN_EQUAL}},
 
     /* #5 (unused) */
     {.DefaultState      = LC_ACTION_NOT_USED,

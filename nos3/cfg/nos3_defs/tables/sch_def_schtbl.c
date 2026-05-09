@@ -50,19 +50,19 @@ SCH_ScheduleEntry_t SCH_DefaultScheduleTable[SCH_TABLE_ENTRIES] = {
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #1 */
-    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 25, SCH_GROUP_CFS_HK}, /* EPS HK Request (Index 25) */
+    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #2 */
-    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 26, SCH_GROUP_CFS_HK}, /* ADCS HK Request (Peger på index 26) */
-    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 27, SCH_GROUP_CFS_HK}, /* CAM HK Request (Peger på index 27) */
-    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 28, SCH_GROUP_CFS_HK}, /* RADIO HK Request (Peger på index 28) */
+    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #3 */
-    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 3, 2, SCH_GROUP_CFE_HK}, /* EVS HK Request */
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 2, SCH_GROUP_CFE_HK}, /* EVS HK Request */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
@@ -74,43 +74,43 @@ SCH_ScheduleEntry_t SCH_DefaultScheduleTable[SCH_TABLE_ENTRIES] = {
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #5 */
-    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 0, 12, SCH_GROUP_CFS_HK}, /* MD HK Request */
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 12, SCH_GROUP_CFS_HK}, /* MD HK Request */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #6 */
-    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 0, 13, SCH_GROUP_CFS_HK}, /* MM HK Request */
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 13, SCH_GROUP_CFS_HK}, /* MM HK Request */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #7 */
-    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 0, 7, SCH_GROUP_CFS_HK},  /* DS HK Request (Index 7) */
-    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 1, 8, SCH_GROUP_CFS_HK},  /* FM HK Request (Index 8) */
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 7, SCH_GROUP_CFS_HK},  /* DS HK Request (Index 7) */
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 8, SCH_GROUP_CFS_HK},  /* FM HK Request (Index 8) */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #8 */
-    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 0, 11, SCH_GROUP_CFS_HK}, /* LC HK Request (Index 11) */
-    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 1, 14, SCH_GROUP_CFS_HK}, /* SC HK Request (Index 14) */
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 11, SCH_GROUP_CFS_HK}, /* LC HK Request (Index 11) */
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 14, SCH_GROUP_CFS_HK}, /* SC HK Request (Index 14) */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #9 */
-    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 0, 18, SCH_GROUP_CFS_HK}, /* SBN HK Request (Husk at oprette SBN_SEND_HK_MID på index 18 i msgtbl) */
+    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE}, /* was SBN HK Request - SBN not loaded */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #10 */
-    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 0, 20, SCH_GROUP_NONE}, /* LC Sample AP Wakeup (peger på index 20) */
-    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 1, 21, SCH_GROUP_NONE}, /* SC 1Hz Wakeup (peger på index 21) */
-    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 2, 19, SCH_GROUP_NONE}, /* CS Background Cycle (peger på index 19) */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE}, 
-    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 3, 23, SCH_GROUP_NONE}, /* MD Wakeup (peger på index 23) */
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 20, SCH_GROUP_CDH}, /* LC Sample AP Wakeup */
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 21, SCH_GROUP_CDH}, /* SC 1Hz Wakeup */
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 19, SCH_GROUP_CDH}, /* CS Background Cycle */
+    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 23, SCH_GROUP_CDH}, /* MD Wakeup */
     /* slot #11 */
-    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 0, 24, SCH_GROUP_NONE}, /* HS Wakeup (peger på index 24) */
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 24, SCH_GROUP_CDH}, /* HS Wakeup */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
@@ -122,7 +122,7 @@ SCH_ScheduleEntry_t SCH_DefaultScheduleTable[SCH_TABLE_ENTRIES] = {
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #13 */
-    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 3, 3, SCH_GROUP_CFE_HK}, /* SB HK Request */
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 3, SCH_GROUP_CFE_HK}, /* SB HK Request */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
@@ -158,7 +158,7 @@ SCH_ScheduleEntry_t SCH_DefaultScheduleTable[SCH_TABLE_ENTRIES] = {
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #19 */
-    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 2, 9, SCH_GROUP_CFS_HK}, /* HK HK Request */
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 9, SCH_GROUP_CFS_HK}, /* HK HK Request */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
@@ -182,134 +182,154 @@ SCH_ScheduleEntry_t SCH_DefaultScheduleTable[SCH_TABLE_ENTRIES] = {
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #23 */
-    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 3, 4, SCH_GROUP_CFE_HK}, /* TIME HK Request */
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 4, SCH_GROUP_CFE_HK}, /* TIME HK Request */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #24 */
-    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 1, 10, SCH_GROUP_CFS_HK}, /* HS HK Request */
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 10, SCH_GROUP_CFS_HK}, /* HS HK Request */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #25 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 25, SCH_GROUP_CDH},     /* EPS HK Request */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #26 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 26, SCH_GROUP_CDH},     /* GPS HK Request */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #27 */
-    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 0, 6, SCH_GROUP_CFS_HK}, /* CS HK Request */
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 6, SCH_GROUP_CFS_HK}, /* CS HK Request */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #28 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 27, SCH_GROUP_GNC_HK},  /* ADCS HK Request */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #29 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 28, SCH_GROUP_GNC_HK},  /* IMU HK Request */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #30 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 29, SCH_GROUP_GNC_HK},  /* CSS HK Request */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #31 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 30, SCH_GROUP_GNC_HK},  /* FSS HK Request */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #32 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 31, SCH_GROUP_GNC_HK},  /* MAG HK Request */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #33 */
-    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 3, 5, SCH_GROUP_CFE_HK}, /* TBL HK Request */
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 5, SCH_GROUP_CFE_HK}, /* TBL HK Request */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #34 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 32, SCH_GROUP_GNC_HK},  /* RW HK Request */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #35 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 33, SCH_GROUP_CDH},     /* Radio HK Request */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #36 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 34, SCH_GROUP_GNC_HK},  /* StarTracker HK Request */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #37 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 35, SCH_GROUP_GNC_HK},  /* Torquer HK Request */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #38 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 36, SCH_GROUP_CDH},     /* MGR HK Request */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #39 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 37, SCH_GROUP_CDH},     /* Sample HK Request */
+    /* ST device-data request (REQ_HK_MID FC=1 -> ReportDeviceTelemetry -> UART
+       cmd 2 -> sim "is_valid=..., data_point=q0..q3" DEBUG log that Logstash
+       turns into st_q0..st_q3 for the dashboard). Cadenced with the other
+       HK slots at 1 Hz. Msgtbl index 39 was an unused slot before this
+       change; see cfg/nos3_defs/tables/sch_def_msgtbl.c. */
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 39, SCH_GROUP_GNC_HK},  /* ST REQ_DATA_TLM */
+    /* SAMPLE device-data request (REQ_HK_MID FC=1 -> SAMPLE_ProcessGroundCommand
+       case SAMPLE_REQ_DATA_TLM -> publishes SAMPLE_DEVICE_TLM_MID with
+       PassNumber + RegionStatus). Mirrors the slot-44 CSS pattern. msgtbl
+       index 47. */
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 47, SCH_GROUP_CDH},     /* SAMPLE REQ_DATA_TLM */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #40 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 38, SCH_GROUP_CDH},      /* TO_LAB HK Request */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #41 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    /* ADCS ADAC wakeup: drives the AD/AC controller pipeline so Tcmd is computed
+       and SET_TORQUE messages are emitted to the RW. msgtbl index 40. Without
+       this entry the controller never runs, even when MGR has set ADCS into
+       BDOT/SUNSAFE/INERTIAL mode. 1 Hz is slower than the controller's nominal
+       DT=0.1s, but enough to produce visible RW activity for the dashboard. */
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 40, SCH_GROUP_GNC_HK},  /* ADCS ADAC update */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #42 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    /* IMU/MAG/FSS/CSS device-data requests at 1 Hz. Each entry sends a REQ_HK_MID
+       with FunctionCode = REQ_DATA_TLM (1), which fires ReportDeviceTelemetry in
+       the corresponding sensor app. That publishes GENERIC_*_DEVICE_TLM_MID,
+       which ADCS subscribes to and uses to populate its DI packet. Without these,
+       the SUNSAFE/INERTIAL controllers compute Tcmd = 0 because wbn/bvb/svb
+       come back as defaults. msgtbl indices 41-44. */
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 41, SCH_GROUP_GNC_HK},  /* IMU REQ_DATA_TLM */
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 42, SCH_GROUP_GNC_HK},  /* MAG REQ_DATA_TLM */
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 43, SCH_GROUP_GNC_HK},  /* FSS REQ_DATA_TLM */
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 44, SCH_GROUP_GNC_HK},  /* CSS REQ_DATA_TLM */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #43 */
-    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 3, 1, SCH_GROUP_CFE_HK}, /* ES HK Request */
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 1, SCH_GROUP_CFE_HK}, /* ES HK Request */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
-    /* slot #44 */
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
-    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
+    /* slot #44 - GNSS / TT&C HK Requests at 1 Hz. msgtbl indices 45 and 46. */
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 45, SCH_GROUP_CDH},     /* GNSS HK Request */
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 46, SCH_GROUP_CDH},     /* TT&C HK Request */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
@@ -338,7 +358,7 @@ SCH_ScheduleEntry_t SCH_DefaultScheduleTable[SCH_TABLE_ENTRIES] = {
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #49 */
-    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 4, 2, 15, SCH_GROUP_CFS_HK}, /* SCH HK Request */
+    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 15, SCH_GROUP_CFS_HK}, /* SCH HK Request */
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
@@ -368,7 +388,7 @@ SCH_ScheduleEntry_t SCH_DefaultScheduleTable[SCH_TABLE_ENTRIES] = {
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     /* slot #54 */
-    {SCH_ENABLED, SCH_ACTIVITY_SEND_MSG, 1, 0, 23, SCH_GROUP_NONE}, /* MD Wakeup (Index 23) @ 1Hz for attack script. Hos Oliver står der 4, 3, 23 */
+    {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},
     {SCH_UNUSED, 0, 0, 0, 0, SCH_GROUP_NONE},

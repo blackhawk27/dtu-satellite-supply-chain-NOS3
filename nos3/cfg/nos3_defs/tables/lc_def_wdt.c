@@ -38,12 +38,14 @@
 #include "lc_tbldefs.h"
 
 #include "generic_eps_msgids.h"
+#include "generic_gnss_msgids.h"
 #include "mgr_msgids.h"
 #include "mgr_app.h"
 #include "novatel_oem615_msgids.h"
 #include "sample_msgids.h"
 
-#define GENERIC_EPS_TLM_MSG CFE_SB_MSGID_WRAP_VALUE(GENERIC_EPS_HK_TLM_MID) 
+#define GENERIC_EPS_TLM_MSG CFE_SB_MSGID_WRAP_VALUE(GENERIC_EPS_HK_TLM_MID)
+#define GENERIC_GNSS_HK_TLM_MSG CFE_SB_MSGID_WRAP_VALUE(GENERIC_GNSS_HK_TLM_MID)
 #define NOVATEL_OEM615_DEVICE_TLM_MSG CFE_SB_MSGID_WRAP_VALUE(NOVATEL_OEM615_DEVICE_TLM_MID)
 #define MGR_HK_TLM_MSG CFE_SB_MSGID_WRAP_VALUE(MGR_HK_TLM_MID)
 #define SAMPLE_HK_TLM_MSG CFE_SB_MSGID_WRAP_VALUE(SAMPLE_HK_TLM_MID)
@@ -183,16 +185,22 @@ LC_WDTEntry_t LC_DefaultWDT[LC_MAX_WATCHPOINTS] = {
         .ComparisonValue.Unsigned32 = 0,
     },
 
-    /* #6 (unused) */
+    /* #6 IN_DENMARK_BOX: GENERIC_GNSS_Hk_tlm_t.DeviceHK.InDenmarkBox (uint8) == 1
+     * GENERIC_GNSS evaluates the 55-58 N / 8-16 E box atomically from cached
+     * lat/lon (generic_gnss_app.c UpdatePositionAndFlags) and publishes the
+     * boolean in HK at wire offset 55. AP3/AP4 in lc_def_adt.c key off this
+     * single watchpoint to drive RTS 2 (SCIENCE entry) and RTS 5 (SAFE on
+     * FOV exit).
+     */
     {
-        .DataType                   = LC_WATCH_NOT_USED,
-        .OperatorID                 = LC_NO_OPER,
-        .MessageID                  = CFE_SB_MSGID_RESERVED,
-        .WatchpointOffset           = 0,
-        .BitMask                    = LC_NO_BITMASK,
-        .CustomFuncArgument         = 0,
-        .ResultAgeWhenStale         = 0,
-        .ComparisonValue.Unsigned32 = 0,
+        .DataType                  = LC_DATA_UBYTE,
+        .OperatorID                = LC_OPER_EQ,
+        .MessageID                 = GENERIC_GNSS_HK_TLM_MSG,
+        .WatchpointOffset          = 55,
+        .BitMask                   = LC_NO_BITMASK,
+        .CustomFuncArgument        = 0,
+        .ResultAgeWhenStale        = 5,
+        .ComparisonValue.Unsigned8 = 1,
     },
 
     /* #7 (unused) */

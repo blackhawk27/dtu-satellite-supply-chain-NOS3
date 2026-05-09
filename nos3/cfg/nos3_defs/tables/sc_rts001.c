@@ -34,7 +34,9 @@ typedef struct
     /* 2 - Enable Debug */
     SC_RtsEntryHeader_t hdr2;
     TO_LAB_EnableOutputCmd_t cmd2;
-    /* 3 - Enable RTS 3-64 */
+    /* 3 - Enable RTS 2-64 (RTS 1 self-runs at boot; RTS 2 is the SCIENCE-entry
+     *      RTS fired by LC AP3 on Denmark FOV entry, so it must be enabled).
+     */
     SC_RtsEntryHeader_t hdr3;
     SC_RtsGrpCmd_t cmd3;
     /* 4 - Enable LC */
@@ -93,10 +95,10 @@ SC_RtsTable001_t SC_Rts001 = {
         .cmd2.CmdHeader = CFE_MSG_CMD_HDR_INIT(TO_LAB_CMD_MID, SC_MEMBER_SIZE(cmd2), TO_LAB_OUTPUT_ENABLE_CC, 0x00),
         .cmd2.Payload.dest_IP = "active-gs",
 
-        /* 3 - Enable RTS 3-64 */
+        /* 3 - Enable RTS 2-64 (RTS 2 is the SCIENCE-entry RTS fired by AP3) */
         .hdr3.TimeTag = 1,
         .cmd3.CmdHeader = CFE_MSG_CMD_HDR_INIT(SC_CMD_MID, SC_MEMBER_SIZE(cmd3), SC_ENABLE_RTS_GRP_CC, 0x00),
-        .cmd3.FirstRtsId = 3,
+        .cmd3.FirstRtsId = 2,
         .cmd3.LastRtsId = 64,
 
         /* 4 - Enable LC */
