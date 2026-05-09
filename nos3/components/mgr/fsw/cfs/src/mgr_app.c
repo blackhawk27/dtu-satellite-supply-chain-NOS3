@@ -272,6 +272,13 @@ void MGR_ProcessGroundCommand(void)
                                       "MGR: Invalid mode commanded [%d], mode remains [%d]", mode_cmd->U8,
                                       MGR_AppData.HkTelemetryPkt.SpacecraftMode);
                 }
+                else if (mode_cmd->U8 == MGR_AppData.HkTelemetryPkt.SpacecraftMode)
+                {
+                    /* No-op: already in the commanded mode. Silently absorb so LC-driven
+                       periodic re-commands (e.g. Denmark geofence SCIENCE_EXIT AP) do not
+                       spam EVS or trigger a fresh spacecraft_mode_change tag every cycle
+                       while the condition stays true. */
+                }
                 else
                 {
                     MGR_AppData.HkTelemetryPkt.SpacecraftMode = mode_cmd->U8;
@@ -573,10 +580,8 @@ void MGR_RestoreHkFile(void)
     if ((MGR_AppData.HkTelemetryPkt.SpacecraftMode != MGR_SAFE_REBOOT_MODE) &&
         (MGR_AppData.HkTelemetryPkt.SpacecraftMode != MGR_SCIENCE_REBOOT_MODE))
     {
-        // ÆNDRING: Tvinger satellitten til SCIENCE MODE i stedet for SAFE MODE
-        MGR_AppData.HkTelemetryPkt.SpacecraftMode = MGR_SCIENCE_REBOOT_MODE; 
+        MGR_AppData.HkTelemetryPkt.SpacecraftMode = MGR_SAFE_REBOOT_MODE;
         MGR_AppData.HkTelemetryPkt.AnomRebootCtr++;
-        OS_printf("MGR: Bypassed SAFE MODE for testing, booting directly to SCIENCE MODE\n");
     }
     else
     {
