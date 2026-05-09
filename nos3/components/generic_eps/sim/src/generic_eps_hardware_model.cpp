@@ -1,5 +1,12 @@
 #include <generic_eps_hardware_model.hpp>
 
+#include <chrono>
+#include <cstdint>
+#include <fstream>
+#include <sstream>
+
+#include <boost/property_tree/json_parser.hpp>
+
 namespace Nos3
 {
     REGISTER_HARDWARE_MODEL(Generic_epsHardwareModel,"GENERIC_EPS");
@@ -190,9 +197,46 @@ namespace Nos3
 
         _solar_array_inhibit = 1;
 
+        /* Hysteresis band for solar charging. Defaults give a visible per-orbit
+        ** SOC oscillation: charging turns off only when truly full, and stays
+        ** off until SOC drops to 90%. Override via the simulator XML if a
+        ** scenario needs different behavior. */
+        _charge_resume_frac = config.get(
+            "simulator.hardware-model.physical.bus.charge-resume-frac", 0.90);
+        _charge_stop_frac = config.get(
+            "simulator.hardware-model.physical.bus.charge-stop-frac", 1.00);
+        if (_charge_resume_frac < 0.0) _charge_resume_frac = 0.0;
+        if (_charge_stop_frac   > 1.0) _charge_stop_frac   = 1.0;
+        if (_charge_resume_frac > _charge_stop_frac) _charge_resume_frac = _charge_stop_frac;
+
         sim_logger->info("    _switch[0]._voltage = %d", _switch[0]._voltage);
         sim_logger->info("    _switch[0]._current = %d", _switch[0]._current);
         sim_logger->info("    _switch[0]._status = 0x%04x", _switch[0]._status);
+
+        /* Load mode-based per-app load model. See debug/EPS_DESIGN.md. */
+        _activity_window_s = 10.0;
+        _current_tm_rate   = "nominal";
+        _shutdown_follower.store(false);
+        _follower_attached.store(false);
+        _god_view_parse_errors.store(0);
+        _follower_start_time = std::chrono::duration<double>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+
+        std::string load_model_file = config.get(
+            "simulator.hardware-model.physical.load-model-file", "eps_load_model.json");
+        std::string god_view_path   = config.get(
+            "simulator.hardware-model.physical.god-view-path", "/attack_logs/cfs_god_view.json");
+
+        load_app_load_model(load_model_file);
+
+        if (!_app_loads.empty()) {
+            _god_view_follower = std::thread(
+                &Generic_epsHardwareModel::god_view_follower_loop, this, god_view_path);
+        } else {
+            sim_logger->warning(
+                "Generic_epsHardwareModel:  no apps configured in load model; "
+                "falling back to zero baseline load. SB activity follower not started.");
+        }
 
         /* Register time tick callback only after all members are initialized */
         _time_bus->add_time_tick_callback(std::bind(&Generic_epsHardwareModel::update_battery_values, this));
@@ -203,9 +247,15 @@ namespace Nos3
 
 
     Generic_epsHardwareModel::~Generic_epsHardwareModel(void)
-    {        
+    {
+        /* Stop the SB-activity follower thread before tearing anything else down */
+        _shutdown_follower.store(true);
+        if (_god_view_follower.joinable()) {
+            _god_view_follower.join();
+        }
+
         /* Close the protocol bus */
-       delete _i2c_slave_connection;
+        delete _i2c_slave_connection;
         _i2c_slave_connection = nullptr;
 
         /* Clean up the data provider */
@@ -615,34 +665,34 @@ namespace Nos3
         // there begins to be significant light reflected away, an effect which
         // is not replicated here.
 
-        double p_out = 0;
+        /* Load model: pick each app's mode from its observed SB-message rate
+        ** (see debug/EPS_DESIGN.md) and sum the per-mode draws. */
+        double p_out = compute_p_out_from_apps();
 
-        for (int i = 1; i < 4; i++)
-        {
-            p_out = p_out + (_bus[i]._voltage/1000.0)*(_bus[i]._current/1000.0);
-        }
-        for (int i = 0; i < 8; i++)
-        {
-            int switchonoff = (_switch[i]._status != 0) ? 1 : 0;
-            p_out = p_out + (_switch[i]._voltage/1000.0)*(_switch[i]._current/1000.0)*switchonoff;
+        // Inhibit Solar Panel charging battery once full; reenable charging at the
+        // configurable resume threshold (default 90% of max). The wider band keeps
+        // SOC visibly oscillating across an orbit instead of clamping to ~100%.
 
-        }
-
-        // Inhibit Solar Panel charging battery if at or above max suggested charge; reenable charging at 99% charge.
-
-        if ( _bus[0]._battery_watthrs >= _max_battery ) 
+        if ( _bus[0]._battery_watthrs >= ( _charge_stop_frac * _max_battery ) )
         {
             _solar_array_inhibit = 0;
         }
-        if ( _bus[0]._battery_watthrs <= ( 0.99999 * _max_battery ) )
+        if ( _bus[0]._battery_watthrs <= ( _charge_resume_frac * _max_battery ) )
         {
             _solar_array_inhibit = 1;
         }
-        
+
         double p_in = (((_power_per_main_panel*svb_X)*_posX_Panel_Inhibit) + ((_power_per_main_panel*svb_minusX)*_negX_Panel_Inhibit) + ((_power_per_main_panel*svb_Y)*_posY_Panel_Inhibit) + ((_power_per_main_panel*svb_minusY)*_negY_Panel_Inhibit) + ((_power_per_small_panel*svb_minusZ)*_negZ_Panel_Inhibit)) * _solar_array_inhibit;
-        
+
         double delta_p = (_sim_microseconds_per_tick/1000000.0 * ((p_in - p_out) + _charge_rate_modifer));
         _bus[0]._battery_watthrs = _bus[0]._battery_watthrs + (delta_p/3600); //The 3600 is for converting Watt-seconds (the units of delta_p) into watt-hours
+
+        /* Hard clamp at [0, _max_battery]. Without the upper clamp, battery_watthrs
+        ** can drift slightly above max (the inhibit guards above only fire after
+        ** the sample crosses the threshold), which then masks the inhibit toggle
+        ** and prevents SOC from reading exactly 100% in steady state. */
+        if (_bus[0]._battery_watthrs > _max_battery) _bus[0]._battery_watthrs = _max_battery;
+        if (_bus[0]._battery_watthrs < 0.0)          _bus[0]._battery_watthrs = 0.0;
 
         // Here is the code to increase or decrease the value of the battery 
         // voltage. It is linear and +- 5% of the nominal voltage, which is
@@ -651,16 +701,256 @@ namespace Nos3
         double batt_min_voltage = 0.95*_nominal_batt_voltage;
         double batt_diff = 0.1*_nominal_batt_voltage;
 
-        _bus[0]._voltage = 1000*(batt_min_voltage + batt_diff*(_bus[0]._battery_watthrs / _max_battery));
+        double soc_frac = (_max_battery > 0.0) ? (_bus[0]._battery_watthrs / _max_battery) : 0.0;
+        if (soc_frac < 0.0) soc_frac = 0.0;
+        if (soc_frac > 1.0) soc_frac = 1.0;
 
-// DEBUG MESSAGES        
+        _bus[0]._voltage = 1000*(batt_min_voltage + batt_diff*soc_frac);
+
+        /* Bus3p3/Bus5p0/Bus12 rails ride live, scaled +-2% by SOC fraction so
+        ** the dead HK fields (BusXVoltage in GENERIC_EPS_Device_HK_tlm_t) carry
+        ** real motion instead of the zero-init they had before. */
+        _bus[1]._voltage = static_cast<std::uint16_t>(1000.0 * (3.3  * (0.98 + 0.04 * soc_frac)));
+        _bus[2]._voltage = static_cast<std::uint16_t>(1000.0 * (5.0  * (0.98 + 0.04 * soc_frac)));
+        _bus[3]._voltage = static_cast<std::uint16_t>(1000.0 * (12.0 * (0.98 + 0.04 * soc_frac)));
+
+        double soc_pct      = 100.0 * soc_frac;
+        double power_balance = p_in - p_out;
+
+// DEBUG MESSAGES
         // sim_logger->debug("Panel sun vector is %f\n", svb_X);
         sim_logger->debug("Solar Array Connected? %d", _solar_array_inhibit);
         sim_logger->debug("Power from the solar panels is %f", p_in);
         sim_logger->debug("Total power used is %f", p_out);
         sim_logger->debug("Battery Watt Hours are now %f", _bus[0]._battery_watthrs);
         sim_logger->debug("Battery Voltage is now %i", _bus[0]._voltage);
-        
+        sim_logger->debug("Battery SOC pct is %f", soc_pct);
+        sim_logger->debug("Power balance is %f", power_balance);
+
+        /* Composite tick-summary line. One Logstash event with every EPS
+        ** field set, so joint aggregations work in Kibana. The per-metric
+        ** lines above are kept for human-readable log inspection. */
+        sim_logger->debug(
+            "EPS_TLM solar=%f used=%f balance=%f wh=%f mv=%i soc=%f sun=%d",
+            p_in, p_out, power_balance, _bus[0]._battery_watthrs,
+            _bus[0]._voltage, soc_pct, _solar_array_inhibit);
+    }
+
+    /* Parse the load-model JSON config. On any failure, leave _app_loads
+    ** empty and let the caller log the fallback. */
+    void Generic_epsHardwareModel::load_app_load_model(const std::string& json_path)
+    {
+        boost::property_tree::ptree pt;
+        try {
+            boost::property_tree::read_json(json_path, pt);
+        } catch (const std::exception& e) {
+            sim_logger->warning(
+                "Generic_epsHardwareModel::load_app_load_model:  failed to read %s: %s",
+                json_path.c_str(), e.what());
+            return;
+        }
+
+        _activity_window_s = pt.get<double>("activity_window_seconds", 10.0);
+        _current_tm_rate   = pt.get<std::string>("default_tm_rate", "nominal");
+
+        _tm_rate_mult.clear();
+        if (auto rates = pt.get_child_optional("tm_rate_multiplier")) {
+            for (const auto& kv : *rates) {
+                _tm_rate_mult[kv.first] = kv.second.get_value<double>();
+            }
+        }
+
+        auto parse_thresholds = [](const boost::property_tree::ptree& arr) {
+            std::vector<ModeThreshold> out;
+            for (const auto& entry : arr) {
+                ModeThreshold t;
+                auto max_opt = entry.second.get_optional<double>("max_rate_hz");
+                t.has_max     = static_cast<bool>(max_opt);
+                t.max_rate_hz = max_opt ? *max_opt : 0.0;
+                t.mode        = entry.second.get<std::string>("mode", "");
+                out.push_back(t);
+            }
+            return out;
+        };
+
+        _default_thresholds.clear();
+        if (auto dts = pt.get_child_optional("default_thresholds")) {
+            _default_thresholds = parse_thresholds(*dts);
+        }
+
+        _app_loads.clear();
+        if (auto apps = pt.get_child_optional("apps")) {
+            for (const auto& app_entry : *apps) {
+                AppLoad a;
+                a.name         = app_entry.second.get<std::string>("name", "unknown");
+                a.default_mode = app_entry.second.get<std::string>("default_mode", "nominal");
+                a.current_mode = a.default_mode;
+
+                if (auto mids = app_entry.second.get_child_optional("mids")) {
+                    for (const auto& m : *mids) {
+                        std::string s = m.second.get_value<std::string>();
+                        try {
+                            unsigned long v = std::stoul(s, nullptr, 0);
+                            a.mids.push_back(static_cast<std::uint16_t>(v));
+                        } catch (...) {
+                            sim_logger->warning(
+                                "Generic_epsHardwareModel::load_app_load_model:  app %s has invalid mid '%s'",
+                                a.name.c_str(), s.c_str());
+                        }
+                    }
+                }
+
+                if (auto modes = app_entry.second.get_child_optional("modes")) {
+                    for (const auto& kv : *modes) {
+                        a.mode_watts[kv.first] = kv.second.get_value<double>();
+                    }
+                }
+
+                if (auto th = app_entry.second.get_child_optional("thresholds")) {
+                    a.thresholds = parse_thresholds(*th);
+                } else {
+                    a.thresholds = _default_thresholds;
+                }
+
+                _app_loads.push_back(std::move(a));
+            }
+        }
+
+        sim_logger->info(
+            "Generic_epsHardwareModel::load_app_load_model:  loaded %zu apps, window=%.1fs, default_tm_rate=%s",
+            _app_loads.size(), _activity_window_s, _current_tm_rate.c_str());
+    }
+
+    /* Mode picker: walk the per-app threshold ladder; first rung whose
+    ** max_rate_hz exceeds observed rate wins; final has_max=false rung is
+    ** the fallthrough. */
+    std::string Generic_epsHardwareModel::mode_for_rate(const AppLoad& app, double rate_hz) const
+    {
+        for (const auto& t : app.thresholds) {
+            if (!t.has_max) return t.mode;
+            if (rate_hz <= t.max_rate_hz) return t.mode;
+        }
+        return app.default_mode;
+    }
+
+    /* Sum the current per-app draw, scaled by the global TM-rate multiplier.
+    ** Also updates each app's current_mode based on its observed message rate
+    ** in the rolling window. */
+    double Generic_epsHardwareModel::compute_p_out_from_apps(void)
+    {
+        if (_app_loads.empty()) {
+            return 0.0;
+        }
+
+        double now = std::chrono::duration<double>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+        double cutoff = now - _activity_window_s;
+
+        bool warming_up = !_follower_attached.load() ||
+                          (now - _follower_start_time) < _activity_window_s;
+
+        double p = 0.0;
+        {
+            std::lock_guard<std::mutex> lock(_activity_mutex);
+            for (auto& app : _app_loads) {
+                while (!app.recent_msg_times.empty() && app.recent_msg_times.front() < cutoff) {
+                    app.recent_msg_times.pop_front();
+                }
+
+                if (warming_up || app.thresholds.empty() || app.mids.empty()) {
+                    app.current_mode = app.default_mode;
+                } else {
+                    double rate_hz = static_cast<double>(app.recent_msg_times.size()) / _activity_window_s;
+                    app.current_mode = mode_for_rate(app, rate_hz);
+                }
+
+                auto it = app.mode_watts.find(app.current_mode);
+                if (it != app.mode_watts.end()) {
+                    p += it->second;
+                }
+            }
+        }
+
+        auto mit = _tm_rate_mult.find(_current_tm_rate);
+        double mult = (mit != _tm_rate_mult.end()) ? mit->second : 1.0;
+        return p * mult;
+    }
+
+    /* Background thread: tail cfs_god_view.json, parse each new line, and
+    ** push the timestamp into the matching app's rolling-window deque. */
+    void Generic_epsHardwareModel::god_view_follower_loop(const std::string& path)
+    {
+        const auto retry_until = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+        std::ifstream in;
+        while (!_shutdown_follower.load()) {
+            in.open(path);
+            if (in.is_open()) break;
+            if (std::chrono::steady_clock::now() >= retry_until) {
+                sim_logger->warning(
+                    "Generic_epsHardwareModel::god_view_follower:  %s not found after 30s; "
+                    "fell back to default modes (sim still emits SOC; load is constant)",
+                    path.c_str());
+                return;
+            }
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+        }
+        if (_shutdown_follower.load()) return;
+
+        in.seekg(0, std::ios::end);
+        _follower_attached.store(true);
+        sim_logger->info(
+            "Generic_epsHardwareModel::god_view_follower:  attached to %s", path.c_str());
+
+        std::string line;
+        while (!_shutdown_follower.load()) {
+            if (!std::getline(in, line)) {
+                if (in.eof()) {
+                    in.clear();
+                    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+                    continue;
+                }
+                in.close();
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+                in.open(path);
+                if (!in.is_open()) {
+                    sim_logger->warning(
+                        "Generic_epsHardwareModel::god_view_follower:  lost %s; exiting follower",
+                        path.c_str());
+                    return;
+                }
+                in.seekg(0, std::ios::end);
+                continue;
+            }
+
+            if (line.empty()) continue;
+
+            std::uint16_t mid = 0;
+            double ts = 0.0;
+            try {
+                std::stringstream ss(line);
+                boost::property_tree::ptree row;
+                boost::property_tree::read_json(ss, row);
+                std::string mid_s = row.get<std::string>("msg_id", "");
+                if (mid_s.empty()) continue;
+                mid = static_cast<std::uint16_t>(std::stoul(mid_s, nullptr, 0));
+                ts  = row.get<double>("timestamp",
+                        std::chrono::duration<double>(
+                            std::chrono::system_clock::now().time_since_epoch()).count());
+            } catch (const std::exception&) {
+                _god_view_parse_errors.fetch_add(1);
+                continue;
+            }
+
+            std::lock_guard<std::mutex> lock(_activity_mutex);
+            for (auto& app : _app_loads) {
+                for (auto m : app.mids) {
+                    if (m == mid) {
+                        app.recent_msg_times.push_back(ts);
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     I2CSlaveConnection::I2CSlaveConnection(Generic_epsHardwareModel* hm,

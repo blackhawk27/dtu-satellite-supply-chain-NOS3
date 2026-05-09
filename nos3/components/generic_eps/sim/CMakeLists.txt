@@ -33,3 +33,4 @@ add_library(generic_eps_sim SHARED ${generic_eps_sim_src} ${generic_eps_sim_inc}
 set_target_properties(generic_eps_sim PROPERTIES COMPILE_FLAGS "" LINK_FLAGS "")
 target_link_libraries(generic_eps_sim ${generic_eps_sim_libs})
 install(TARGETS generic_eps_sim LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)
+install(FILES cfg/eps_load_model.json DESTINATION bin COMPONENT config)
