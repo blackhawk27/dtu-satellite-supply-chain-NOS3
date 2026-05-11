@@ -5,6 +5,18 @@ namespace Nos3
 {
     extern ItcLogger::Logger *sim_logger;
 
+    static double stof_safe(const std::string& raw)
+    {
+        std::string s = raw;
+        for (size_t i = 0; i < s.size(); ++i) {
+            if (s[i] == ',' || s[i] == '[' || s[i] == ']') s[i] = ' ';
+        }
+        if (s.find_first_not_of(" \t\r\n") == std::string::npos) {
+            return 0.0;
+        }
+        return std::stof(s);
+    }
+
     BlackboardDataPoint::BlackboardDataPoint(int16_t spacecraft, const boost::shared_ptr<Sim42DataPoint> dp) : _dp(*dp), _sc(spacecraft), _not_parsed(true)
     {
         sim_logger->trace("BlackboardDataPoint::BlackboardDataPoint:  42 Constructor executed");
@@ -24,6 +36,13 @@ namespace Nos3
             std::string values;
             std::vector<double> data;
             data.reserve(6);
+
+            std::string probe_key;
+            probe_key.append("SC[").append(std::to_string(_sc)).append("].svb");
+            if (_dp.get_value_for_key(probe_key).empty()) {
+                sim_logger->debug("BlackboardDataPoint::do_parsing:  empty SC[%d] frame, deferring", _sc);
+                return;
+            }
 
             key = "";
             key.append("SC[").append(std::to_string(_sc)).append("].svb"); // SC[N].svb
@@ -48,55 +67,55 @@ namespace Nos3
 
             key = "";
             key.append("SC[").append(std::to_string(_sc)).append("].Gyro[0].TrueRate"); // SC[N].Gyro[0].TrueRate
-            _GyroRate[0] = std::stof(_dp.get_value_for_key(key));
+            _GyroRate[0] = stof_safe(_dp.get_value_for_key(key));
             key = "";
             key.append("SC[").append(std::to_string(_sc)).append("].Gyro[1].TrueRate"); // SC[N].Gyro[1].TrueRate
-            _GyroRate[1] = std::stof(_dp.get_value_for_key(key));
+            _GyroRate[1] = stof_safe(_dp.get_value_for_key(key));
             key = "";
             key.append("SC[").append(std::to_string(_sc)).append("].Gyro[2].TrueRate"); // SC[N].Gyro[2].TrueRate
-            _GyroRate[2] = std::stof(_dp.get_value_for_key(key));
+            _GyroRate[2] = stof_safe(_dp.get_value_for_key(key));
 
             key = "";
             key.append("SC[").append(std::to_string(_sc)).append("].CSS[0].Valid"); // SC[N].CSS[0].Valid
-            _CSSValid[0] = std::stof(_dp.get_value_for_key(key));
+            _CSSValid[0] = stof_safe(_dp.get_value_for_key(key));
             key = "";
             key.append("SC[").append(std::to_string(_sc)).append("].CSS[1].Valid"); // SC[N].CSS[1].Valid
-            _CSSValid[1] = std::stof(_dp.get_value_for_key(key));
+            _CSSValid[1] = stof_safe(_dp.get_value_for_key(key));
             key = "";
             key.append("SC[").append(std::to_string(_sc)).append("].CSS[2].Valid"); // SC[N].CSS[2].Valid
-            _CSSValid[2] = std::stof(_dp.get_value_for_key(key));
+            _CSSValid[2] = stof_safe(_dp.get_value_for_key(key));
             key = "";
             key.append("SC[").append(std::to_string(_sc)).append("].CSS[3].Valid"); // SC[N].CSS[3].Valid
-            _CSSValid[3] = std::stof(_dp.get_value_for_key(key));
+            _CSSValid[3] = stof_safe(_dp.get_value_for_key(key));
             key = "";
             key.append("SC[").append(std::to_string(_sc)).append("].CSS[4].Valid"); // SC[N].CSS[4].Valid
-            _CSSValid[4] = std::stof(_dp.get_value_for_key(key));
+            _CSSValid[4] = stof_safe(_dp.get_value_for_key(key));
             key = "";
             key.append("SC[").append(std::to_string(_sc)).append("].CSS[5].Valid"); // SC[N].CSS[5].Valid
-            _CSSValid[5] = std::stof(_dp.get_value_for_key(key));
+            _CSSValid[5] = stof_safe(_dp.get_value_for_key(key));
 
             key = "";
             key.append("SC[").append(std::to_string(_sc)).append("].CSS[0].Illum"); // SC[N].CSS[0].Illum
-            _CSSIllum[0] = std::stof(_dp.get_value_for_key(key));
+            _CSSIllum[0] = stof_safe(_dp.get_value_for_key(key));
             key = "";
             key.append("SC[").append(std::to_string(_sc)).append("].CSS[1].Illum"); // SC[N].CSS[1].Illum
-            _CSSIllum[1] = std::stof(_dp.get_value_for_key(key));
+            _CSSIllum[1] = stof_safe(_dp.get_value_for_key(key));
             key = "";
             key.append("SC[").append(std::to_string(_sc)).append("].CSS[2].Illum"); // SC[N].CSS[2].Illum
-            _CSSIllum[2] = std::stof(_dp.get_value_for_key(key));
+            _CSSIllum[2] = stof_safe(_dp.get_value_for_key(key));
             key = "";
             key.append("SC[").append(std::to_string(_sc)).append("].CSS[3].Illum"); // SC[N].CSS[3].Illum
-            _CSSIllum[3] = std::stof(_dp.get_value_for_key(key));
+            _CSSIllum[3] = stof_safe(_dp.get_value_for_key(key));
             key = "";
             key.append("SC[").append(std::to_string(_sc)).append("].CSS[4].Illum"); // SC[N].CSS[4].Illum
-            _CSSIllum[4] = std::stof(_dp.get_value_for_key(key));
+            _CSSIllum[4] = stof_safe(_dp.get_value_for_key(key));
             key = "";
             key.append("SC[").append(std::to_string(_sc)).append("].CSS[5].Illum"); // SC[N].CSS[5].Illum
-            _CSSIllum[5] = std::stof(_dp.get_value_for_key(key));
+            _CSSIllum[5] = stof_safe(_dp.get_value_for_key(key));
 
             key = "";
             key.append("SC[").append(std::to_string(_sc)).append("].FSS[0].Valid"); // SC[N].FSS[0].Valid
-            _FSSValid = std::stof(_dp.get_value_for_key(key));
+            _FSSValid = stof_safe(_dp.get_value_for_key(key));
 
             key = "";
             key.append("SC[").append(std::to_string(_sc)).append("].FSS[0].SunAng"); // SC[N].FSS[0].SunAng
@@ -106,7 +125,7 @@ namespace Nos3
 
             key = "";
             key.append("SC[").append(std::to_string(_sc)).append("].ST[0].Valid"); // SC[N].ST[0].Valid
-            _STValid = std::stof(_dp.get_value_for_key(key));
+            _STValid = stof_safe(_dp.get_value_for_key(key));
 
             key = "";
             key.append("SC[").append(std::to_string(_sc)).append("].ST[0].qn"); // SC[N].ST[0].qn
@@ -120,11 +139,11 @@ namespace Nos3
 
             key = "";
             key.append("SC[").append(std::to_string(_sc)).append("].GPS[0].Week"); // SC[N].GPS[0].Week
-            _GPSWeek = std::stof(_dp.get_value_for_key(key));
+            _GPSWeek = stof_safe(_dp.get_value_for_key(key));
 
             key = "";
             key.append("SC[").append(std::to_string(_sc)).append("].GPS[0].Sec"); // SC[N].GPS[0].GPSSec
-            float seconds = std::stof(_dp.get_value_for_key(key));
+            float seconds = stof_safe(_dp.get_value_for_key(key));
             _GPSSec = seconds;
             _GPSFracSec = seconds - _GPSSec;
 
@@ -158,23 +177,23 @@ namespace Nos3
 
             key = "";
             key.append("SC[").append(std::to_string(_sc)).append("].Accel[0].TrueAcc"); // SC[N].Accel[0].TrueAcc
-            _AccelAcc[0] = std::stof(_dp.get_value_for_key(key));
+            _AccelAcc[0] = stof_safe(_dp.get_value_for_key(key));
             key = "";
             key.append("SC[").append(std::to_string(_sc)).append("].Accel[1].TrueAcc"); // SC[N].Accel[1].TrueAcc
-            _AccelAcc[1] = std::stof(_dp.get_value_for_key(key));
+            _AccelAcc[1] = stof_safe(_dp.get_value_for_key(key));
             key = "";
             key.append("SC[").append(std::to_string(_sc)).append("].Accel[2].TrueAcc"); // SC[N].Accel[2].TrueAcc
-            _AccelAcc[2] = std::stof(_dp.get_value_for_key(key));
+            _AccelAcc[2] = stof_safe(_dp.get_value_for_key(key));
 
             key = "";
             key.append("SC[").append(std::to_string(_sc)).append("].Whl[0].H"); // SC[N].Whl[0].H
-            _WhlH[0] = std::stof(_dp.get_value_for_key(key));
+            _WhlH[0] = stof_safe(_dp.get_value_for_key(key));
             key = "";
             key.append("SC[").append(std::to_string(_sc)).append("].Whl[1].H"); // SC[N].Whl[1].H
-            _WhlH[1] = std::stof(_dp.get_value_for_key(key));
+            _WhlH[1] = stof_safe(_dp.get_value_for_key(key));
             key = "";
             key.append("SC[").append(std::to_string(_sc)).append("].Whl[2].H"); // SC[N].Whl[2].H
-            _WhlH[2] = std::stof(_dp.get_value_for_key(key));
+            _WhlH[2] = stof_safe(_dp.get_value_for_key(key));
 
 
             _not_parsed = false;
