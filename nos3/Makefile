@@ -360,6 +360,28 @@ scriptrunner: cosmos-gui ## Alias for cosmos-gui. After it loads, click "Script 
 
 start-elk: ## Bring up the ELK stack (idempotent). Waits for Elasticsearch to leave RED so the launch target can DELETE stale indices and Logstash can index fresh telemetry. No-op if the elasticsearch container is already running.
 	@docker network inspect $(NETWORK_NAME) > /dev/null 2>&1 || docker network create $(NETWORK_NAME) > /dev/null
+	@# Logstash's pipeline mounts cfg/build/elk/mid_to_*.yml as the
+	@# `translate` filter dictionaries. If those YAMLs are missing the
+	@# bind mount surfaces as an empty dir and Logstash crashes on
+	@# startup with "File does not exist or cannot be opened
+	@# /etc/logstash/mid/mid_to_name.yml".
+	@# scripts/mid/gen_mid_registry.py is supposed to produce them
+	@# during `make config`, but its base-mask grep targets Draco-era
+	@# CFE_PLATFORM_*_TOPICID_TO_MIDV macros that no longer exist in
+	@# this cFE - so on a fresh clone the script exits 1 without
+	@# writing the YAMLs, and config.sh swallows that failure. Falling
+	@# back to a checked-in seed under elk/seed_mid/ guarantees Logstash
+	@# has its dictionaries even when the generator is broken.
+	@if [ ! -s cfg/build/elk/mid_to_name.yml ]; then \
+	  echo "cfg/build/elk/mid_to_name.yml is missing - generating MID registry..."; \
+	  mkdir -p cfg/build/elk; \
+	  if ! python3 scripts/mid/gen_mid_registry.py 2>&1; then \
+	    echo "gen_mid_registry.py failed; falling back to elk/seed_mid/ snapshot."; \
+	    cp elk/seed_mid/mid_to_name.yml      cfg/build/elk/; \
+	    cp elk/seed_mid/mid_to_layer.yml     cfg/build/elk/; \
+	    cp elk/seed_mid/mid_to_subsystem.yml cfg/build/elk/; \
+	  fi; \
+	fi
 	@if ! docker ps --format '{{.Names}}' | grep -q '^$(COMPOSE_PROJECT_NAME)-elasticsearch$$'; then \
 	  echo "Starting ELK stack ($(COMPOSE_PROJECT_NAME)-* on $(NETWORK_NAME), ES :$(ES_PORT) Kibana :$(KIBANA_PORT))..."; \
 	  (cd elk && docker compose up -d > /dev/null); \

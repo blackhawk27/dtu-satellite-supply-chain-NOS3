@@ -36,8 +36,27 @@ container_state() {
     if grep -qx true /tmp/.elk_doctor_state; then echo running; else echo stopped; fi
 }
 
+# ---- 0. Build-time prerequisites ------------------------------------------
+section "0/7 Build-time prerequisites (cfg/build/elk/*.yml)"
+# Logstash's pipeline does dictionary lookups via `translate { dictionary_path
+# => "/etc/logstash/mid/mid_to_name.yml" }`, fed by a bind mount of
+# cfg/build/elk/. If those YAMLs are missing, Logstash crashes on startup
+# with "File does not exist or cannot be opened ..." and never indexes
+# anything, which masquerades as a downstream "no nos3-telemetry-* index"
+# symptom three layers later.
+for f in mid_to_name.yml mid_to_layer.yml mid_to_subsystem.yml; do
+    p="$NOS3_DIR/cfg/build/elk/$f"
+    if [ -s "$p" ]; then
+        pass "$p"
+    else
+        fail "$p missing or empty"
+        note "fix: re-run 'make launch' (start-elk auto-copies elk/seed_mid/ as a fallback),"
+        note "     or manually: cp $NOS3_DIR/elk/seed_mid/*.yml $NOS3_DIR/cfg/build/elk/"
+    fi
+done
+
 # ---- 1. Containers --------------------------------------------------------
-section "1/6 Containers"
+section "1/7 Containers"
 for c in nos3-elasticsearch nos3-logstash nos3-kibana; do
     state=$(container_state "$c")
     if [ "$state" = "running" ]; then
@@ -59,7 +78,7 @@ done
 rm -f /tmp/.elk_doctor_state
 
 # ---- 2. Capture processes -------------------------------------------------
-section "2/6 Capture processes (populate omni_logs/ + attack_logs/)"
+section "2/7 Capture processes (populate omni_logs/ + attack_logs/)"
 for name in god_view_capture.py cfs_evs_capture.sh sim_logs_capture.sh cpu_monitor.sh; do
     # Self-exclude this pgrep's own argv by hiding the first character in a
     # bracket class. Escape the literal '.' so it stays an exact-name match.
@@ -75,7 +94,7 @@ for name in god_view_capture.py cfs_evs_capture.sh sim_logs_capture.sh cpu_monit
 done
 
 # ---- 3. Log file sizes ----------------------------------------------------
-section "3/6 Log files (Logstash inputs)"
+section "3/7 Log files (Logstash inputs)"
 check_log() {
     local p="$1"
     if [ ! -f "$p" ]; then
@@ -104,7 +123,7 @@ else
 fi
 
 # ---- 4. Elasticsearch -----------------------------------------------------
-section "4/6 Elasticsearch"
+section "4/7 Elasticsearch"
 if curl -fsS "$ES_URL/_cluster/health" > /dev/null 2>&1; then
     health=$(curl -fsS "$ES_URL/_cluster/health" | python3 -c 'import sys,json; print(json.load(sys.stdin)["status"])')
     pass "ES reachable at $ES_URL (cluster: $health)"
@@ -123,7 +142,7 @@ else
 fi
 
 # ---- 5. Kibana data view --------------------------------------------------
-section "5/6 Kibana data view (saved object)"
+section "5/7 Kibana data view (saved object)"
 code=$(curl -sS -o /dev/null -w '%{http_code}' \
         "$KIBANA_URL/api/saved_objects/index-pattern/$DV_ID" \
         -H 'kbn-xsrf: true' 2>/dev/null)
@@ -137,7 +156,7 @@ case "$code" in
 esac
 
 # ---- 6. Dashboards --------------------------------------------------------
-section "6/6 Kibana dashboards"
+section "6/7 Kibana dashboards"
 count=$(curl -fsS "$KIBANA_URL/api/saved_objects/_find?type=dashboard&per_page=100" \
         -H 'kbn-xsrf: true' 2>/dev/null \
         | python3 -c 'import sys,json; print(json.load(sys.stdin).get("total",0))' 2>/dev/null \
