@@ -53,7 +53,7 @@ endif
 
 # The "LOCALTGTS" defines the top-level targets that are implemented in this makefile
 # Any other target may also be given, in that case it will simply be passed through.
-LOCALTGTS := all clean clean-docker clean-fsw clean-sim clean-gsw code-coverage code-coverage-clean code-coverage-internal config cosmos-gui debug fsw gcov gsw help help-all launch load-run log prep purge-logs save-run sim start-elk stop stop-gsw stop-sim uninstall
+LOCALTGTS := all clean clean-docker clean-fsw clean-sim clean-gsw code-coverage code-coverage-clean code-coverage-internal config cosmos-gui debug doctor fsw gcov gsw help help-all launch load-run log prep purge-logs save-run sim start-elk stop stop-gsw stop-sim uninstall
 OTHERTGTS := $(filter-out $(LOCALTGTS),$(MAKECMDGOALS))
 
 # As this makefile does not build any real files, treat everything as a PHONY target
@@ -393,6 +393,9 @@ list-kibana-dashboards: ## Print the catalog of Kibana saved objects this builde
 load-dashboards: ## Legacy: import the checked-in nos3-eo1-dashboards.ndjson via Kibana _import. Prefer build-kibana-dashboards (Python builders are now the source of truth).
 	@echo "Loading EO1 Kibana dashboards from elk/dashboards/nos3-eo1-dashboards.ndjson..."
 	@python3 elk/load_dashboards.py
+
+doctor: ## Diagnose the ELK telemetry chain (containers, captures, log files, ES index, data view, dashboards). Use when Kibana shows no data after 'make launch'.
+	@./scripts/elk_doctor.sh
 
 log: ## Log outputs
 	./scripts/log.sh
