@@ -395,7 +395,7 @@ load-dashboards: ## Legacy: import the checked-in nos3-eo1-dashboards.ndjson via
 	@python3 elk/load_dashboards.py
 
 doctor: ## Diagnose the ELK telemetry chain (containers, captures, log files, ES index, data view, dashboards). Use when Kibana shows no data after 'make launch'.
-	@./scripts/elk_doctor.sh
+	@bash ./scripts/elk_doctor.sh
 
 log: ## Log outputs
 	./scripts/log.sh
