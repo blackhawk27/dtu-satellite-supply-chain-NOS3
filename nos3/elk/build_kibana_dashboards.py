@@ -63,6 +63,54 @@ def sid(prefix):
     return prefix + "-" + uuid.uuid4().hex[:8]
 
 
+def ensure_data_view(dv_id, title, time_field="@timestamp"):
+    """Create the index-pattern saved object if Kibana does not already
+    have one with this id. Fresh-clone case: the ES docker volume is
+    empty, so Kibana's saved-object index has no nos3-telemetry* data
+    view; every dashboard panel built later references this id and
+    renders "could not find the index pattern" until it exists.
+    Idempotent: if the saved object is already there, this is a no-op.
+    Field population is left to refresh_data_view_fields()."""
+    r = subprocess.run(
+        ["curl", "-sS", "-o", "/dev/null", "-w", "%{http_code}",
+         f"{KIBANA}/api/saved_objects/index-pattern/{dv_id}",
+         "-H", "kbn-xsrf: true"],
+        capture_output=True, text=True)
+    code = r.stdout.strip()
+    if code == "200":
+        return
+    if code != "404":
+        print(f"[WARN] ensure_data_view: unexpected status {code} for "
+              f"{dv_id}; will still attempt create", file=sys.stderr)
+    attrs = {
+        "title": title,
+        "timeFieldName": time_field,
+        "fields": "[]",
+        "fieldAttrs": "{}",
+        "runtimeFieldMap": "{}",
+        "typeMeta": "{}",
+    }
+    r = subprocess.run(
+        ["curl", "-sS", "-X", "POST",
+         f"{KIBANA}/api/saved_objects/index-pattern/{dv_id}",
+         "-H", "kbn-xsrf: true",
+         "-H", "Content-Type: application/json",
+         "-d", json.dumps({"attributes": attrs})],
+        capture_output=True, text=True)
+    try:
+        resp = json.loads(r.stdout)
+    except Exception:
+        print("[WARN] ensure_data_view: non-JSON response:",
+              r.stdout[:300], file=sys.stderr)
+        return
+    if "error" in resp:
+        print(f"[WARN] ensure_data_view: create failed for {dv_id}: "
+              f"{resp}", file=sys.stderr)
+        return
+    print(f"[OK] Created data view {dv_id} (title='{title}', "
+          f"timeFieldName='{time_field}')")
+
+
 def refresh_data_view_fields(dv_id, index_pattern):
     """Pull the live field list from Elasticsearch (via Kibana's
     _fields_for_wildcard endpoint) and write it back into the data view's
@@ -2634,6 +2682,8 @@ if __name__ == "__main__":
     only = [s.strip() for s in args.only.split(",")] if args.only else None
     exclude = [s.strip() for s in args.exclude.split(",")] if args.exclude else None
     selected = cli_filter(only=only, exclude=exclude)
+
+    ensure_data_view(IP, "nos3-telemetry*", "@timestamp")
 
     if not args.no_refresh:
         refresh_data_view_fields(IP, "nos3-telemetry*")

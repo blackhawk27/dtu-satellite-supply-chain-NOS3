@@ -34,6 +34,11 @@ INDEX_PATTERN_IDS = [
     "5b3163a0-3ea7-11f1-adf4-55f5fc5a104a",
 ]
 
+# Title (Kibana index-pattern) and underlying ES index glob. Same data
+# view, but the saved-object .attributes.title is "nos3-telemetry*" and
+# the ES index glob is "nos3-telemetry-*". Both are needed below.
+INDEX_PATTERN_TITLE = "nos3-telemetry*"
+INDEX_PATTERN_TIME_FIELD = "@timestamp"
 ES_INDEX_PATTERN = "nos3-telemetry-*"
 KIBANA_READY_TIMEOUT = 60
 INDEX_WAIT_TIMEOUT = 120
@@ -140,19 +145,59 @@ def wait_for_index(pattern=ES_INDEX_PATTERN, timeout=INDEX_WAIT_TIMEOUT):
     return False
 
 
+def ensure_one(ip_id, title=INDEX_PATTERN_TITLE,
+               time_field=INDEX_PATTERN_TIME_FIELD):
+    """Create the index-pattern saved object if it is missing.
+
+    Fresh-clone case: the ES docker volume is empty, so Kibana's
+    saved-object index has no nos3-telemetry* data view; this script
+    used to fail with `saved object missing (404)` and point the user
+    at `make load-dashboards`. Now it self-heals by POSTing a minimal
+    saved object with the canonical id/title/timeFieldName, so the
+    subsequent refresh path can populate fields normally."""
+    try:
+        kb("GET", f"/api/saved_objects/index-pattern/{ip_id}", retries=1)
+        return True
+    except HTTPError as e:
+        if e.code != 404:
+            print(f"  WARN {ip_id}: GET saved-object failed ({e.code})")
+            return False
+    except URLError as e:
+        print(f"  WARN {ip_id}: GET saved-object unreachable: {e}")
+        return False
+
+    attrs = {
+        "title": title,
+        "timeFieldName": time_field,
+        "fields": "[]",
+        "fieldAttrs": "{}",
+        "runtimeFieldMap": "{}",
+        "typeMeta": "{}",
+    }
+    try:
+        kb("POST", f"/api/saved_objects/index-pattern/{ip_id}",
+           {"attributes": attrs})
+    except HTTPError as e:
+        print(f"  WARN {ip_id}: create failed ({e.code}); cannot refresh")
+        return False
+    except URLError as e:
+        print(f"  WARN {ip_id}: create unreachable: {e}")
+        return False
+    print(f"  created missing data view {ip_id} (title='{title}', "
+          f"timeFieldName='{time_field}')")
+    return True
+
+
 def refresh_one(ip_id):
     """Refresh the cached fields array on one index-pattern saved
     object. Returns True on success, False on a handled failure."""
+    if not ensure_one(ip_id):
+        return False
     try:
         sobj = kb("GET", f"/api/saved_objects/index-pattern/{ip_id}",
                   retries=2)
     except HTTPError as e:
-        if e.code == 404:
-            print(f"  WARN {ip_id}: saved object missing (404). Run "
-                  f"'make load-dashboards' once to import "
-                  f"nos3-eo1-dashboards.ndjson, then retry.")
-        else:
-            print(f"  WARN {ip_id}: GET saved-object failed ({e.code})")
+        print(f"  WARN {ip_id}: GET saved-object failed ({e.code})")
         return False
     except URLError as e:
         print(f"  WARN {ip_id}: GET saved-object unreachable: {e}")
