@@ -56,6 +56,13 @@ REQUIRED_NEW_FIELDS = {
     # "Field gnss_truth_lat was not found" even though ES has the docs.
     "gnss_truth_lat", "gnss_truth_lon", "gnss_truth_alt_m",
     "gps_lat", "gps_lon",
+    # MGR HK decoded fields. Many dashboards (mode-changes, ADCS,
+    # mission-overview) query spacecraft_mode / spacecraft_mode_name.
+    # On a fresh clone these may appear later than GENERIC_GNSS HK
+    # because MGR has to transition out of its startup state before
+    # publishing the first usable mode value. Wait for them so the
+    # cached field list never bakes them out.
+    "spacecraft_mode", "spacecraft_mode_name",
 }
 NEW_FIELDS_WAIT_TIMEOUT = 180
 RETRY_CODES = (404, 408, 425, 500, 502, 503, 504)
