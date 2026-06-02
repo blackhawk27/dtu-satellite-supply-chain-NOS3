@@ -13,6 +13,9 @@ pkill -f "cpu_monitor.sh"         2>/dev/null || true
 pkill -f "cfs_evs_capture.sh"     2>/dev/null || true
 pkill -f "sim_logs_capture.sh"    2>/dev/null || true
 pkill -f "god_view_capture.py"    2>/dev/null || true
+pkill -f "passive_listener.py"    2>/dev/null || true
+# Passive wire-truth tcpdump sidecar (shares the FSW netns)
+"$SCRIPT_DIR/start_tcpdump_sidecar.sh" stop 2>/dev/null || true
 
 # NOS3 GPIO
 rm -rf /tmp/gpio_fake

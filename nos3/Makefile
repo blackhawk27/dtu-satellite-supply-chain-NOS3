@@ -53,7 +53,7 @@ endif
 
 # The "LOCALTGTS" defines the top-level targets that are implemented in this makefile
 # Any other target may also be given, in that case it will simply be passed through.
-LOCALTGTS := all clean clean-docker clean-fsw clean-sim clean-gsw code-coverage code-coverage-clean code-coverage-internal config cosmos-gui debug doctor fsw gcov gsw help help-all launch load-run log prep purge-logs save-run sim start-elk stop stop-gsw stop-sim uninstall
+LOCALTGTS := all apply-index-template clean clean-docker clean-fsw clean-sim clean-gsw code-coverage code-coverage-clean code-coverage-internal config cosmos-gui debug doctor fsw gcov gsw help help-all launch load-run log prep purge-logs save-run sim start-elk stop stop-gsw stop-sim uninstall
 OTHERTGTS := $(filter-out $(LOCALTGTS),$(MAKECMDGOALS))
 
 # As this makefile does not build any real files, treat everything as a PHONY target
@@ -314,13 +314,16 @@ igniter: ## Launch Configuration GUI Igniter
 
 launch: ## Launch NOS3 System
 	@pkill -f '[g]od_view_capture\.py' 2>/dev/null || true
+	@pkill -f '[p]assive_listener\.py' 2>/dev/null || true
+	@./scripts/start_tcpdump_sidecar.sh stop 2>/dev/null || true
 	@pkill -f '[c]fs_evs_capture\.sh'  2>/dev/null || true
 	@pkill -f '[s]im_logs_capture\.sh' 2>/dev/null || true
 	@pkill -f '[c]pu_monitor\.sh'      2>/dev/null || true
-	@mkdir -p omni_logs attack_logs
+	@mkdir -p omni_logs attack_logs attack_logs/tcpdump
 	@touch attack_logs/cfs_god_view.json omni_logs/tlm_hk_decoded.log
 	@: > omni_logs/tlm_hk_decoded.log 2>/dev/null || true
 	@: > attack_logs/cfs_god_view.json 2>/dev/null || true
+	@rm -f attack_logs/tcpdump/*.pcap* 2>/dev/null || true
 	@sudo rm -f $(CURDIR)/fsw/build/exe/cpu1/data/mgr.bin 2>/dev/null || true
 	@$(MAKE) --no-print-directory purge-logs
 	@$(MAKE) --no-print-directory start-elk
@@ -335,8 +338,17 @@ launch: ## Launch NOS3 System
 	@./scripts/sim_logs_capture.sh &
 	@echo "Starting cFS CPU monitor (omni_logs/cpu_monitor.log)..."
 	@./scripts/cpu_monitor.sh &
-	@echo "Starting cFS Software Bus god-view capture (attack_logs/cfs_god_view.json)..."
+	@echo "Computing TO_LAB destination (nos3-sc01 gateway) for the COSMOS GS enable task..."
+	@docker network inspect nos3-sc01 -f '{{(index .IPAM.Config 0).Gateway}}' > omni_logs/.to_lab_dest_ip 2>/dev/null || true
+ifeq ($(NOS3_LEGACY_LOGGER),1)
+	@echo "NOS3_LEGACY_LOGGER=1: starting legacy god_view_capture.py (active injection)..."
 	@sleep 10 && python3 $(CURDIR)/scripts/god_view_capture.py >> omni_logs/god_view.log 2>&1 &
+else
+	@echo "Starting passive tcpdump sidecar (attack_logs/tcpdump/*.pcap)..."
+	@./scripts/start_tcpdump_sidecar.sh start 2>/dev/null || true
+	@echo "Starting passive CCSDS listener (attack_logs/cfs_god_view.json); COSMOS owns the TO_LAB enable..."
+	@sleep 10 && python3 $(CURDIR)/scripts/passive_listener.py >> omni_logs/passive_listener.log 2>&1 &
+endif
 	@echo "Waiting 15s for capture scripts to populate log files before Logstash rescan..."
 	@sleep 15
 	@echo "Restarting Logstash so it picks up freshly-created log files..."
@@ -393,6 +405,12 @@ start-elk: ## Bring up the ELK stack (idempotent). Waits for Elasticsearch to le
 	  fi; \
 	  sleep 2; \
 	done
+	@$(MAKE) --no-print-directory apply-index-template
+
+apply-index-template: ## Register elk/index_template.json with Elasticsearch and patch any existing nos3-telemetry-* indices. Needed so fields declared in the template (spacecraft_mode, gps_*, eps_*, ...) are visible to Kibana's _fields_for_wildcard even before a matching HK packet has been ingested. Idempotent.
+	@echo "Applying nos3-telemetry index template..."
+	@ES_URL="$(ES_URL)" python3 elk/apply_index_template.py || \
+	  echo "  WARN: index-template apply failed; run 'make apply-index-template' once ES is reachable."
 
 refresh-kibana-fields: ## Re-populate field cache on nos3-telemetry* index-patterns (idempotent). Closes a daily-rollover bug where Lens panels render "No data" until the saved-object's cached field list is rewritten. Safe to run any time.
 	@echo "Refreshing Kibana index-pattern field caches..."
@@ -449,6 +467,7 @@ save-run: ## Archive current sim run logs then stop (telemetry indices preserved
 	mkdir -p $$DEST/omni_logs; \
 	cp -r omni_logs/*.log $$DEST/omni_logs/ 2>/dev/null || true; \
 	cp attack_logs/cfs_god_view.json $$DEST/ 2>/dev/null || true; \
+	if [ -d attack_logs/tcpdump ]; then cp -r attack_logs/tcpdump $$DEST/ 2>/dev/null || true; fi; \
 	echo "Run label : $(RUN_LABEL)"          > $$DEST/metadata.txt; \
 	echo "Saved at  : $$(date)"             >> $$DEST/metadata.txt; \
 	echo "Git commit: $$(git rev-parse --short HEAD 2>/dev/null || echo n/a)" >> $$DEST/metadata.txt; \

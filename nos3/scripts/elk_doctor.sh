@@ -20,6 +20,7 @@ NOS3_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 ES_URL="${ES_URL:-http://localhost:9200}"
 KIBANA_URL="${KIBANA_URL:-http://localhost:5601}"
 DV_ID="5b3163a0-3ea7-11f1-adf4-55f5fc5a104a"
+TEMPLATE_NAME="nos3-telemetry"
 
 fails=0
 section() { printf '\n==== %s ====\n' "$1"; }
@@ -79,7 +80,7 @@ rm -f /tmp/.elk_doctor_state
 
 # ---- 2. Capture processes -------------------------------------------------
 section "2/7 Capture processes (populate omni_logs/ + attack_logs/)"
-for name in god_view_capture.py cfs_evs_capture.sh sim_logs_capture.sh cpu_monitor.sh; do
+for name in passive_listener.py cfs_evs_capture.sh sim_logs_capture.sh cpu_monitor.sh; do
     # Self-exclude this pgrep's own argv by hiding the first character in a
     # bracket class. Escape the literal '.' so it stays an exact-name match.
     esc=${name//./\\.}
@@ -139,6 +140,34 @@ else
     fail "no nos3-telemetry-* index in ES yet"
     note "fix: Logstash has not produced any docs. Check 'docker logs nos3-logstash --tail 80'"
     note "     and confirm the log files above are non-empty."
+fi
+
+# ---- 4b. Index template ---------------------------------------------------
+# The composable index template declares spacecraft_mode and every other
+# fixed-schema field. Without it, ES uses dynamic mapping and a field is
+# absent from the mapping (and thus from _fields_for_wildcard, and thus
+# from the Kibana data view's cached fields) until a real doc carrying
+# that field is indexed. That manifests in Kibana panels as
+# "Field spacecraft_mode was not found".
+section "4b/7 Elasticsearch index template ($TEMPLATE_NAME)"
+tmpl=$(curl -fsS "$ES_URL/_index_template/$TEMPLATE_NAME" 2>/dev/null || true)
+if [ -n "$tmpl" ]; then
+    has_mode=$(printf '%s' "$tmpl" | python3 -c 'import sys,json; d=json.load(sys.stdin);
+ts=d.get("index_templates") or []
+for t in ts:
+    props=(((t.get("index_template") or {}).get("template") or {}).get("mappings") or {}).get("properties") or {}
+    if "spacecraft_mode" in props: print("yes"); break
+else:
+    print("no")' 2>/dev/null || echo no)
+    if [ "$has_mode" = "yes" ]; then
+        pass "template $TEMPLATE_NAME registered (declares spacecraft_mode)"
+    else
+        fail "template $TEMPLATE_NAME registered but missing spacecraft_mode"
+        note "fix: cd $NOS3_DIR && make apply-index-template"
+    fi
+else
+    fail "template $TEMPLATE_NAME not registered"
+    note "fix: cd $NOS3_DIR && make apply-index-template"
 fi
 
 # ---- 5. Kibana data view --------------------------------------------------
