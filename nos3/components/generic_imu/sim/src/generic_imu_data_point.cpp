@@ -34,8 +34,14 @@ namespace Nos3
     {
         sim_logger->trace("Generic_imuDataPoint::Generic_imuDataPoint:  42 Constructor executed");
 
-        /* Initialize data */
+        /* Initialize data. The rate arrays MUST be zeroed here: do_parsing()
+         * can defer (early return / parse exception) when the 42 frame for this
+         * tick is empty or partial, leaving the arrays untouched. Without this
+         * init they would be read as uninitialized garbage (e.g. ~1.18e22) by
+         * the getters and emitted as a bogus [IMU_TRUTH] line. */
         _generic_imu_data_is_valid = false;
+        _gyroRates[0] = _gyroRates[1] = _gyroRates[2] = 0.0f;
+        _accelRates[0] = _accelRates[1] = _accelRates[2] = 0.0f;
     }
 
     void Generic_imuDataPoint::do_parsing(void) const

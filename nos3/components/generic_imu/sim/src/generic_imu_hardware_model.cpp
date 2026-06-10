@@ -178,6 +178,24 @@ namespace Nos3
                     uint32_t x_angular = (uint32_t)(data_point->get_generic_imu_gyro_x()*_ANG_CONV_CONST + _ANG_CONV_CONST*400);
                     sim_logger->debug("X linear acceleration: %f, converted to %u", data_point->get_generic_imu_acc_x(), x_linear);
                     sim_logger->debug("X rotational rate: %f, converted to %u", data_point->get_generic_imu_gyro_x(), x_angular);
+                    /* Dedicated truth line (mirrors GNSS [GNSS_TRUTH]). Emitted once per
+                    ** polling cycle on the X request with all three axes from this same
+                    ** data_point snapshot. The covert-channel PoC biases the gyro inside
+                    ** the FSW only, so this sim-side truth diverges from the bus value
+                    ** (imu_gyro_x/y/z); Logstash parses it into imu_truth_gyro and
+                    ** imu_truth_acc fields.
+                    **
+                    ** Only emit truth when this tick's 42 frame actually parsed. On an
+                    ** empty/deferred frame the data point is invalid and its rates are the
+                    ** zero-initialized defaults, not a real sample; emitting then would
+                    ** inject a spurious value into the imu_truth_gyro/acc series. */
+                    if (data_point->is_generic_imu_data_valid())
+                    {
+                        sim_logger->info("[IMU_TRUTH] gyro_x=%.6f gyro_y=%.6f gyro_z=%.6f acc_x=%.6f acc_y=%.6f acc_z=%.6f",
+                                         data_point->get_generic_imu_gyro_x(), data_point->get_generic_imu_gyro_y(),
+                                         data_point->get_generic_imu_gyro_z(), data_point->get_generic_imu_acc_x(),
+                                         data_point->get_generic_imu_acc_y(), data_point->get_generic_imu_acc_z());
+                    }
                     out_data[0] = (x_linear >> 24);
                     out_data[1] = (x_linear >> 16);
                     out_data[2] = (x_linear >> 8 );

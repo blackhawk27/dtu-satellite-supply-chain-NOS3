@@ -19,7 +19,9 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <unistd.h>
-//#include <fcntl.h>
+#include <fcntl.h>
+#include <sys/select.h>
+#include <errno.h>
 
 #include <ItcLogger/Logger.hpp>
 
@@ -138,12 +140,59 @@ namespace Nos3
                     sim_logger->warning("SimData42SocketProvider::connect_as_42_socket_client:  Continuing, but could not create socket for host %s, port %u: %s", a_42_host.c_str(), a_42_port, strerror(errno));
                     continue;
                 }
-                if (connect(socket_fd, p->ai_addr, p->ai_addrlen) == -1)
+                /* Non-blocking connect with a bounded timeout. A default blocking
+                 * connect() can stall for the kernel's full SYN-retransmit window
+                 * (minutes) when 42's listener is backlogged / not yet accepting
+                 * (42 inits its IPC sockets with a sequential blocking accept per
+                 * entry). That can freeze a sim mid-construction, before its
+                 * protocol-bus slave is ever registered, so the HWLIB bus master
+                 * finds no peer. Bounding each attempt lets the retry loop make
+                 * progress and connect once 42 advances its accept order. */
                 {
+                    int connected = 0;
+                    int sockflags  = fcntl(socket_fd, F_GETFL, 0);
+                    fcntl(socket_fd, F_SETFL, sockflags | O_NONBLOCK);
+                    int crc = connect(socket_fd, p->ai_addr, p->ai_addrlen);
+                    if (crc == 0)
+                    {
+                        connected = 1;
+                    }
+                    else if (errno == EINPROGRESS)
+                    {
+                        fd_set wset;
+                        FD_ZERO(&wset);
+                        FD_SET(socket_fd, &wset);
+                        struct timeval tv;
+                        tv.tv_sec  = 2; /* per-attempt connect timeout */
+                        tv.tv_usec = 0;
+                        if (select(socket_fd + 1, NULL, &wset, NULL, &tv) > 0)
+                        {
+                            int soerr = 0;
+                            socklen_t soerrlen = sizeof(soerr);
+                            getsockopt(socket_fd, SOL_SOCKET, SO_ERROR, &soerr, &soerrlen);
+                            if (soerr == 0)
+                            {
+                                connected = 1;
+                            }
+                            else
+                            {
+                                errno = soerr;
+                            }
+                        }
+                        else
+                        {
+                            errno = ETIMEDOUT;
+                        }
+                    }
+                    if (connected)
+                    {
+                        fcntl(socket_fd, F_SETFL, sockflags); /* restore blocking for the reader */
+                        break;                                /* got a good connection */
+                    }
                     close(socket_fd);
                     sim_logger->warning("SimData42SocketProvider::connect_as_42_socket_client:  Continuing, but could not connect socket for host %s, port %u: %s", a_42_host.c_str(), a_42_port, strerror(errno));
                     continue;
-                } else break; // got a good connection
+                }
             }
 
             if (p != NULL) // got a good connection
