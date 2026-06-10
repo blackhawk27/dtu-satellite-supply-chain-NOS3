@@ -22,6 +22,7 @@ only when Kibana is not reachable, the underlying nos3-telemetry-*
 index does not yet exist, or every index-pattern refresh failed.
 """
 import json
+import os
 import sys
 import time
 import urllib.request
@@ -29,6 +30,13 @@ from urllib.error import HTTPError, URLError
 
 KB = "http://localhost:5601"
 ES = "http://localhost:9200"
+
+# Display timezone for every Kibana date axis. Stored timestamps stay true UTC
+# epoch (sc_timestamp is rebased to wall-clock-now in passive_listener.py, not
+# shifted to a local offset); this setting only changes how Kibana renders
+# them, forcing Danish local time (CET/CEST) regardless of the viewer's browser
+# timezone. Override with NOS3_KIBANA_TZ if a different locale is ever needed.
+KIBANA_TZ = os.environ.get("NOS3_KIBANA_TZ", "Europe/Copenhagen")
 
 INDEX_PATTERN_IDS = [
     "5b3163a0-3ea7-11f1-adf4-55f5fc5a104a",
@@ -63,6 +71,11 @@ REQUIRED_NEW_FIELDS = {
     # publishing the first usable mode value. Wait for them so the
     # cached field list never bakes them out.
     "spacecraft_mode", "spacecraft_mode_name",
+    # passive_listener.py adds spacecraft time (decoded from the cFE telemetry
+    # secondary header) and an explicit host receive-time field. Wait for both
+    # so the cached field list exposes sc_timestamp (date) before any panel or
+    # ad-hoc query tries to use it as a time axis.
+    "sc_timestamp", "host_timestamp",
 }
 NEW_FIELDS_WAIT_TIMEOUT = 180
 RETRY_CODES = (404, 408, 425, 500, 502, 503, 504)
@@ -284,12 +297,36 @@ def wait_for_new_fields(timeout=NEW_FIELDS_WAIT_TIMEOUT):
     return False
 
 
+def set_timezone(tz=KIBANA_TZ):
+    """Force Kibana's display timezone (advanced setting dateFormat:tz) so
+    every date axis renders in `tz` regardless of the viewer's browser.
+
+    Stored timestamps remain true UTC epoch; this only affects display.
+    Persisted in the .kibana index, so it survives restarts and only needs
+    re-asserting in case a fresh Kibana volume reset it. Idempotent. Returns
+    True on success, False on a handled failure (never raises: a display-only
+    setting must not block the field-cache refresh)."""
+    try:
+        kb("POST", "/api/kibana/settings/dateFormat:tz",
+           {"value": tz}, retries=3)
+        print(f"  set Kibana dateFormat:tz = {tz}")
+        return True
+    except (HTTPError, URLError) as e:
+        print(f"  WARN: could not set dateFormat:tz={tz}: {e}. "
+              f"Set it manually under Stack Management > Advanced Settings.")
+        return False
+
+
 def main():
     if not kibana_ready():
         print("refresh_index_pattern_fields: Kibana did not become "
               "ready within "
               f"{KIBANA_READY_TIMEOUT}s. Re-run once Kibana is fully up.")
         return 1
+
+    # Display timezone does not depend on any index existing, so assert it
+    # as soon as Kibana is up.
+    set_timezone()
 
     if not wait_for_index():
         print(f"refresh_index_pattern_fields: no '{ES_INDEX_PATTERN}' "

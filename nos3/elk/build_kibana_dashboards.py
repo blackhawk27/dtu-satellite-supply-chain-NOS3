@@ -325,6 +325,11 @@ def col_max(field, label):
             "sourceField": field, "isBucketed": False, "scale": "ratio"}
 
 
+def col_min(field, label):
+    return {"label": label, "dataType": "number", "operationType": "min",
+            "sourceField": field, "isBucketed": False, "scale": "ratio"}
+
+
 def col_last_value(field, label):
     return {"label": label, "dataType": "string", "operationType": "last_value",
             "sourceField": field, "isBucketed": False, "scale": "ordinal",
@@ -1842,7 +1847,10 @@ def build_eo1_gnss_gs_validation():
         "GNSS lat - reported vs truth",
         "gps_lat (GNSS sim's reported geodetic latitude) overlaid with "
         "gnss_truth_lat (42 dynamics ground truth). Should track tightly; "
-        "any sustained delta exposes GNSS-side drift or units bug.",
+        "any sustained delta exposes GNSS-side drift or units bug. NOTE: both "
+        "series are SIM-SIDE, so this panel does NOT catch the GNSS "
+        "memory-overwrite PoC (it corrupts the FSW value gnss_lat, not the sim "
+        "value gps_lat). For that, see the Security section at the bottom.",
         [(col_avg("gps_lat", "GNSS lat (deg)"), "GNSS lat (deg)"),
          (col_avg("gnss_truth_lat", "Truth lat (deg)"), "Truth lat (deg)")],
         query='gps_lat: * or gnss_truth_lat: *',
@@ -1852,7 +1860,9 @@ def build_eo1_gnss_gs_validation():
     pos_lon = line_panel(
         "GNSS lon - reported vs truth",
         "gps_lon overlaid with gnss_truth_lon. Same fault model as the lat "
-        "panel: an unexplained offset hints at a frame mismatch.",
+        "panel: an unexplained offset hints at a frame mismatch. Like the lat "
+        "panel, both series are SIM-SIDE and do NOT reflect the FSW "
+        "memory-overwrite spoof; use the Security section at the bottom.",
         [(col_avg("gps_lon", "GNSS lon (deg)"), "GNSS lon (deg)"),
          (col_avg("gnss_truth_lon", "Truth lon (deg)"), "Truth lon (deg)")],
         query='gps_lon: * or gnss_truth_lon: *',
@@ -1941,6 +1951,112 @@ def build_eo1_gnss_gs_validation():
         query='tags: "gnss_gs_ping_roundtrip"')
     panels.append(lens_panel(rt_log, "Round-trip log", 0, 75, 48, 14))
 
+    # ── Row 12: Security - GNSS spoof detection header ──────────────────
+    # The GNSS memory-overwrite PoC (noisy_app writes GENERIC_GNSS_AppData.
+    # LastBusLat/Lon via extern, never on the Software Bus) corrupts the
+    # FSW-reported value gnss_lat/gnss_lon while the sim's ground truth
+    # (gnss_truth_lat/lon) stays on the real orbit track. The only detection
+    # that works is cross-source divergence: bus value vs independent truth.
+    # The existing Position panels above plot gps_lat (sim side) and so are
+    # blind to this attack. These panels plot the bus value gnss_lat instead.
+    # See docs/security/gnss-mem-overwrite-analysis.md.
+    panels.append(markdown_panel(
+        "### Security: GNSS spoof detection (bus vs truth)\n"
+        "Catches the GNSS memory-overwrite PoC (the implant writes the FSW's "
+        "in-memory position globals directly, never on the Software Bus).\n\n"
+        "- **TELEPORT (`0x0C`)**: `gnss_lat`/`gnss_lon` collapse to (0,0) while "
+        "`gnss_truth_*` stay on the real track. The LAT chart shows the bus "
+        "line stepping to 0 while truth holds ~55.\n"
+        "- **DRIFT (`0x0E`)**: `gnss_lat` fans slowly away from `gnss_truth_lat` "
+        "with no step. Only the truth comparison reveals it.\n\n"
+        "Compare on **LAT** (longitude has a reporting log-lag). If the bus "
+        "line goes flat/stale instead of dropping to 0, the teleport tripped "
+        "the geofence exit into SAFE mode and the SET_SAFE_TLM comms-downgrade "
+        "stopped downlinking GNSS HK: check the 'Bus-lat HK docs' freshness "
+        "tile against the 'Teleport ticks' counter to tell the two apart.",
+        "SecHdr", 0, 89, 48, 5))
+
+    # ── Row 13: bus-vs-truth lat / lon time series ──────────────────────
+    sec_lat = line_panel(
+        "Bus lat vs truth lat (spoof detector)",
+        "gnss_lat (FSW-reported, decoded from GENERIC_GNSS HK - the value the "
+        "implant corrupts) overlaid with gnss_truth_lat (42 ground truth, "
+        "which the in-process implant cannot reach). Normal: the two lines sit "
+        "on top of each other. TELEPORT: bus steps to 0. DRIFT: bus fans away. "
+        "This is the PRIMARY detector for both PoC modes.",
+        [(col_avg("gnss_lat", "Bus lat (FSW HK, deg)"), "Bus lat (FSW HK, deg)"),
+         (col_avg("gnss_truth_lat", "Truth lat (42, deg)"), "Truth lat (42, deg)")],
+        query='gnss_lat: * or gnss_truth_lat: *',
+        series_type="line")
+    panels.append(lens_panel(sec_lat, "Bus lat vs truth lat", 0, 94, 24, 14))
+
+    sec_lon = line_panel(
+        "Bus lon vs truth lon (spoof detector)",
+        "gnss_lon (FSW-reported) overlaid with gnss_truth_lon (42 ground "
+        "truth). Same fault model as the lat panel. Longitude is reported with "
+        "a log-lag relative to latitude, so judge the spoof on the LAT panel "
+        "first; this one confirms it on the second axis.",
+        [(col_avg("gnss_lon", "Bus lon (FSW HK, deg)"), "Bus lon (FSW HK, deg)"),
+         (col_avg("gnss_truth_lon", "Truth lon (42, deg)"), "Truth lon (42, deg)")],
+        query='gnss_lon: * or gnss_truth_lon: *',
+        series_type="line")
+    panels.append(lens_panel(sec_lon, "Bus lon vs truth lon", 24, 94, 24, 14))
+
+    # ── Row 14: last-value tiles (bus vs truth, lat + lon) ──────────────
+    m_bus_lat = metric_panel(
+        "Bus lat (last)",
+        "Last gnss_lat (FSW-reported). Compare against 'Truth lat (last)' to "
+        "the right: under attack these diverge; normally they match.",
+        col_last_value_num("gnss_lat", "Bus lat"),
+        query='gnss_lat: *')
+    panels.append(lens_panel(m_bus_lat, "Bus lat (last)", 0, 108, 12, 8))
+
+    m_truth_lat = metric_panel(
+        "Truth lat (last)",
+        "Last gnss_truth_lat (42 ground truth). The implant cannot reach this, "
+        "so it is the trustworthy reference for the bus value to the left.",
+        col_last_value_num("gnss_truth_lat", "Truth lat"),
+        query='gnss_truth_lat: *')
+    panels.append(lens_panel(m_truth_lat, "Truth lat (last)", 12, 108, 12, 8))
+
+    m_bus_lon = metric_panel(
+        "Bus lon (last)",
+        "Last gnss_lon (FSW-reported). Compare against 'Truth lon (last)'.",
+        col_last_value_num("gnss_lon", "Bus lon"),
+        query='gnss_lon: *')
+    panels.append(lens_panel(m_bus_lon, "Bus lon (last)", 24, 108, 12, 8))
+
+    m_truth_lon = metric_panel(
+        "Truth lon (last)",
+        "Last gnss_truth_lon (42 ground truth).",
+        col_last_value_num("gnss_truth_lon", "Truth lon"),
+        query='gnss_truth_lon: *')
+    panels.append(lens_panel(m_truth_lon, "Truth lon (last)", 36, 108, 12, 8))
+
+    # ── Row 15: teleport-signature + freshness counters ─────────────────
+    m_teleport = metric_panel(
+        "Teleport ticks (gnss_lat near 0)",
+        "Count of GENERIC_GNSS HK docs whose gnss_lat is in [-0.5, 0.5] deg - "
+        "the (0,0) signature of the TELEPORT PoC (0x0C). Expected 0 in a clean "
+        "run (the orbit never crosses lat 0 over Denmark). A nonzero count "
+        "during a pass is the spoof. Does NOT catch DRIFT mode (use the LAT "
+        "chart for that). A brief boot-time pre-warmup tick may show 1-2.",
+        col_count("Teleport ticks"),
+        query='gnss_lat >= -0.5 and gnss_lat <= 0.5 and type.keyword: "hk_decoded"')
+    panels.append(lens_panel(m_teleport, "Teleport ticks", 0, 116, 24, 8))
+
+    m_bus_fresh = metric_panel(
+        "Bus-lat HK docs (in time range)",
+        "Count of docs carrying gnss_lat in the dashboard time range. "
+        "Disambiguates the two ways the bus line can stop tracking truth: a "
+        "low/flat count means GNSS HK stopped downlinking (e.g. SAFE-mode "
+        "comms-downgrade after a geofence exit), so the chart is STALE, not "
+        "spoofed-to-zero. A healthy count with the line at 0 is a real "
+        "teleport. 1 Hz HK over 30 min -> ~1800 expected.",
+        col_count("Bus-lat docs"),
+        query='gnss_lat: *')
+    panels.append(lens_panel(m_bus_fresh, "Bus-lat HK docs", 24, 116, 24, 8))
+
     panelsJSON = json.dumps(panels, separators=(",", ":"))
     refs = collect_dashboard_refs(panels)
     attrs = {
@@ -1956,7 +2072,12 @@ def build_eo1_gnss_gs_validation():
             "missing - the responder requires BOTH simultaneously. "
             "The Data freshness tile counts GNSS HK docs in the current time "
             "range; if that is near 0 the Status tiles are showing stale "
-            "lastValue cached state, not live truth."
+            "lastValue cached state, not live truth. "
+            "The Security section at the bottom plots the FSW-reported "
+            "position (gnss_lat/lon) against independent ground truth "
+            "(gnss_truth_lat/lon) to expose the GNSS memory-overwrite PoC "
+            "(teleport and drift), which the sim-side Position panels above "
+            "cannot see."
         ),
         "panelsJSON": panelsJSON,
         "optionsJSON": json.dumps({"useMargins": True, "syncColors": False, "hidePanelTitles": False}),
@@ -2224,9 +2345,10 @@ def build_sensor_ground_truth():
 
     imu_acc = line_panel(
         "IMU Accelerations",
-        "Body-frame linear acceleration components (m/s^2) from the IMU sim. "
-        "Normal: near-zero during free flight; transients during torquer or "
-        "thruster commanding.",
+        "Body-frame linear acceleration components (m/s^2), FSW-decoded from "
+        "GENERIC_IMU_DEVICE_TLM (bus side). Normal: near-zero during free "
+        "flight; transients during torquer or thruster commanding. For the "
+        "bus-vs-truth integrity check see the Security section at the bottom.",
         [(col_avg("imu_acc_x", "Acc X (m/s^2)"), "Acc X (m/s^2)"),
          (col_avg("imu_acc_y", "Acc Y (m/s^2)"), "Acc Y (m/s^2)"),
          (col_avg("imu_acc_z", "Acc Z (m/s^2)"), "Acc Z (m/s^2)")],
@@ -2236,8 +2358,10 @@ def build_sensor_ground_truth():
 
     imu_gyro = line_panel(
         "IMU Gyro Rates",
-        "Body-rate components (rad/s) from the IMU sim. Normal: a few "
-        "millirad/s during attitude maintenance; ramped during slews.",
+        "Body-rate components (rad/s), FSW-decoded from GENERIC_IMU_DEVICE_TLM "
+        "(bus side - the value PoC 3 biases). Normal: a few millirad/s during "
+        "attitude maintenance; ramped during slews. For the bias detector that "
+        "overlays this against sim ground truth see the Security section below.",
         [(col_avg("imu_gyro_x", "Gyro X (rad/s)"), "Gyro X (rad/s)"),
          (col_avg("imu_gyro_y", "Gyro Y (rad/s)"), "Gyro Y (rad/s)"),
          (col_avg("imu_gyro_z", "Gyro Z (rad/s)"), "Gyro Z (rad/s)")],
@@ -2281,12 +2405,99 @@ def build_sensor_ground_truth():
         series_type="line")
     panels.append(lens_panel(st, "Star Tracker Quaternion", 24, 60, 24, 15))
 
+    # ── Security: IMU bias detection (bus vs truth) ─────────────────────
+    # PoC 3 (IMU_BIAS opcode 0x0A) injects a slow gyro bias via the
+    # /ram/.imu_cal file dead-drop, consumed in-process by generic_imu. The
+    # attack never touches the Software Bus (no subscribe, no publish), so the
+    # only detection is cross-source: the bus value imu_gyro_* (FSW-decoded
+    # from GENERIC_IMU_DEVICE_TLM, the value the implant biases) diverges from
+    # imu_truth_gyro_* (the IMU sim's [IMU_TRUTH] ground truth, which the
+    # in-process implant cannot reach).
+    panels.append(markdown_panel(
+        "### Security: IMU bias detection (bus vs truth)\n"
+        "PoC 3 (`IMU_BIAS`, opcode `0x0A`) biases the gyro via the "
+        "`/ram/.imu_cal` dead-drop, off the Software Bus. The only detector is "
+        "cross-source divergence: the bus value `imu_gyro_*` (FSW-decoded HK, "
+        "what the implant corrupts) vs `imu_truth_gyro_*` (sim ground truth the "
+        "implant cannot reach).\n"
+        "- **Normal**: each bus axis sits on top of its truth axis.\n"
+        "- **Under attack**: the bus axis drifts ~0.0010/sample away from "
+        "truth, then clamps at the bias cap; every sample stays a plausible "
+        "reading, so only the truth comparison reveals it.",
+        "Security: IMU bias detection header", 0, 75, 48, 6))
+
+    sec_gx = line_panel(
+        "Gyro X: bus vs truth (bias detector)",
+        "imu_gyro_x (FSW-decoded bus HK - the value PoC 3 biases) overlaid "
+        "with imu_truth_gyro_x (IMU sim ground truth). Normal: the two lines "
+        "coincide. IMU_BIAS: the bus line walks away from truth and clamps. "
+        "This is the PRIMARY detector for PoC 3.",
+        [(col_avg("imu_gyro_x", "Bus gyro X (rad/s)"), "Bus gyro X (rad/s)"),
+         (col_avg("imu_truth_gyro_x", "Truth gyro X (rad/s)"), "Truth gyro X (rad/s)")],
+        query='imu_gyro_x: * or imu_truth_gyro_x: *',
+        series_type="line")
+    panels.append(lens_panel(sec_gx, "Gyro X bus vs truth", 0, 81, 24, 14))
+
+    sec_gy = line_panel(
+        "Gyro Y: bus vs truth (bias detector)",
+        "imu_gyro_y (FSW-decoded bus HK) overlaid with imu_truth_gyro_y (sim "
+        "ground truth). Same fault model as the X panel; the IMU_BIAS profile "
+        "biases all enabled axes (axis_mask 0x07 = X, Y, Z).",
+        [(col_avg("imu_gyro_y", "Bus gyro Y (rad/s)"), "Bus gyro Y (rad/s)"),
+         (col_avg("imu_truth_gyro_y", "Truth gyro Y (rad/s)"), "Truth gyro Y (rad/s)")],
+        query='imu_gyro_y: * or imu_truth_gyro_y: *',
+        series_type="line")
+    panels.append(lens_panel(sec_gy, "Gyro Y bus vs truth", 24, 81, 24, 14))
+
+    sec_gz = line_panel(
+        "Gyro Z: bus vs truth (bias detector)",
+        "imu_gyro_z (FSW-decoded bus HK) overlaid with imu_truth_gyro_z (sim "
+        "ground truth). Z is the axis the CAN read-alignment fix corrected, so "
+        "it should track truth exactly in a clean run; divergence here is the "
+        "bias.",
+        [(col_avg("imu_gyro_z", "Bus gyro Z (rad/s)"), "Bus gyro Z (rad/s)"),
+         (col_avg("imu_truth_gyro_z", "Truth gyro Z (rad/s)"), "Truth gyro Z (rad/s)")],
+        query='imu_gyro_z: * or imu_truth_gyro_z: *',
+        series_type="line")
+    panels.append(lens_panel(sec_gz, "Gyro Z bus vs truth", 0, 95, 24, 14))
+
+    m_bus_gx = metric_panel(
+        "Bus gyro X (last)",
+        "Last imu_gyro_x (FSW-decoded bus HK). Compare against 'Truth gyro X "
+        "(last)' to the right: under PoC 3 these diverge; normally they match.",
+        col_last_value_num("imu_gyro_x", "Bus gyro X"),
+        query='imu_gyro_x: *')
+    panels.append(lens_panel(m_bus_gx, "Bus gyro X (last)", 24, 95, 12, 7))
+
+    m_truth_gx = metric_panel(
+        "Truth gyro X (last)",
+        "Last imu_truth_gyro_x (sim ground truth). The implant cannot reach "
+        "this, so it is the trustworthy reference for the bus value.",
+        col_last_value_num("imu_truth_gyro_x", "Truth gyro X"),
+        query='imu_truth_gyro_x: *')
+    panels.append(lens_panel(m_truth_gx, "Truth gyro X (last)", 36, 95, 12, 7))
+
+    m_bus_gz = metric_panel(
+        "Bus gyro Z (last)",
+        "Last imu_gyro_z (FSW-decoded bus HK). Compare against 'Truth gyro Z "
+        "(last)'.",
+        col_last_value_num("imu_gyro_z", "Bus gyro Z"),
+        query='imu_gyro_z: *')
+    panels.append(lens_panel(m_bus_gz, "Bus gyro Z (last)", 24, 102, 12, 7))
+
+    m_truth_gz = metric_panel(
+        "Truth gyro Z (last)",
+        "Last imu_truth_gyro_z (sim ground truth).",
+        col_last_value_num("imu_truth_gyro_z", "Truth gyro Z"),
+        query='imu_truth_gyro_z: *')
+    panels.append(lens_panel(m_truth_gz, "Truth gyro Z (last)", 36, 102, 12, 7))
+
     panelsJSON = json.dumps(panels, separators=(",", ":"))
     refs = collect_dashboard_refs(panels)
     attrs = {
         "title": "Sensor Ground Truth Overview",
         "hits": 0,
-        "description": "Simulator sensor ground-truth values for all hardware subsystems (EPS, GPS, RW, IMU, MAG, FSS, Star Tracker). Baseline for false-telemetry detection: compare these sim-side values with the Software Bus TLM rates on the FSW vs Sim Cross-Reference dashboard.",
+        "description": "Simulator sensor ground-truth values for all hardware subsystems (EPS, GPS, RW, IMU, MAG, FSS, Star Tracker). Baseline for false-telemetry detection: compare these sim-side values with the Software Bus TLM rates on the FSW vs Sim Cross-Reference dashboard. Includes the IMU bias bus-vs-truth detector (PoC 3, opcode 0x0A) at the bottom.",
         "panelsJSON": panelsJSON,
         "optionsJSON": json.dumps({"useMargins": True, "syncColors": False, "hidePanelTitles": False}),
         "version": 1,
