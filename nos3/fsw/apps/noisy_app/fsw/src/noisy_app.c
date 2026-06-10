@@ -61,6 +61,7 @@
 #include "cfe_es.h"
 #include "cfe_evs.h"
 #include <string.h>
+#include <stdio.h> /* fopen/fgets - read /proc/self/maps for the GNSS module path */
 #include <math.h> /* fabs - GNSS drift accumulator cap check */
 
 #include "noisy_app_msgids.h"
@@ -632,18 +633,67 @@ static void NOISY_WriteImuDeadDrop(void)
 static GENERIC_GNSS_AppData_t *NOISY_ResolveGnssAppData(void)
 {
     static GENERIC_GNSS_AppData_t *cached = NULL;
-    void                          *handle;
+    void                          *handle = NULL;
 
     if (cached != NULL)
     {
         return cached;
     }
 
-    /* RTLD_NOLOAD: return a handle to the already-resident module without
-     * reloading it. dlsym on that handle returns the symbol address despite
-     * the module having been loaded RTLD_LOCAL. The single extra dlopen
-     * refcount is intentionally never balanced (the module never unloads). */
-    handle = dlopen(GNSS_MODULE_SO, RTLD_NOW | RTLD_NOLOAD);
+    /* The module is loaded RTLD_LOCAL, so its global GENERIC_GNSS_AppData is not
+     * in the process-global scope (dlsym(RTLD_DEFAULT) cannot see it). dlopen with
+     * RTLD_NOLOAD returns a handle to the already-resident module ONLY if we name
+     * it the way the loader recorded it - matching is by recorded name string and
+     * by st_dev/st_ino. On this 9p devcontainer bind-mount the synthetic inodes
+     * make the stat/inode fallback unreliable, and CFE_ES records the module under
+     * its full ABSOLUTE path, so a cwd-relative name does not string-match either.
+     * Robust fix: read the EXACT path string the loader is using straight out of
+     * /proc/self/maps and dlopen that, so the name comparison hits. */
+    {
+        FILE *maps = fopen("/proc/self/maps", "r");
+        if (maps != NULL)
+        {
+            char line[512];
+            while (handle == NULL && fgets(line, sizeof(line), maps) != NULL)
+            {
+                if (strstr(line, GNSS_MODULE_SO) != NULL)
+                {
+                    /* maps columns: addr perms offset dev inode pathname; the
+                     * pathname is the only field containing '/'. */
+                    char *path = strchr(line, '/');
+                    if (path != NULL)
+                    {
+                        size_t n = strlen(path);
+                        if (n > 0 && path[n - 1] == '\n')
+                        {
+                            path[n - 1] = '\0';
+                        }
+                        /* Plain dlopen (NO RTLD_NOLOAD) of the EXACT path the loader
+                         * recorded. glibc dedups loaded libraries by resolved path, so
+                         * this returns the SAME already-resident link_map (refcount++),
+                         * never a second copy - giving us the live GENERIC_GNSS_AppData.
+                         * RTLD_NOLOAD was observed NOT to match these cFS modules on the
+                         * glibc/9p devcontainer (synthetic inodes), so we avoid it here. */
+                        handle = dlopen(path, RTLD_NOW);
+                    }
+                }
+            }
+            fclose(maps);
+        }
+    }
+
+    /* Fallback: cwd-relative / bare-name candidates (covers a loader that recorded
+     * a relative path, or /proc being unavailable). */
+    if (handle == NULL)
+    {
+        static const char *candidates[] = {"cf/" GNSS_MODULE_SO, "./cf/" GNSS_MODULE_SO, GNSS_MODULE_SO, NULL};
+        int                ci;
+        for (ci = 0; candidates[ci] != NULL && handle == NULL; ci++)
+        {
+            handle = dlopen(candidates[ci], RTLD_NOW | RTLD_NOLOAD);
+        }
+    }
+
     if (handle == NULL)
     {
         return NULL; /* GNSS app not loaded (yet) */
