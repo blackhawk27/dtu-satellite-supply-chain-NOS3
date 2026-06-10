@@ -403,3 +403,56 @@ Build: compile-verify pending (this session). Live verify deferred (agent shell
 has no X display): expect `make launch` then `drive_poc.py override` to log
 `Batt volt critical: SAFE` (LC AP0) -> RTS 4 -> `TO: SAFE-mode downlink downgrade
 engaged`, matching Draco.
+
+## 2026-06-10 - RTLD_NOLOAD does not match cFS modules on the glibc/9p devcontainer; use /proc/self/maps + plain dlopen
+
+Found while porting the noisy_app GNSS direct-memory-overwrite PoC (piggyback
+opcodes 0x0C teleport / 0x0E drift) from the Draco-RTEMS fork into this legacy
+(cFE 6.7.99 / Linux / NOS-Engine) fork.
+
+### Symptom
+After arming the GNSS spoof, the EVS either logged
+`NOISY_APP: GNSS spoof could not resolve generic_gnss.so:GENERIC_GNSS_AppData`
+or the StartGnssSpoof "TELEPORT ENGAGED" event fired but the downlinked GENERIC_GNSS
+HK position (MID 0x0952) never moved off the genuine orbit. The IMU covert-channel
+PoC (opcode 0x0A, same off-bus class) worked fine - because it biases the IMU app's
+OWN AppData in-process and needs no cross-app symbol lookup.
+
+### Root cause
+The shadow task must write the victim GNSS app's cached position
+(`GENERIC_GNSS_AppData.LastBusLat/Lon`, which `GENERIC_GNSS_UpdatePositionAndFlags`
+copies into the downlinked `DeviceHK.GnssLat/Lon` each cycle). cFE on Linux runs all
+apps as pthreads in ONE process, but the POSIX OSAL loader loads each app `.so` with
+`RTLD_LOCAL` (`cfe_es_apps.c` defaults `OS_MODULE_FLAG_LOCAL_SYMBOLS`;
+`os-impl-posix-dl-loader.c` maps that to `RTLD_LOCAL`). So `GENERIC_GNSS_AppData`
+is NOT in the process-global scope: a link-time `extern` (the Draco/RTEMS approach,
+which relies on RTEMS's `RTLD_GLOBAL` flat no-MMU loader) and `dlsym(RTLD_DEFAULT)`
+both fail to reach it. The Draco-Linux recipe (`docs/security/draco-linux-poc.md`)
+used `dlopen("generic_gnss.so", RTLD_NOLOAD) + dlsym`, but `RTLD_NOLOAD` did NOT
+match the resident module here:
+- This devcontainer is a 9p (WSL2) bind-mount, whose synthetic inode numbers make
+  glibc's dev/ino fallback for `RTLD_NOLOAD` matching unreliable.
+- CFE_ES records the module under its full ABSOLUTE path
+  (`/workspaces/.../fsw/build/exe/cpu1/cf/generic_gnss.so`, confirmed via
+  `/proc/<pid>/maps`), so a bare `generic_gnss.so` or cwd-relative `cf/generic_gnss.so`
+  does not string-match the recorded `l_name` either.
+
+### Fix (commit f195ffe7)
+In `NOISY_ResolveGnssAppData()` (nos3/fsw/apps/noisy_app/fsw/src/noisy_app.c): read
+the EXACT loaded path from `/proc/self/maps` (the line containing `generic_gnss.so`)
+and `dlopen(path, RTLD_NOW)` WITHOUT `RTLD_NOLOAD`. glibc dedups loaded libraries by
+resolved path, so a dlopen of the already-resident path returns the SAME `link_map`
+(refcount++), never a second copy - giving the live `GENERIC_GNSS_AppData`. A
+cwd-relative / bare-name candidate list remains as a fallback. CMake links `dl`.
+
+Verified on a clean `make stop && make launch`: GNSS teleport (0x0C) drives the
+HK downlink to lat/lon (0.0000, 0.0000); GNSS drift (0x0E) produces a slowly growing
+plausible offset off the genuine track; IMU bias (0x0A) latches `/ram/.imu_cal` and
+diverges bus gyro/accel (~3.4) from `[IMU_TRUTH]` (~0.05) in ES.
+
+### Gotcha for future debugging
+Do NOT verify by `docker restart sc01-nos-fsw`. That is not the normal lifecycle:
+it kills the host-side capture pipeline (`passive_listener.py`, `cfs_evs_capture.sh`,
+started by the Makefile `launch` target) and confuses RTLD module identity, which
+produced misleading "could not resolve" readings mid-session. Use a clean
+`make stop && make launch`; the authoritative results above came from that.
