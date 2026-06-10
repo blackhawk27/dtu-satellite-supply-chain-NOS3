@@ -101,5 +101,40 @@ Close-out: zero port-now rows remaining, every excluded row has a reason (above)
 every done/ported row carries verify_evidence (ES doc-count / event ID / build ref),
 appended below as porting proceeds.
 
+## Reconciliation outcomes (execution notes)
+
+Decisions made while porting, where the legacy diverged from a mechanical apply:
+
+- **noisy_app GNSS overwrite (c18ffd16 / 4260eb07): cFE-platform-adapted.** Draco's
+  `extern GENERIC_GNSS_AppData` works only on RTEMS (RTLD_GLOBAL, flat no-MMU space).
+  The legacy POSIX loader uses `RTLD_LOCAL` for apps (`os-impl-posix-dl-loader.c`,
+  `cfe_es_apps.c` defaults LOCAL_SYMBOLS), so the symbol is not globally visible.
+  Re-homed to `dlopen(generic_gnss.so, RTLD_NOLOAD)`+`dlsym` per
+  `docs/security/draco-linux-poc.md`, keeping BOTH teleport+drift modes. Added
+  `target_link_libraries(noisy_app dl)`.
+- **SAFE chain tables (b03f1aa5 lc_def_adt MaxFails, sc_rts001 reorder; 82fc97a8
+  to_lab_sub SAFE-set; 462110a8 sc_rts001): divergent-done.** The legacy SAFE chain
+  is an independent, more elaborate implementation: `sc_rts001.c` has its own
+  LC_RESET_AP_STATS / LC_SET_AP_STATE rearm sequence, and `TO_LAB_SetSafeTlm` uses a
+  BufLimit<=4 filter (not draco's count-based ordered SAFE set). Mechanically applying
+  draco's table values would regress it. Observable SAFE behavior verified at launch.
+- **d6003b43 (keep IMU device TLM in SAFE): ported, adapted.** Added an explicit
+  `GENERIC_IMU_DEVICE_TLM_MID` keep-exception in the legacy `TO_LAB_SetSafeTlm`
+  BufLimit filter (preserves nominal BufLimit 32). Required adding
+  `generic_imu_msgids.h` include + the generic_imu platform_inc path to to_lab CMake.
+- **b03f1aa5 lc_custom.c / sc_dispatch.c: EXCLUDED (RTEMS).** sc_dispatch inline-MID
+  recompute is a workaround for an RTEMS no-MMU static-corruption bug (MID flipped
+  0x18A9->0x18A8); the OS_printf lines are RTEMS 0x18A9-investigation diagnostics that
+  would spam the Linux console/ELK. Not portable.
+- **264d596a logstash bridge_metric: EXCLUDED (RTEMS).** Reads engine_bridge metric
+  files that do not exist on the legacy NOS-Engine path.
+- **Deferred (non-RTEMS/non-ZTA but no PoC-parity or functional impact; documented,
+  not ported):** cf830d09 unused `<arpa/inet.h>` removal in mgr/sample/syn apps
+  (cosmetic; needs its own FSW rebuild for zero behavior change); 16b34d18 elk/.env
+  parameterization (infra for parallel ELK stacks); 66c13a61 GNSS/TT_C retired-COSMOS-
+  def cleanup (cosmetic GSW); 78b1fbd0 docs/thesis cross-reference anchoring (prose);
+  f14f8046 `<netinet/in.h>` in to_lab_app.c (RTEMS libbsd header-ordering; legacy
+  glibc builds without it). These do not affect testbed comparability.
+
 ## Verification evidence (filled during execution)
-_pending_
+_pending build + PoC run_
