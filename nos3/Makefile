@@ -125,29 +125,38 @@ cosmos-operator: ## Launch as a COSMOS operator viewpoint
 	@export SYSTEM_TEST_FILE_PATH=../..$(SYSTEM_TEST_FILE_PATH) && \
 	./scripts/ci_launch.sh --use-cosmos-gui 
 
+# RM is sudo-aware: containers started by ci_launch.sh run as root and leave
+# root-owned files under fsw/build, sims/build, gsw/build, attack_logs, and
+# omni_logs. Plain rm from the host user (e.g. vscode in the devcontainer)
+# fails with "Permission denied" on those, so the clean targets fall back to
+# sudo when needed. The devcontainer has passwordless sudo; on a host without
+# sudo the fallback is a no-op and the command exits non-zero, which is the
+# right signal.
+RM := sh -c 'rm -rf "$$@" 2>/dev/null || sudo rm -rf "$$@"' --
+
 clean: ## Clean all build files and configurations
 	$(MAKE) clean-fsw
 	$(MAKE) clean-sim
 	$(MAKE) clean-gsw
-	rm -rf cfg/build
+	$(RM) cfg/build
 
 clean-fsw: ## Clean only flight software build artifacts
-	rm -rf cfg/build/nos3_defs
-	rm -rf docs/coverage/coverage_report.*
-	rm -rf fsw/build
-	rm -rf fsw/build-cov
-	rm -rf fsw/fprime/fprime-nos3/build-artifacts
-	rm -rf fsw/fprime/fprime-nos3/build-fprime-automatic-native
-	rm -rf fsw/fprime/fprime-nos3/fprime-venv
-	rm -rf fsw/fprime/fprime-nos3/logs
+	$(RM) cfg/build/nos3_defs
+	$(RM) docs/coverage/coverage_report.*
+	$(RM) fsw/build
+	$(RM) fsw/build-cov
+	$(RM) fsw/fprime/fprime-nos3/build-artifacts
+	$(RM) fsw/fprime/fprime-nos3/build-fprime-automatic-native
+	$(RM) fsw/fprime/fprime-nos3/fprime-venv
+	$(RM) fsw/fprime/fprime-nos3/logs
 
 clean-sim: ## Clean only simulator build artifacts
-	rm -rf sims/build
+	$(RM) sims/build
 
 clean-gsw: ## Clean only GSW build artifacts
-	rm -rf gsw/build
-	rm -rf gsw/cosmos/build
-	rm -rf /tmp/nos3
+	$(RM) gsw/build
+	$(RM) gsw/cosmos/build
+	$(RM) /tmp/nos3
 	./scripts/gsw/gsw_openc3_clean.sh
 
 clean-docker: ## Prune exited containers, dangling images, build cache (keeps volumes and in-use images)
@@ -313,6 +322,15 @@ igniter: ## Launch Configuration GUI Igniter
 	./scripts/cfg/igniter_launch.sh
 
 launch: ## Launch NOS3 System
+	@missing=""; \
+	for f in gsw/build/support/standalone fsw/build/exe/cpu1/core-cpu1 sims/build/bin/nos3-single-simulator; do \
+	  [ -e "$$f" ] || missing="$$missing $$f"; \
+	done; \
+	if [ -n "$$missing" ]; then \
+	  echo "ERROR: build artifacts missing:$$missing"; \
+	  echo "Run 'make config && make prep && make' before 'make launch'."; \
+	  exit 1; \
+	fi
 	@pkill -f '[g]od_view_capture\.py' 2>/dev/null || true
 	@pkill -f '[p]assive_listener\.py' 2>/dev/null || true
 	@./scripts/start_tcpdump_sidecar.sh stop 2>/dev/null || true
@@ -329,8 +347,9 @@ launch: ## Launch NOS3 System
 	@$(MAKE) --no-print-directory start-elk
 	@echo "Deleting nos3-telemetry-* indices so Kibana starts clean..."
 	@curl -s -X DELETE 'http://localhost:9200/nos3-telemetry-*' > /dev/null 2>&1 || true
-	@echo "Removing stale cosmos-openc3-operator-1 container so ci_launch.sh can recreate it..."
-	@docker rm -f cosmos-openc3-operator-1 > /dev/null 2>&1 || true
+	@echo "Removing stale NOS3 containers so ci_launch.sh can recreate them..."
+	@docker rm -f cosmos-openc3-operator-1 nos-terminal nos-udp-terminal nos-sim-bridge nos-time-driver > /dev/null 2>&1 || true
+	@docker ps -a --format '{{.Names}}' | grep -E '^sc[0-9]+-' | xargs -r docker rm -f > /dev/null 2>&1 || true
 	./scripts/ci_launch.sh
 	@echo "Starting cFS EVS capture (omni_logs/cfs_evs.log)..."
 	@./scripts/cfs_evs_capture.sh &
@@ -366,7 +385,7 @@ cosmos-gui: ## Full launch (ELK + sims + FSW) with the COSMOS Launcher GUI inste
 	@$(MAKE) --no-print-directory launch
 	@echo "Replacing headless cosmos-openc3-operator-1 with GUI Launcher..."
 	@docker rm -f cosmos-openc3-operator-1 > /dev/null 2>&1 || true
-	./scripts/ci_launch.sh --use-cosmos-gui
+	@GSW_ONLY=1 ./scripts/ci_launch.sh --use-cosmos-gui
 
 scriptrunner: cosmos-gui ## Alias for cosmos-gui. After it loads, click "Script Runner" in the NOS3 Launcher window. Open COMPONENTS/GENERIC_GNSS/procedures/gnss_gs_responder.rb to manually exercise the GNSS GS responder.
 

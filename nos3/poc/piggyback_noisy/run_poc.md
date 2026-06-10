@@ -29,7 +29,8 @@ by the co-resident `noisy_app`, which then runs a selected scenario.
   active (reversible block / `CFE_APP` row).
 - `nos3/gsw/cosmos/config/targets/CI_DEBUG/cmd_tlm/PIGGYBACK_POC.txt` - the
   manual COSMOS command `CI_DEBUG CI_DEBUG_PIGGYBACK_NOOP_CC` with an `OPCODE`
-  dropdown (DORMANT / EPS_SPOOF / SB_BURST).
+  dropdown (DORMANT / EPS_SPOOF / SB_BURST / EPS_OVERRIDE / SB_FLOOD / IMU_BIAS /
+  GNSS_SPOOF / GNSS_DRIFT).
 
 ## Opcode map (the piggybacked trailing byte)
 
@@ -40,6 +41,9 @@ by the co-resident `noisy_app`, which then runs a selected scenario.
 | `0x04` | SB_BURST     | 64-packet capped Software Bus burst (pool/pipe stress; not the legacy 32k storm) |
 | `0x06` | EPS_OVERRIDE | PERSISTENT: subscribe to `0x091A` and shadow EVERY real EPS HK so the spoof always wins LC's sample (AP #0 fires RTS 4: SAFE + comms downgrade, and holds it). Send `0x00` to clear. See `docs/security/noisy_app-escalation-design.md` |
 | `0x08` | SB_FLOOD     | DESTRUCTIVE: self-hosted SB pool lock (~15 max-size buffers parked unread) -> every app's TransmitMsg fails -> total blackout. Needs a sim restart. Gated research mode |
+| `0x0A` | IMU_BIAS     | COVERT CHANNEL: drop `/ram/.imu_cal` (off-bus file dead-drop). Requires the companion `generic_imu` backdoor to have telemetry effect (see note at end) |
+| `0x0C` | GNSS_SPOOF   | OFF-BUS: write the peer GNSS app's cached position (LastBusLat/Lon) directly in memory -> downlinked position teleports to Null Island (0,0). Never on the SB, so SB_ACL cannot block it. Send `0x00` to clear |
+| `0x0E` | GNSS_DRIFT   | OFF-BUS: same direct-memory vector but a slow plausible offset (genuine position + a growing delta) that a range check will not catch; only a truth-vs-bus divergence does. Send `0x00` to clear |
 
 ## Build
 
@@ -92,6 +96,8 @@ python3 nos3/poc/piggyback_noisy/drive_poc.py off        # clear the override (o
 python3 nos3/poc/piggyback_noisy/drive_poc.py spoof      # one-shot EPS_SPOOF (0x02)
 python3 nos3/poc/piggyback_noisy/drive_poc.py burst      # one-shot SB_BURST (0x04)
 python3 nos3/poc/piggyback_noisy/drive_poc.py flood      # DESTRUCTIVE: SB pool lock (0x08), needs restart
+python3 nos3/poc/piggyback_noisy/drive_poc.py gnss       # OFF-BUS: GNSS teleport to (0,0) (0x0C)
+python3 nos3/poc/piggyback_noisy/drive_poc.py gnss_drift # OFF-BUS: GNSS slow plausible drift (0x0E)
 python3 nos3/poc/piggyback_noisy/drive_poc.py <FSW_IP> <DEST_IP> <mode>   # explicit endpoints
 ```
 Note on EPS_SPOOF vs EPS_OVERRIDE: a single `0x02` spoof is unlikely to be the

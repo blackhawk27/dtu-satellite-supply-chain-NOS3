@@ -33,6 +33,8 @@ COMMAND CFS CI_DEBUG_PIGGYBACK_NOOP_CC BIG_ENDIAN "Piggyback NOOP: CI_LAB NOOP w
     STATE EPS_OVERRIDE 0x06
     STATE SB_FLOOD     0x08
     STATE IMU_BIAS     0x0A
+    STATE GNSS_SPOOF   0x0C
+    STATE GNSS_DRIFT   0x0E
 # OPCODE notes:
 #   DORMANT      stealth; also CLEARS a running EPS_OVERRIDE.
 #   EPS_SPOOF    forge ONE low-battery EPS HK (one-shot; needs re-arm to fire SAFE).
@@ -46,3 +48,8 @@ COMMAND CFS CI_DEBUG_PIGGYBACK_NOOP_CC BIG_ENDIAN "Piggyback NOOP: CI_LAB NOOP w
 #                (this command + the CI_LAB length error), but the channel and
 #                the IMU bias produce ZERO SB/EVS evidence. See
 #                docs/security/covert-channel-imu-design.md.
+#   GNSS_SPOOF   OFF-BUS: direct memory write of the peer GNSS app's cached
+#                position -> teleport to Null Island (0,0). Never touches the SB.
+#                Send DORMANT (0x00) to clear.
+#   GNSS_DRIFT   OFF-BUS: same direct-memory vector but a slow, plausible drift
+#                (genuine position + a growing offset). Send DORMANT (0x00) to clear.

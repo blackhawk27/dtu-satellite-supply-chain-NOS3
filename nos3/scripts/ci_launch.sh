@@ -158,6 +158,18 @@ elif [ "$GSW" == "yamcs" ]; then
   fi
 fi
 
+if [ "${GSW_ONLY:-0}" == "1" ]; then
+    # Stack is already up from a prior `make launch`; only the GSW container
+    # was re-created (e.g. swapping headless cosmos for the GUI Launcher).
+    # Reconnect it to the existing spacecraft network and exit before the
+    # nos-terminal / sims / FSW section below: re-creating those containers
+    # collides on their --name and aborts with exit 125 (e.g. the nos-terminal
+    # name conflict on GUI relaunch).
+    $DNETWORK connect nos3-sc01 cosmos-openc3-operator-1 --alias cosmos --alias active-gs 2>/dev/null || true
+    echo "GSW-only relaunch complete."
+    exit 0
+fi
+
 ### Connections
 $DCALL run -dit --name nos-terminal --network=nos3-core \
     -v "$SIM_DIR:$SIM_DIR" -w "$SIM_BIN" $DBOX \

