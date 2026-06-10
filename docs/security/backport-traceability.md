@@ -136,5 +136,35 @@ Decisions made while porting, where the legacy diverged from a mechanical apply:
   f14f8046 `<netinet/in.h>` in to_lab_app.c (RTEMS libbsd header-ordering; legacy
   glibc builds without it). These do not affect testbed comparability.
 
-## Verification evidence (filled during execution)
-_pending build + PoC run_
+## Verification evidence (build + PoC run, 2026-06-10)
+
+Builds: `make fsw` (full, `Built target mission-install`, exit 0), `make sim` (exit 0)
+- all key artifacts relinked: `core-cpu1`, `noisy_app.so`, `generic_imu.so`,
+  `generic_eps.so`, `to_lab.so`, `libgeneric_imu_sim.so`. No compile/link errors.
+
+Launch: `make launch` clean bring-up. FSW `sc01-nos-fsw` booted; NOISY_APP, GENERIC_IMU,
+GENERIC_GNSS all `Initialized`. (The `undefined symbol: SBN_TCP_Ops/LC_AppData/SC_OperData`
+console lines are standard cFS optional-symbol probes, present for every app - benign.)
+
+PoC ladder driven headless via `poc/piggyback_noisy/drive_poc.py`, evidence from the
+decoded downlink (`omni_logs/tlm_hk_decoded.log`) and Elasticsearch `nos3-telemetry-*`:
+
+- **IMU covert channel (0x0A) - the previously-broken gap, now FIXED:** noisy_app caught
+  `piggyback opcode 0x0A on MID 0x18E0`, wrote `/ram/.imu_cal`; generic_imu consumer
+  latched + consumed it (file absent after). ES: `imu_gyro_x` bus reached **3.41**
+  (drifting toward the 5.0 cap, all 3 axes) vs `imu_truth_gyro_x` max **0.054**;
+  `imu_acc_x` bus **3.48** vs truth **0.0008**. The `[IMU_TRUTH]` sim line and the new
+  ELK bus-vs-truth panels render the divergence. Before this backport the opcode had zero
+  telemetry effect (consumer missing).
+- **GNSS teleport (0x0C):** baseline `(51.02, -0.33)` -> after teleport `(0.0000, 0.0000)`
+  in the GENERIC_GNSS HK downlink (MID 0x0952). EVS "TELEPORT ENGAGED", no resolve error.
+- **GNSS drift (0x0E):** position tracks genuine + a growing plausible offset (e.g.
+  `51.93/1.12` -> `51.87/1.18`), not a teleport.
+- **Note on the GNSS dlopen adaptation:** required a fork-specific fix beyond
+  `draco-linux-poc.md` - `RTLD_NOLOAD` did not match the cFS module on this glibc/9p
+  devcontainer, resolved by reading the exact module path from `/proc/self/maps` and
+  using a plain `dlopen` (glibc dedups by path). Commit `f195ffe7`.
+
+Result: all backported PoCs operate on the legacy (cFE 6.7.99 / Linux / NOS-Engine)
+testbed with behavior matching the Draco-RTEMS baseline, modulo the documented
+RTEMS/ZTA exclusions and the divergent (independent) SAFE-chain implementation.
