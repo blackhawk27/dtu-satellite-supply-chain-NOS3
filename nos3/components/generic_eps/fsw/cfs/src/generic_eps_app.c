@@ -160,7 +160,17 @@ int32 GENERIC_EPS_AppInit(void)
     ** Initialize application data
     ** Note that counters are excluded as they were reset in the previous code block
     */
-    GENERIC_EPS_AppData.HkTelemetryPkt.DeviceHK.BatteryVoltage        = 0;
+    /* Power-on default for BatteryVoltage: a nominal charged value, NOT 0.
+     * The device HK is only refreshed by a successful I2C poll; until the first
+     * poll succeeds the app reports this default. The EPS simulator needs a few
+     * seconds after boot (it waits for 42 truth data) before it answers, so the
+     * first poll(s) can fail and leave this value in place. Seeding 0 here made
+     * LC watchpoint WP0 (battery < 14800 mV, see cfg/nos3_defs/tables/
+     * lc_def_wdt.c) fail at boot and latch the SAFE-mode RTS before real
+     * telemetry ever arrived. A nominal default (above WP0, in line with the
+     * sim's ~25 V charged battery) avoids that spurious cold-boot SAFE; once the
+     * bus warms up the real simulated voltage overwrites it. */
+    GENERIC_EPS_AppData.HkTelemetryPkt.DeviceHK.BatteryVoltage        = 25000;
     GENERIC_EPS_AppData.HkTelemetryPkt.DeviceHK.BatteryTemperature    = 0;
     GENERIC_EPS_AppData.HkTelemetryPkt.DeviceHK.EPSTemperature        = 0;
     GENERIC_EPS_AppData.HkTelemetryPkt.DeviceHK.SolarArrayVoltage     = 0;

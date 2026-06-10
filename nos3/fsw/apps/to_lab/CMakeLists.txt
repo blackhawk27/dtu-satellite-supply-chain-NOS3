@@ -30,3 +30,9 @@ target_include_directories(to_lab PUBLIC
     fsw/mission_inc
     fsw/platform_inc
 )
+
+# For GENERIC_IMU_DEVICE_TLM_MID: kept in the SAFE downlink set (see TO_LAB_SetSafeTlm)
+# so the IMU covert-channel truth-vs-bus PoC stays documentable while in SAFE.
+target_include_directories(to_lab PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../../components/generic_imu/fsw/cfs/platform_inc
+)

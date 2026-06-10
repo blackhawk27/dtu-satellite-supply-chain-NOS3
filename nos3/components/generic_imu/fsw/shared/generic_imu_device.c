@@ -149,6 +149,19 @@ int32_t GENERIC_IMU_RequestAxis(can_info_t *canDevice, GENERIC_IMU_Device_Axis_D
         aa_tmp |= canDevice->rx_frame.data[6] << 8;
         aa_tmp |= canDevice->rx_frame.data[7];
 
+        /* Reject a frame with EITHER half zero as a bad/boot-race read. Before
+         * the sim has received its first 42 truth frame the NOS-Engine CAN
+         * transaction can return an all-zero (or half-zero) payload. Both halves
+         * then decode to the offset sentinels (-10 linear / -400 angular) and
+         * would be published as bogus HK. A genuine zero rate encodes as the
+         * large offset (10*LIN_CONV / 400*ANG_CONV), never literal 0, so
+         * la_tmp==0 OR aa_tmp==0 unambiguously means a corrupt/boot-race frame -
+         * drop the cycle (generic_imu_app.c publishes only on OS_SUCCESS). */
+        if (la_tmp == 0 || aa_tmp == 0)
+        {
+            return OS_ERROR;
+        }
+
         /* Float conversion */
         data->LinearAcc  = (float)((la_tmp - (LIN_CONV_CONST * 10.0)) / LIN_CONV_CONST);
         data->AngularAcc = (float)((aa_tmp - (ANG_CONV_CONST * 400.0)) / ANG_CONV_CONST);

@@ -28,6 +28,7 @@
 #include "to_lab_perfids.h"
 #include "to_lab_version.h"
 #include "to_lab_sub_table.h"
+#include "generic_imu_msgids.h" /* GENERIC_IMU_DEVICE_TLM_MID - kept in SAFE (d6003b43) */
 
 /* Start additional includes for hostname snippet */
 #include <stdio.h>
@@ -610,7 +611,16 @@ int32 TO_LAB_SetSafeTlm(const TO_LAB_SetSafeTlmCmd_t *data)
 
     for (i = 0; (i < (sizeof(TO_LAB_Subs->Subs) / sizeof(TO_LAB_Subs->Subs[0]))); i++)
     {
-        if (CFE_SB_IsValidMsgId(TO_LAB_Subs->Subs[i].Stream) && TO_LAB_Subs->Subs[i].BufLimit <= 4)
+        /* Keep the low-rate housekeeping beacons (BufLimit <= 4). Additionally
+        ** keep GENERIC_IMU_DEVICE_TLM even though it is a high-rate (BufLimit 32)
+        ** device stream: it carries the gyro/accel (and the covert-channel bias)
+        ** and must downlink continuously in SAFE so the IMU truth-vs-bus PoC stays
+        ** documentable; HK alone carries no sensor data (DTU parity with the
+        ** Draco baseline, commit d6003b43, adapted to this fork's BufLimit-based
+        ** SAFE downgrade). The high BufLimit is preserved in NOMINAL. */
+        bool keep = (TO_LAB_Subs->Subs[i].BufLimit <= 4) ||
+                    (CFE_SB_MsgIdToValue(TO_LAB_Subs->Subs[i].Stream) == GENERIC_IMU_DEVICE_TLM_MID);
+        if (CFE_SB_IsValidMsgId(TO_LAB_Subs->Subs[i].Stream) && keep)
         {
             status = CFE_SB_SubscribeEx(TO_LAB_Subs->Subs[i].Stream, TO_LAB_Global.Tlm_pipe,
                                         TO_LAB_Subs->Subs[i].Flags, TO_LAB_Subs->Subs[i].BufLimit);
