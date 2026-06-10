@@ -295,3 +295,111 @@ visualizations and lens panels). Idempotent under
 - All 15 named dashboards present in Kibana saved objects.
 - FSW (`sc01_nos_fsw`) uptime 47 minutes and counting (versus the
   ~33 second SIGSEGV cliff on the unpatched build).
+
+## 2026-06-06 - Integrate Draco piggyback PoC for secured-vs-baseline comparison
+
+Ported the Draco baseline's covert-opcode "piggyback" supply-chain test
+(`blackhawk27/dtu-satellite-supply-chain-NOS3-Draco`, commit `dd1d2cbb`) into
+this secured fork so the SAME attack runs on both for a thesis comparison.
+Decisions (with user): replace+reconcile the existing legacy noisy_app; inject
+on the unauthenticated DEBUG path (so the measured delta is detection +
+autonomous response, not prevention); add a comparison harness.
+
+Changed:
+- FSW: replaced `nos3/fsw/apps/noisy_app/fsw/src/noisy_app.c` (legacy 3-ping
+  beacon + 32k SB storm) with the piggyback sniffer (carrier `0x18E0`, opcodes
+  `0x02/0x04/0x06/0x08/0x0A`); added `fsw/platform_inc/noisy_app_msgids.h`
+  (CMD 0x18F2 / HK 0x08F2); ported the CMakeLists include layout.
+- Startup: `cpu1_cfe_es_startup.scr` noisy_app row `OFF_APP` -> `CFE_APP`,
+  priority 20 -> 29. NOTE (CLAUDE.md DO-NOT-REVERT context): the shipped/mission
+  profile keeps this row `OFF_APP`; `CFE_APP` is the experiment toggle. Flip it
+  back to `OFF_APP` to return to mission-truth.
+- Driver/COSMOS: `nos3/poc/piggyback_noisy/{drive_poc.py,run_poc.md,
+  run_comparison.sh}` + `CI_DEBUG/cmd_tlm/PIGGYBACK_POC.txt`. drive_poc adapted
+  for this repo: CI_LAB 5012 (unchanged), FSW_IP auto-resolves `sc01-nos-fsw`,
+  TO_LAB re-enable is opt-in (ENABLE_DOWNLINK=1), and override mode re-arms
+  AP #27 (this repo's battery actionpoint) not Draco's AP0.
+- ELK: `logstash.conf` retagged for piggyback signatures (attack_piggyback,
+  attack_eps_spoof/override, attack_sb_burst/flood, piggyback_carrier,
+  piggyback_length_error; spam-target MID -> 0x08F2). Dashboard description
+  refreshed.
+- Docs: `docs/security/` (5 Draco docs + `00-dtu-secured-fork-notes.md` +
+  `comparison-secured-vs-draco.md`); rewrote `docs/thesis/04-apps/noisy_app.md`.
+
+Build: VERIFIED. `make config && make fsw` clean, 0 compile errors,
+`fsw/build/exe/cpu1/cf/noisy_app.so` produced. Build defs regenerate with
+`CFE_APP, noisy_app` and noisy_app in targets.cmake.
+
+Live run: NOT completed in the agent shell. Two environment blockers, neither an
+integration defect:
+  1. No X server in this shell (no /tmp/.X11-unix socket, DISPLAY empty, no
+     Xvfb). `ci_launch.sh` line ~197 `xhost +local:*` (before the 42 docker run)
+     is unguarded and aborts `make launch` with "unable to open display" right
+     after the ELK + core-services + COSMOS containers come up, before FSW/42/
+     sims start. (The NOS3_HEADLESS branch described in CLAUDE.md is not present
+     in this ci_launch.sh.)
+  2. Memory: ELK alone ~3.2 GB; only ~0.6 GB free at the time. The full
+     29-container stack would OOM. (Stopping ELK frees it, but the X blocker
+     remains and the comparison still needs ELK or raw-log grep.)
+Partial stack was stopped cleanly (`make stop`); system left at ~4 GB free, 0
+containers.
+
+To finish (from a VS Code integrated terminal that has DISPLAY=:0 + the X tunnel,
+where `make launch` has worked before; FSW is already built so skip rebuild):
+  cd nos3 && make launch
+  # confirm EVS: "NOISY_APP: Initialized. CMD MID 0x18F2, sniffing carrier 0x18E0."
+  python3 nos3/poc/piggyback_noisy/drive_poc.py            # ladder
+  python3 nos3/poc/piggyback_noisy/drive_poc.py override   # -> RTS 27
+  bash nos3/poc/piggyback_noisy/run_comparison.sh --with-flood --save
+  # fill the measured column in docs/security/comparison-secured-vs-draco.md
+If ELK memory is tight, the same signatures are greppable in omni_logs/cfs_evs.log
+and omni_logs/tlm_hk_decoded.log without Elasticsearch.
+
+## 2026-06-07 - Full attack-response parity (legacy vs new cFS)
+
+Per user: make the two testbeds replicas for the attack so the comparison
+isolates the cFS version (this fork cFE 6.7.99, the 6.7 "Bootes" line / legacy,
+vs Draco cFE 7.0.0 "Caelum" / new - a major-version gap; this fork backports
+Draco features "the legacy way" in 6.7 conventions), not config drift. Grafted
+Draco's battery-low SAFE chain into this fork. (Correction: an earlier draft
+mislabelled this fork as v7.0.0-rc4 from the stale CFE_BUILD_BASELINE git-tag
+string; the actual version macros are MAJOR 6 / MINOR 7 / REVISION 99.)
+
+Load-bearing edits (justification: deliberate parity port, approved):
+- `cfg/nos3_defs/tables/lc_def_wdt.c`: WP #0 was unused -> now BATTERY_LOW
+  (`GENERIC_EPS_TLM_MSG`, offset 20 = this fork's BatteryVoltage field, UWORD_LE,
+  LT, < 14800 mV). Used this fork's offset 20 (NOT Draco's 16: different EPS HK
+  struct). WP #27/#28 left intact.
+- `cfg/nos3_defs/tables/lc_def_adt.c`: AP #0 was unused -> now SAFE_ON_LOW_BAT
+  (ACTIVE, RTSId=4, RPN {WP0}). AP #27/#28 left DISABLED (as in Draco).
+- `cfg/nos3_defs/tables/sc_rts004.c`: NEW. MGR SET_MODE SAFE + DS disable idx 3
+  + TO_LAB SET_SAFE_TLM. Written in THIS fork's RTS idiom (`.TimeTag`,
+  `DS_DestStateCmd_t`, `CFE_MSG_CMD_HDR_INIT`, `TO_LAB_SetSafeTlmCmd_t`), NOT
+  Draco's verbatim (Draco uses `.WakeupCount` + `DS_SetDestStateCmd_t`). Tables
+  are globbed, so the file builds without a list edit.
+- TO_LAB app: `to_lab_msg.h` (+CC 7/8 + typedefs), `to_lab_events.h` (+EID 20/21),
+  `to_lab_app.c` (+prototypes, +dispatch cases, +`TO_LAB_SetSafeTlm` /
+  `TO_LAB_SetNominalTlm`). SET_SAFE_TLM drops high-rate streams and keeps the
+  low-rate HK/command beacon by `BufLimit` (`<= 4` kept, `>= 32` dropped) - this
+  fork's `to_lab_sub.c` is ordered by subsystem, not as Draco's leading 34-block,
+  so BufLimit is the order-independent discriminator. `to_lab_sub.c` therefore
+  left UNTOUCHED (lower risk than a reorder; same observable outcome). EVS still
+  reaches ELK via the FSW-log capture path, so the downgrade does not blind
+  forensics.
+- Driver/ELK/docs: `drive_poc.py` override re-arms AP #0 (was AP #27);
+  `logstash.conf` +`attack_safe_mode` / `to_safe_downgrade` tags;
+  `run_poc.md`, `docs/security/*`, thesis `noisy_app.md` reframed to
+  legacy-vs-new-cFS with identical responses.
+
+Compatibility note: this fork is cFE 6.7.99, Draco is cFE 7.0.0. The LC/SC/TO_LAB
+table + command struct layouts for the fields used are compatible across the two,
+but the conventions differ and the port was written THIS fork's (6.7) way, not
+Draco's (7.0) verbatim: SC RTS entries use `.TimeTag` (not Draco's `.WakeupCount`),
+DS uses `DS_DestStateCmd_t` (not `DS_SetDestStateCmd_t`), and the TO_LAB no-args
+struct keeps this fork's `CmdHeade` member. sc_rts004.c also mirrors
+`TO_LAB_SET_SAFE_TLM_CC` locally to avoid depending on TO_LAB's src include path.
+
+Build: compile-verify pending (this session). Live verify deferred (agent shell
+has no X display): expect `make launch` then `drive_poc.py override` to log
+`Batt volt critical: SAFE` (LC AP0) -> RTS 4 -> `TO: SAFE-mode downlink downgrade
+engaged`, matching Draco.

@@ -13,223 +13,173 @@ purpose is to give every other component of the testbed (the
 Software Bus visibility, the ELK pipeline, the `cfs_god_view.json`
 record, the Kibana dashboards) a real attacker to observe.
 
+The current implementation is the **covert-opcode "piggyback"**
+design, ported from the Draco baseline (commit `dd1d2cbb`). It
+replaced the earlier 3-ping-beacon / broadcast-storm version. The
+key idea: rather than carrying its own trigger MID, the app
+**sniffs a legitimate command** off the Software Bus and reads a
+covert opcode smuggled in that command's unused tail.
+
 ## Source files
 
 - `nos3/fsw/apps/noisy_app/fsw/src/noisy_app.c` is the entire
-  application; it is roughly 120 lines and self-contained. There
-  is no header file and no platform-include layer because the app
-  reuses the EPS app's message headers
-  (`generic_eps_msg.h`, `generic_eps_msgids.h`) to spoof EPS
-  telemetry without re-declaring the struct.
+  application. It hardcodes its own copy of the EPS housekeeping
+  wire layout (`NOISY_EpsHkMimic_t`) rather than linking the
+  victim struct, so it only needs `GENERIC_EPS_HK_TLM_MID` from
+  `generic_eps_msgids.h`.
+- `nos3/fsw/apps/noisy_app/fsw/platform_inc/noisy_app_msgids.h`
+  declares the app's own MIDs: `NOISY_APP_CMD_MID = 0x18F2`,
+  `NOISY_APP_SEND_HK_MID = 0x18F3`,
+  `NOISY_APP_HK_TLM_MID = 0x08F2`.
 - `nos3/fsw/apps/noisy_app/CMakeLists.txt` registers the app as an
-  ordinary cFS app target. The 2026-03 cFS 7.0 hardening commit
-  (`32257387`) corrected the include paths so the EPS-header
-  cross-import resolves at build time.
+  ordinary cFS app target and adds `fsw/platform_inc` (its own
+  MIDs) and the generic_eps `platform_inc` (the EPS MID) to the
+  include path.
 
 The app is registered in `cpu1_cfe_es_startup.scr` under
-`cfg/build/nos3_defs/` (the `make config`-generated startup
-script) but it is ENTERED AS `OFF_APP`, NOT `CFE_APP`. cFE skips
-`OFF_APP` lines at startup, so `noisy_app` does not load on boot
-under the default profile. The entry sits inside a
-`===_DTU_THESIS_MENU_===` block in the source script at
-`cfg/nos3_defs/cpu1_cfe_es_startup.scr`; the operator flips a
-single keyword (`OFF_APP` -> `CFE_APP`) and rebuilds the FSW
-image to arm the testbed. The compromised binary is still
-shipped on every clean build: it sits in
-`fsw/build/exe/cpu1/` after `make fsw` regardless of whether the
-operator flipped the keyword. The supply-chain framing is
-therefore "the malicious binary is in the image; only its boot
-hook is gated", not "the malicious app loads automatically".
+`cfg/nos3_defs/`. For the experiment its row is set to `CFE_APP`
+(loaded on boot) inside the `===_DTU_THESIS_MENU_===` block; the
+shipped/mission profile keeps it `OFF_APP` (present in the image
+but not loaded). The supply-chain framing is therefore "the
+malicious binary is in the image; only its boot hook is gated".
+The app runs at a low priority (29) so the fixture never competes
+with core apps - the piggyback design does not rely on a CPU
+hijack the way the legacy storm did.
 
 ## Wire-level surface
 
-`noisy_app` is interesting at exactly two points on the Software
-Bus, both via the trigger MID `0x18F0`
-(`MALWARE_TRIGGER_MID` in `noisy_app.c:9`). The app subscribes to
-this MID at startup and dispatches on the CCSDS function code
-field of the received packet:
+At startup the app creates one command pipe and subscribes to
+three MIDs:
 
-- **Function code 2 (`BEACON_PING_FC`).** Arms the attack. The
-  app counts ping packets internally; the third one
-  (`TRIGGER_THRESHOLD = 3`) flips it into the broadcast-storm
-  phase. The arming phase emits two EVS events:
-  `NOISY_APP: PING #N intercepted. N of 3.` (event id 3,
-  INFORMATION) and on the third ping
-  `NOISY_APP: THRESHOLD REACHED. OMNIDIRECTIONAL STORM INITIATED.`
-  (event id 2, CRITICAL).
-- **Function code 3 (`SPOOF_EPS_FC`).** Issues a single forged
-  EPS housekeeping telemetry packet under
-  `GENERIC_EPS_HK_TLM_MID` (`0x091A`) with
-  `BatteryVoltage = 0xDEAD`. The app calls `CFE_MSG_Init`,
-  `CFE_SB_TimeStampMsg`, and `CFE_SB_TransmitMsg` directly, so
-  from the Software Bus's perspective the forged packet is
-  indistinguishable from a legitimate EPS publish. The forgery
-  emits an EVS event `NOISY_APP: EPS HK SPOOF transmitted
-  (BatteryVoltage=0xDEAD).` (event id 4, CRITICAL).
+- `NOISY_APP_CMD_MID` (`0x18F2`) - its own direct command channel.
+- `CARRIER_CMD_MID` (`0x18E0`, CI_LAB's `CI_LAB_CMD_MID`) - the
+  **sniffed legitimate carrier**. cFE SB delivers every message to
+  all subscribers and performs no sender authentication, so a
+  co-resident app can read traffic addressed to CI_LAB.
+- `GENERIC_EPS_HK_TLM_MID` (`0x091A`) - genuine EPS housekeeping,
+  so the persistent-override scenario can shadow each real packet.
 
-In the armed state the app stops being well-behaved and enters
-two simultaneous behaviours that are documented in the source
-comments as PHASE 2:
+A normal CI_LAB NOOP is header-only (8 bytes). When a NOOP arrives
+on `0x18E0` that is **longer** than that, the app reads the trailing
+byte as a covert opcode and dispatches:
 
-- A tight integer-arithmetic loop
-  (`5_000_000` iterations of `burn += i * i`) executed on every
-  cycle. The comment in the source labels this "CPU BURN" and
-  notes its purpose as raising core power and temperature.
-- A "carpet bombing" loop that iterates every possible MID in
-  the cFS namespace (`0x0000` through `0x1FFF`) and publishes a
-  4 KB packet to each one four times in a row. The buffer pool
-  on cFS is 512 KB; the comment in the source notes that the
-  pool fills in a fraction of a millisecond, which is what
-  drives the `SB_PIPE_OVERFLOW` events that the Logstash
-  pipeline tags as `sb_pipe_overflow`.
+| Opcode | Name          | Effect |
+|--------|---------------|--------|
+| `0x00` | DORMANT       | nothing (stealth); clears a running EPS override |
+| `0x02` | EPS_SPOOF     | forge ONE `GENERIC_EPS_HK` (`0x091A`), `BatteryVoltage = 10000` mV |
+| `0x04` | SB_BURST      | 64-packet capped Software Bus burst on `0x08F2` (yields periodically) |
+| `0x06` | EPS_OVERRIDE  | persistent: shadow every genuine EPS HK so the spoof always wins LC's sample |
+| `0x08` | SB_FLOOD      | DESTRUCTIVE: park ~15 max-size buffers unread to lock the 512 KB SB pool |
+| `0x0A` | IMU_BIAS      | covert file dead-drop `/ram/.imu_cal` (Draco-only; no `generic_imu` backdoor here) |
 
-The app intentionally omits any `OS_TaskDelay` in the armed
-state. The source comment makes the rationale explicit: at task
-priority 20, with no yield, the loop permanently hijacks the cFS
-scheduler. This is the symptom that the testbed's CPU monitor
-(`scripts/cpu_monitor.sh`) and the cFS `hs` (health and safety)
-app are meant to detect.
-
-Figure F6 in [../08-figures/figures.md](../08-figures/figures.md)
-draws the full attack timeline: load, three pings, threshold,
-storm, observable tags. Subsequent sections in this document
-treat that figure as the reference for the order of operations.
+The legitimate carrier endpoint (CI_LAB) calls
+`CFE_MSG_VerifyCmdLength`, sees the over-length NOOP, **rejects it**
+and bumps its `CommandErrorCounter`. That endpoint defense does not
+stop the sniffer: the opcode byte is read off the bus independently
+of the endpoint's length check. This asymmetry (endpoint rejects,
+co-resident app acts) is the whole point of the scenario.
 
 ## Telemetry it emits
 
-The app publishes nothing under its own MID range. Everything it
-produces is either an EVS event or a spoofed telemetry packet
-under another component's MID. The Logstash pipeline picks the
-EVS events up via `cfs_evs.log` and tags them. The relevant
-filter blocks live in `nos3/elk/logstash.conf` around lines 328
-through 347:
+Everything observable is either an EVS event or a forged/shadowed
+telemetry packet under another component's MID. The Logstash
+pipeline picks the EVS events up via `cfs_evs.log` and tags them.
+The relevant filter blocks live in `nos3/elk/logstash.conf`:
 
-- `attack_app => NOISY_APP` is added as a field on any
-  `system_log` document originating from `NOISY_APP`.
-- Event id 2 produces the tag `attack_armed`.
-- Event id 3 produces the tag `attack_trigger_ping`.
-- The startup event (id 1) produces the tag `attack_loaded`.
-- The `SB_PIPE_OVERFLOW` event from `cfe_sb` (a side effect of
-  the carpet-bombing loop) produces the tag `sb_pipe_overflow`.
+- `attack_app => NOISY_APP` is added to any `system_log` document
+  from `NOISY_APP`.
+- `attack_loaded` - the init event ("Initialized ... sniffing
+  carrier").
+- `attack_piggyback` - an over-length carrier was read ("piggyback
+  opcode").
+- `attack_eps_spoof` / `attack_eps_override` / `attack_sb_burst` /
+  `attack_sb_flood` - the per-scenario events.
+- `piggyback_carrier` - tags `software_bus` docs on `0x18E0`.
+- `piggyback_length_error` - the CI_LAB "Invalid msg length" event
+  on `0x18E0` (the bypassed endpoint defense).
+- `noisy_app_spam_target` - the SB_BURST/SB_FLOOD sink MID `0x08F2`.
+- `sb_pipe_overflow` - pool-exhaustion / `BUF_ALOC_ERR` side
+  effects of SB_FLOOD.
 
-The forged EPS packet itself appears in
-`nos3/attack_logs/cfs_god_view.json` as a `software_bus` document
-with `msg_id = 0x091A`, `msg_name = GENERIC_EPS_HK_TLM`, the
-`BatteryVoltage = 0xDEAD` payload, and a sequence counter one
-greater than the previous legitimate EPS publish on the same
-MID. The sequence gap between the two consecutive publishes is
-the forensic signature: in a clean run, only the EPS driver
-publishes that MID, and the counter advances monotonically.
+The forged EPS packet appears in `nos3/attack_logs/cfs_god_view.json`
+as a `software_bus` document with `msg_id = 0x091A`,
+`msg_name = GENERIC_EPS_HK_TLM`, the low `BatteryVoltage` payload,
+and a sequence counter one greater than the previous legitimate EPS
+publish. The sequence gap between consecutive publishes on a MID
+that only the EPS driver should publish is the structural forensic
+signature.
 
-The `noisy_app_spam_target` tag (logstash.conf line 150-155) is
-applied only to seven specific MIDs:
+## Autonomous response (parity with the Draco baseline)
 
-```
-0x1806 (ES), 0x1801 (EVS), 0x1803 (SB), 0x1805 (TIME),
-0x1804 (TBL), 0x1884 (CI),  0x1880 (TO)
-```
-
-These are the cFE-core-service and uplink/downlink MIDs whose
-saturation has the highest operational impact, not the full
-carpet-bomb range. The current `noisy_app.c` actually iterates
-every MID in `0x0000..0x1FFF`, so most of the storm packets do
-NOT receive this tag in Kibana. The storm is still detectable
-through the `attack_armed` and `sb_pipe_overflow` tags (both fire
-on EVS events that always accompany the storm) and through the
-raw burst rate on `software_bus` documents. Widening the
-`noisy_app_spam_target` tag set to cover the whole carpet-bomb
-range would be a one-line Logstash edit; the current narrow tag
-is preserved deliberately so the seven cFE-service MIDs are
-visible as a distinct Kibana series.
+The EPS spoof drives a real autonomous response via the Limit Checker.
+To keep the two testbeds replicas, this fork's battery-low chain was
+made identical to Draco's: watchpoint **WP #0** (`BatteryVoltage <
+14800` mV, `lc_def_wdt.c`) -> actionpoint **AP #0**
+(`SAFE_ON_LOW_BAT`, ACTIVE, `lc_def_adt.c`) -> **RTS 4**
+(`sc_rts004.c`): `MGR SET_MODE SAFE`, DS-disable of the instrument
+store, and `TO_LAB SET_SAFE_TLM` (downlink downgraded to the low-rate
+HK beacon; the CI_LAB uplink stays alive). A one-shot `0x02` spoof is
+unlikely to be the exact packet LC samples; the `override` (`0x06`)
+path re-arms AP #0 (`LC_SET_AP_STATE_CC`, `APNumber=0`) and shadows
+every genuine EPS HK so WP #0 stays FAIL and RTS 4 fires and holds.
+With the attack, the injection path, and this response chain held
+identical, the comparison isolates the cFS version (this fork cFE
+6.7.99, the 6.7 "Bootes" line / legacy, vs Draco cFE 7.0.0 / new) - see
+[../../security/comparison-secured-vs-draco.md](../../security/comparison-secured-vs-draco.md)
+and [../../security/00-dtu-secured-fork-notes.md](../../security/00-dtu-secured-fork-notes.md).
+(This fork also retains its own WP #27/#28 SciMode actionpoints, left
+DISABLED by default as in Draco, so they do not fire on the spoof.)
 
 ## What was changed from upstream
 
-The app does not exist upstream. The closest analogue in the
-import baseline is the `sample` app, which is the upstream-shipped
-template for "minimal new cFS app". `noisy_app` is a research
-fork addition, first introduced in commit `dd750790`
-("feat: implemented and staged noisy_app broadcast storm
-attack"). Subsequent commits added the OFF_APP payload menu
-(`c1642e3c`), the cFS 7.0 build hardening (`32257387`), and the
-EPS HK spoof (`e9465af8`).
+The app does not exist upstream; the closest analogue is the
+upstream `sample` app template. `noisy_app` is a research-fork
+addition. The earlier version (commit `dd750790` and follow-ups)
+was a 3-ping-beacon trigger on `0x18F0` plus a CPU-burn and a
+32k-MID broadcast storm. The current version replaces that with the
+piggyback covert-opcode sniffer described above, so the malicious
+command rides a legitimate one rather than using a dedicated
+trigger MID.
 
-The supply-chain framing is that the upstream NOS3 build path
-itself is the attack vector. A repository fork that pulls
-`noisy_app` into `fsw/apps/` and registers it in
-`cpu1_cfe_es_startup.scr` produces a flight build that loads the
-malicious app on boot. The upstream cFS has no countermeasure for
-this because the cFS trust model treats every loaded app as
-co-trusted. `noisy_app` is the concrete instance of the abstract
-threat described in
+The supply-chain framing is that the build path itself is the
+attack vector: a fork that pulls `noisy_app` into `fsw/apps/` and
+registers it in `cpu1_cfe_es_startup.scr` produces a flight build
+that loads the malicious app on boot. Upstream cFS has no
+countermeasure because its trust model treats every loaded app as
+co-trusted. This is the concrete instance of the abstract threat in
 [../03-communication/02-fsw-software-bus.md](../03-communication/02-fsw-software-bus.md).
 
 ## Load-bearing invariants
 
-A small number of details have to stay aligned for the attack
-experiments to remain reproducible. None of these have yet
-broken in production. They are recorded here so that future
-edits do not silently change attack semantics.
+These details have to stay aligned for the experiments to remain
+reproducible and for the Kibana filters to keep matching:
 
-- **`MALWARE_TRIGGER_MID` must stay `0x18F0`.** The Kibana
-  filter for `beacon_cmd` (logstash.conf line 160) keys off this
-  exact MID. The function-code dispatch (`BEACON_PING_FC = 2`
-  and `SPOOF_EPS_FC = 3`) is also encoded in the same filter
-  block. Changing either value silently breaks attack-window
-  detection.
-- **`TRIGGER_THRESHOLD = 3`.** Two pings are not enough; four
-  pings overshoots and produces extra Kibana documents that the
-  saved searches do not expect. Changing this changes the
-  attack-arming latency and therefore the shape of the attack
-  window in `cfs_god_view.json`.
-- **The 4 KB `MaliciousPayload` size.** The source comment is
-  explicit: 512 KB buffer pool divided by 4 KB equals ~128
-  packets. Shrinking the payload pushes the pool-exhaustion
-  point out of the first storm cycle, which changes the
-  `SB_PIPE_OVERFLOW` signature. Growing it past the cFS maximum
-  message size (`CFE_MISSION_SB_MAX_SB_MSG_SIZE`, defaulted to
-  32 KB but build-configurable) makes `CFE_SB_TransmitMsg`
-  reject the packet outright.
-- **The EPS spoof reuses `GENERIC_EPS_HK_TLM_MID = 0x091A` and
-  `GENERIC_EPS_HK_TLM_LNGTH` from `generic_eps_msgids.h` and
-  `generic_eps_msg.h`.** If the EPS app changes its struct, the
-  spoof packet becomes the wrong size and the cFS message length
-  check (in `CFE_MSG_Init`) rejects it. The spoof's value
-  (`BatteryVoltage = 0xDEAD`) is intentional: `0xDEAD` is not a
-  number a healthy EPS would ever emit and is therefore a
-  reliable Kibana filter.
-- **The app must remain at default cFS task priority 20.** The
-  source comment depends on this for the "permanent CPU
-  hijack" claim. A higher priority preempts cFE services and
-  destabilises the run before the bus floods, which is a
-  different (and less interesting) attack.
-- **The 100 ms `OS_TaskDelay` in the dormant state.** The
-  source comment calls it stealth; the operational effect is
-  that the app consumes ~0% CPU until armed, which is what
-  makes the unarmed run statistically indistinguishable from a
-  clean run.
+- **`CARRIER_CMD_MID` must stay `0x18E0`** (CI_LAB's command MID).
+  The sniffer subscribes to it and the `piggyback_carrier` /
+  `piggyback_length_error` Logstash tags key off it. Re-pointing the
+  carrier (e.g. to TO_LAB `0x18E8`) requires updating both.
+- **A normal carrier NOOP must be header-only.** The opcode is read
+  as `buf[Size-1]` only when the carrier is over-length; if the
+  legitimate NOOP ever grows a payload, the dispatch logic must be
+  revisited or every normal NOOP would be misread as an opcode.
+- **The opcode map (`0x00/0x02/0x04/0x06/0x08/0x0A`)** is mirrored in
+  three places that must agree: `noisy_app.c`, the COSMOS command
+  `PIGGYBACK_POC.txt` (`OPCODE` dropdown), and `drive_poc.py`.
+- **EPS spoof reuses `GENERIC_EPS_HK_TLM_MID = 0x091A`** and the
+  `NOISY_EpsHkMimic_t` mirror layout (BatteryVoltage at wire offset
+  16). If the EPS app changes its HK struct, the mirror must follow
+  or LC samples the wrong field. The spoof value `10000` mV is below
+  WP #27's `24240`; to mask a real low battery instead, use `> 24960`
+  (WP #28).
+- **SB_FLOOD parks on `NOISY_APP_HK_TLM_MID = 0x08F2`** with a deep
+  never-drained pipe. This is the `noisy_app_spam_target` MID; keep
+  the two aligned.
 
 ## Remaining apps
 
-The next pass should cover:
-
-- `mgr` (DTU-added mission manager component)
-- `blackboard` (DTU-added internal data exchange; also holds
-  `to_lab_sub.c`)
-- `generic_tt_c` (load-bearing parser edit)
-- `generic_gnss` (load-bearing parser edit plus the recent
-  source-restore commit)
-- `generic_adcs` (research-relevant -O2 LICM concern)
-
-The cFS housekeeping apps (`mm`, `md`, `fm`, `cs`, `lc`, `sc`)
-are unmodified by this fork but are documented as attack
-surfaces in the Threat Model chapter. They are out of scope
-for the per-app deep dives unless you want them folded in.
-
-`syn` (JPL SYNOPSIS) and `onair` (ONAIR agent) are imported
-intact; the only DTU concern is the SYN heap leak, which is
-covered in the Threat Model chapter. They are also out of
-scope unless you want short stubs.
-
-Tell me which of the five to continue with next (or to do all
-five in order), whether you want the cFS housekeeping apps
-added, and whether `syn` / `onair` get stubs or get skipped.
+The next pass of per-app documentation should cover `mgr`,
+`blackboard` (also holds `to_lab_sub.c`), `generic_tt_c`,
+`generic_gnss`, and `generic_adcs`. The cFS housekeeping apps
+(`mm`, `md`, `fm`, `cs`, `lc`, `sc`) are unmodified by this fork but
+documented as attack surfaces in the Threat Model chapter; `syn`
+(JPL SYNOPSIS) and `onair` are imported intact.

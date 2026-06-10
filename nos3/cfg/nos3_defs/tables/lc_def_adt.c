@@ -177,16 +177,21 @@ static CFE_TBL_FileDef_t CFE_TBL_FileDef
 ** Default actionpoint definition table (ADT) data
 */
 LC_ADTEntry_t LC_DefaultADT[LC_MAX_ACTIONPOINTS] = {
-    /* #0 (unused) */
-    {.DefaultState      = LC_ACTION_NOT_USED,
-     .MaxPassiveEvents  = 0,
-     .MaxPassFailEvents = 0,
-     .MaxFailPassEvents = 0,
-     .RTSId             = 0,
-     .MaxFailsBeforeRTS = 0,
-     .EventType         = CFE_EVS_EventType_INFORMATION,
+    /* #0 SAFE_ON_LOW_BAT: WP0 (BATTERY_LOW) -> start RTS 4 (force SAFE +
+       DTU comms downgrade). DTU parity with the Draco baseline so both testbeds
+       react to a spoofed low battery identically: the noisy_app EPS override
+       trips WP0 -> AP0 -> RTS 4 (MGR SAFE + DS disable + TO_LAB SET_SAFE_TLM).
+       ACTIVE by default so the spoof fires it without a re-arm; the driver's
+       override mode re-arms it explicitly anyway. */
+    {.DefaultState      = LC_APSTATE_ACTIVE,
+     .MaxPassiveEvents  = 2,
+     .MaxPassFailEvents = 2,
+     .MaxFailPassEvents = 2,
+     .RTSId             = 4,
+     .MaxFailsBeforeRTS = 3,
+     .EventType         = CFE_EVS_EventType_CRITICAL,
      .EventID           = LC_BASE_AP_EID + 0,
-     .EventText         = {" "},
+     .EventText         = {"Batt volt critical: SAFE"},
      .RPNEquation =
          {/* (WP_0) */
           0, LC_RPN_EQUAL}},

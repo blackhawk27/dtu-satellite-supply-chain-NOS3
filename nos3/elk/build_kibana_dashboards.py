@@ -2367,8 +2367,8 @@ def build_thesis_attack_radar():
         "Software Bus tag heat-map",
         "Volume of Software Bus docs over time. Stack on attack tags "
         "(blackboard_error, sb_pipe_overflow, sb_sequence_gap, "
-        "cs_checksum_failure, mm_memory_poke, md_jam_dwell, attack_armed, "
-        "attack_loaded) for the heat view.",
+        "cs_checksum_failure, attack_piggyback, attack_eps_spoof, "
+        "attack_eps_override, attack_sb_burst, attack_sb_flood) for the heat view.",
         [(col_count(), "Packets")],
         query='type.keyword: "software_bus"',
         break_by="tags.keyword",

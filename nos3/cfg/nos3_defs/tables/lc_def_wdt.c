@@ -113,16 +113,20 @@ static CFE_TBL_FileDef_t CFE_TBL_FileDef
 ** Default watchpoint definition table (WDT) data
 */
 LC_WDTEntry_t LC_DefaultWDT[LC_MAX_WATCHPOINTS] = {
-    /* #0 (unused) */
+    /* #0 BATTERY_LOW: EPS BatteryVoltage (uint16 LE) < 14800 mV.
+       DTU parity with the Draco baseline: trips AP #0 -> RTS 4 (force SAFE +
+       comms downgrade). Same field this fork's WP #27 reads (offset 20),
+       Draco's lower SAFE threshold (14800). The 10000 mV piggyback EPS spoof
+       (noisy_app OPCODE_EPS_OVERRIDE) is below this, so it trips WP #0. */
     {
-        .DataType                   = LC_WATCH_NOT_USED,
-        .OperatorID                 = LC_NO_OPER,
-        .MessageID                  = CFE_SB_MSGID_RESERVED,
-        .WatchpointOffset           = 0,
+        .DataType                   = LC_DATA_UWORD_LE,
+        .OperatorID                 = LC_OPER_LT,
+        .MessageID                  = GENERIC_EPS_TLM_MSG,
+        .WatchpointOffset           = 20,
         .BitMask                    = LC_NO_BITMASK,
         .CustomFuncArgument         = 0,
         .ResultAgeWhenStale         = 0,
-        .ComparisonValue.Unsigned32 = 0,
+        .ComparisonValue.Unsigned16 = 14800,
     },
 
     /* #1 (unused) */

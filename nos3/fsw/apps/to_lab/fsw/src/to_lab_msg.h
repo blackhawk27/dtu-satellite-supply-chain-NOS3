@@ -30,6 +30,8 @@
 #define TO_LAB_REMOVE_PKT_CC      4 /*  remove packet     */
 #define TO_LAB_REMOVE_ALL_PKT_CC  5 /*  remove all packet */
 #define TO_LAB_ADD_PKT_CC         6 /*  add packet        */
+#define TO_LAB_SET_SAFE_TLM_CC    7 /*  DTU: SAFE-mode downlink downgrade (drop high-rate streams, HK beacon only) */
+#define TO_LAB_SET_NOMINAL_TLM_CC 8 /*  DTU: restore full-rate downlink subscription set */
 
 /******************************************************************************/
 
@@ -94,6 +96,8 @@ typedef TO_LAB_NoArgsCmd_t TO_LAB_NoopCmd_t;
 typedef TO_LAB_NoArgsCmd_t TO_LAB_ResetCountersCmd_t;
 typedef TO_LAB_NoArgsCmd_t TO_LAB_RemoveAllCmd_t;
 typedef TO_LAB_NoArgsCmd_t TO_LAB_SendDataTypesCmd_t;
+typedef TO_LAB_NoArgsCmd_t TO_LAB_SetSafeTlmCmd_t;    /* DTU: SAFE-mode downlink downgrade */
+typedef TO_LAB_NoArgsCmd_t TO_LAB_SetNominalTlmCmd_t; /* DTU: restore full-rate downlink */
 
 typedef struct
 {

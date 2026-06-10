@@ -80,6 +80,8 @@ int32 TO_LAB_RemovePacket(const TO_LAB_RemovePacketCmd_t *data);
 int32 TO_LAB_ResetCounters(const TO_LAB_ResetCountersCmd_t *data);
 int32 TO_LAB_SendDataTypes(const TO_LAB_SendDataTypesCmd_t *data);
 int32 TO_LAB_SendHousekeeping(const CFE_MSG_CommandHeader_t *data);
+int32 TO_LAB_SetSafeTlm(const TO_LAB_SetSafeTlmCmd_t *data);       /* DTU */
+int32 TO_LAB_SetNominalTlm(const TO_LAB_SetNominalTlmCmd_t *data); /* DTU */
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /*                                                                   */
@@ -377,6 +379,14 @@ void TO_LAB_exec_local_command(CFE_SB_Buffer_t *SBBufPtr)
             TO_LAB_EnableOutput((const TO_LAB_EnableOutputCmd_t *)SBBufPtr);
             break;
 
+        case TO_LAB_SET_SAFE_TLM_CC:
+            TO_LAB_SetSafeTlm((const TO_LAB_SetSafeTlmCmd_t *)SBBufPtr);
+            break;
+
+        case TO_LAB_SET_NOMINAL_TLM_CC:
+            TO_LAB_SetNominalTlm((const TO_LAB_SetNominalTlmCmd_t *)SBBufPtr);
+            break;
+
         default:
             CFE_EVS_SendEvent(TO_LAB_FNCODE_ERR_EID, CFE_EVS_EventType_ERROR,
                               "L%d TO: Invalid Function Code Rcvd In Ground Command 0x%x", __LINE__,
@@ -563,6 +573,92 @@ int32 TO_LAB_RemoveAll(const TO_LAB_RemoveAllCmd_t *data)
 
     CFE_EVS_SendEvent(TO_LAB_REMOVEALLPKTS_INF_EID, CFE_EVS_EventType_INFORMATION,
                       "L%d TO Unsubscribed to all Commands and Telemetry", __LINE__);
+
+    ++TO_LAB_Global.HkTlm.Payload.CommandCounter;
+    return CFE_SUCCESS;
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/*                                                                 */
+/* TO_LAB_SetSafeTlm() -- SAFE-mode downlink DOWNGRADE (DTU)       */
+/*                                                                 */
+/* Models a realistic safe-mode comms posture and DTU parity with  */
+/* the Draco baseline: the link and the CI_LAB uplink stay fully   */
+/* alive, but the downlink is reduced to a low-rate housekeeping    */
+/* beacon. Every stream is unsubscribed, then only the low-rate     */
+/* entries (BufLimit <= 4: cFE-core + heritage-app HK/command MIDs) */
+/* are re-subscribed; the high-rate component device/science/event  */
+/* streams (BufLimit >= 32) are dropped to conserve power. EVS      */
+/* events still reach the ground/ELK via the FSW log capture path,  */
+/* so forensics survive the downgrade. Reduced throughput, NOT a    */
+/* blackout. Recover with TO_LAB_SET_NOMINAL_TLM_CC. Issued by the  */
+/* force-SAFE RTS (sc_rts004) on a low/spoofed battery.             */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+int32 TO_LAB_SetSafeTlm(const TO_LAB_SetSafeTlmCmd_t *data)
+{
+    int32 status;
+    int   i;
+    int   kept = 0;
+
+    for (i = 0; (i < (sizeof(TO_LAB_Subs->Subs) / sizeof(TO_LAB_Subs->Subs[0]))); i++)
+    {
+        if (CFE_SB_IsValidMsgId(TO_LAB_Subs->Subs[i].Stream))
+        {
+            CFE_SB_Unsubscribe(TO_LAB_Subs->Subs[i].Stream, TO_LAB_Global.Tlm_pipe);
+        }
+    }
+
+    for (i = 0; (i < (sizeof(TO_LAB_Subs->Subs) / sizeof(TO_LAB_Subs->Subs[0]))); i++)
+    {
+        if (CFE_SB_IsValidMsgId(TO_LAB_Subs->Subs[i].Stream) && TO_LAB_Subs->Subs[i].BufLimit <= 4)
+        {
+            status = CFE_SB_SubscribeEx(TO_LAB_Subs->Subs[i].Stream, TO_LAB_Global.Tlm_pipe,
+                                        TO_LAB_Subs->Subs[i].Flags, TO_LAB_Subs->Subs[i].BufLimit);
+            if (status == CFE_SUCCESS)
+            {
+                kept++;
+            }
+        }
+    }
+
+    CFE_EVS_SendEvent(TO_LAB_SAFEMODE_INF_EID, CFE_EVS_EventType_INFORMATION,
+                      "TO: SAFE-mode downlink downgrade engaged; %d housekeeping streams kept (high-rate dropped)",
+                      kept);
+
+    ++TO_LAB_Global.HkTlm.Payload.CommandCounter;
+    return CFE_SUCCESS;
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/*                                                                 */
+/* TO_LAB_SetNominalTlm() -- restore full-rate downlink (DTU)      */
+/*                                                                 */
+/* Re-subscribes the full TO_LAB_Subs table (idempotent for the    */
+/* beacon streams already up), restoring full-rate telemetry after  */
+/* a SAFE-mode downgrade. Ground-issued via uplink. Pairs with      */
+/* TO_LAB_SET_SAFE_TLM_CC.                                          */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+int32 TO_LAB_SetNominalTlm(const TO_LAB_SetNominalTlmCmd_t *data)
+{
+    int32 status;
+    int   i;
+    int   restored = 0;
+
+    for (i = 0; (i < (sizeof(TO_LAB_Subs->Subs) / sizeof(TO_LAB_Subs->Subs[0]))); i++)
+    {
+        if (CFE_SB_IsValidMsgId(TO_LAB_Subs->Subs[i].Stream))
+        {
+            status = CFE_SB_SubscribeEx(TO_LAB_Subs->Subs[i].Stream, TO_LAB_Global.Tlm_pipe,
+                                        TO_LAB_Subs->Subs[i].Flags, TO_LAB_Subs->Subs[i].BufLimit);
+            if (status == CFE_SUCCESS)
+            {
+                restored++;
+            }
+        }
+    }
+
+    CFE_EVS_SendEvent(TO_LAB_NOMINAL_INF_EID, CFE_EVS_EventType_INFORMATION,
+                      "TO: Full-rate downlink restored; %d streams re-subscribed", restored);
 
     ++TO_LAB_Global.HkTlm.Payload.CommandCounter;
     return CFE_SUCCESS;
