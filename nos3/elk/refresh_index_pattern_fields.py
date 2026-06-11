@@ -28,8 +28,8 @@ import time
 import urllib.request
 from urllib.error import HTTPError, URLError
 
-KB = "http://localhost:5601"
-ES = "http://localhost:9200"
+KB = os.environ.get("KIBANA_URL", "http://localhost:5601")
+ES = os.environ.get("ES_URL", "http://localhost:9200")
 
 # Display timezone for every Kibana date axis. Stored timestamps stay true UTC
 # epoch (sc_timestamp is rebased to wall-clock-now in passive_listener.py, not
