@@ -130,6 +130,25 @@ MID_REGISTRY  = os.path.join(SCRIPT_DIR, "..", "cfg", "build", "mid_registry.jso
 # byte 20 == 25199 mV, matching the sim's Battery Voltage debug print).
 # ---------------------------------------------------------------------------
 _DECODE_BY_NAME: dict = {
+    # CFE_EVS_LONG_EVENT_MSG_MID (0x0808): the long-format Event Services
+    # telemetry packet. TO_LAB subscribes it, so every INFO/ERROR/CRITICAL
+    # event the FSW emits is downlinked here carrying the AUTHORITATIVE numeric
+    # EventType, unlike the Port-1 console scrape (omni_logs/cfs_evs.log) where
+    # severity has to be guessed from message keywords. Payload is
+    # CFE_EVS_LongEventTlm_Payload_t after the 16-byte telemetry header:
+    #   CFE_EVS_PacketID_t { char AppName[20]; uint16 EventID;
+    #                        uint16 EventType; uint32 SpacecraftID;
+    #                        uint32 ProcessorID; }  then char Message[122].
+    # uint16 EventType verified via default_cfe_evs_extern_typedefs.h
+    # (typedef uint16 CFE_EVS_EventType_Enum_t); the resulting 172-byte total
+    # matches the observed 0x0808 packet length. char[] fields decode to text
+    # in the field loop below (bytes -> str, trimmed at the first NUL).
+    "CFE_EVS_LONG_EVENT_MSG_MID": ("EVS", [
+        ("evs_app_name",   16, "20s"),
+        ("evs_event_id",   36, "<H"),
+        ("evs_event_type", 38, "<H"),
+        ("evs_message",    48, "122s"),
+    ]),
     "HS_HK_TLM_MID": ("HS", [
         ("cmd_count",         16, "B"),
         ("cmd_err_count",     17, "B"),
@@ -370,6 +389,11 @@ def decode_payload(data: bytes, header: dict) -> dict | None:
         size = struct.calcsize(fmt)
         if len(data) >= offset + size:
             (val,) = struct.unpack_from(fmt, data, offset)
+            if isinstance(val, (bytes, bytearray)):
+                # Fixed-width char[] fields (e.g. EVS AppName / Message) arrive
+                # NUL-padded. Trim at the first NUL and decode to text so the
+                # JSON record carries a clean string, not a byte blob.
+                val = val.split(b"\x00", 1)[0].decode("ascii", "replace")
             if field_name in _CPU_PCT_FIELDS:
                 if val == 0xFFFFFFFF:
                     continue
