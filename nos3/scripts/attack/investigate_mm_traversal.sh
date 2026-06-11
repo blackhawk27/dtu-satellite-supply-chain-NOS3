@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# investigate_mm_traversal.sh — Phase 2 / Scenario 3A: MM path traversal surface audit
+# investigate_mm_traversal.sh - Phase 2 / Scenario 3A: MM path traversal surface audit
 #
 # Enumerates the attack surface for OSAL path traversal (F1/CVE-2025-25371):
 #   OS_TranslatePath() at osapi-filesys.c:675 never strips "../" sequences,
@@ -16,8 +16,8 @@
 #
 # References:
 #   phase2_traversal_can_denial.md
-#   CVE-2025-25371 — OSAL path traversal in OS_TranslatePath (osapi-filesys.c:675)
-#   F6 — libcan.c CAN socket FD leak on failed ioctl (Scenario 3B)
+#   CVE-2025-25371 - OSAL path traversal in OS_TranslatePath (osapi-filesys.c:675)
+#   F6 - libcan.c CAN socket FD leak on failed ioctl (Scenario 3B)
 
 set -euo pipefail
 
@@ -25,7 +25,7 @@ CFS_PROC="core-cpu1"
 CF_DIR="/cf"
 
 echo "==================================================================="
-echo "  Phase 2 — MM Path Traversal & CAN FD Leak Surface Audit"
+echo "  Phase 2 - MM Path Traversal & CAN FD Leak Surface Audit"
 echo "==================================================================="
 echo ""
 
@@ -110,7 +110,7 @@ if [[ -n "$CFS_PID" ]]; then
     LEAKS_TO_EMFILE=$(( ${FD_LIMIT:-1024} - ${FD_COUNT:-0} ))
     echo "[*] Estimated RESET_CC commands to EMFILE: ~${LEAKS_TO_EMFILE}"
     echo ""
-    echo "  Test steps (manual — requires GPS RESET_CC command access):"
+    echo "  Test steps (manual - requires GPS RESET_CC command access):"
     echo "    1. Bring down CAN interface: ip link set can0 down (inside container)"
     echo "    2. Send 100x GPS RESET_CC via COSMOS"
     echo "    3. Check: ls /proc/${CFS_PID}/fd | wc -l  (expect +100 vs baseline)"

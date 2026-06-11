@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# run_scenario1.sh — Scenario 1 Phase C: Combined SYN-leak + noisy_app OOM attack
+# run_scenario1.sh - Scenario 1 Phase C: Combined SYN-leak + noisy_app OOM attack
 #
 # Orchestrates the full DoS FSW Flood scenario:
 #   1. Records baseline VmRSS of cFS process
@@ -62,7 +62,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 echo "============================================================"
-echo "  Scenario 1 Phase C — Combined OOM Attack"
+echo "  Scenario 1 Phase C - Combined OOM Attack"
 echo "  Target: ${HOST}:${PORT}"
 echo "  SYN flood: ${SYN_COUNT} resets @ ${SYN_RATE} Hz"
 echo "  Detonate noisy_app after: ${DELAY_BEFORE_DETONATE}s"
@@ -145,7 +145,7 @@ ELAPSED=$(( ATTACK_END - ATTACK_START ))
 
 echo ""
 echo "============================================================"
-echo "  SCENARIO 1 PHASE C — RESULTS"
+echo "  SCENARIO 1 PHASE C - RESULTS"
 echo "============================================================"
 echo "  Attack elapsed:  ${ELAPSED}s"
 echo "  VmRSS before:    ${RSS_BEFORE} KB"
@@ -155,7 +155,7 @@ if [[ -n "$CFS_PID" ]]; then
 fi
 
 if $OOM_DETECTED; then
-    echo "  OOM kill:        DETECTED — ${OOM_TIME}"
+    echo "  OOM kill:        DETECTED - ${OOM_TIME}"
     echo "  [PASS] cFS process killed by OOM killer."
 else
     echo "  OOM kill:        NOT DETECTED within ${OOM_TIMEOUT}s"

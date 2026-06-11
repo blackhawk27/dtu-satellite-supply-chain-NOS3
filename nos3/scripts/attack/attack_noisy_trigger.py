@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-attack_noisy_trigger.py — Scenario 1 Phase B: Arm noisy_app via BEACON_PING_FC
+attack_noisy_trigger.py - Scenario 1 Phase B: Arm noisy_app via BEACON_PING_FC
 
 Sends 3 BEACON_PING_FC (FC=2) commands to MID 0x18F0 (MALWARE_TRIGGER_MID)
 to arm noisy_app. After the third ping the app exits its dormant polling loop
@@ -31,12 +31,17 @@ References:
 """
 
 import argparse
+import json
+import os
 import socket
 import struct
 import time
-import urllib.request
 import urllib.error
-import json
+import urllib.request
+
+DEFAULT_ES_URL = os.environ.get(
+    "ES_URL", f"http://localhost:{os.environ.get('ES_PORT', '9200')}"
+)
 
 MALWARE_TRIGGER_MID = 0x18F0
 BEACON_PING_FC      = 2
@@ -100,7 +105,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Arm noisy_app via 3x BEACON_PING_FC (Scenario 1 Phase B)")
     parser.add_argument("--host",       default="127.0.0.1",         help="Target host (default: 127.0.0.1)")
     parser.add_argument("--port",       type=int, default=5010,       help="CI UDP port (default: 5010)")
-    parser.add_argument("--kibana-url", default="http://localhost:9200", help="Elasticsearch base URL")
+    parser.add_argument("--kibana-url", default=DEFAULT_ES_URL,
+                        help=f"Elasticsearch base URL (default: {DEFAULT_ES_URL}; "
+                             f"override via ES_URL or ES_PORT env vars)")
     parser.add_argument("--no-confirm", action="store_true",          help="Skip Kibana burst confirmation")
     parser.add_argument("--spoof-eps",  action="store_true",
                         help="Send one EPS spoof trigger (FC=3) before final arming ping")
@@ -122,7 +129,7 @@ def main() -> None:
 
         sock.sendto(packet, (args.host, args.port))
         print(f"    Ping {i + 1}/{TRIGGER_THRESHOLD} sent")
-        time.sleep(0.1)   # 100ms — matches noisy_app OS_TaskDelay(100) polling period
+        time.sleep(0.1)   # 100ms - matches noisy_app OS_TaskDelay(100) polling period
 
     sock.close()
     print("[+] Trigger sequence complete. noisy_app should be armed.")

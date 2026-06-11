@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-attack_syn_leak.py — Scenario 1 Phase A/C: SYN_RESET_CC memory leak flood
+attack_syn_leak.py - Scenario 1 Phase A/C: SYN_RESET_CC memory leak flood
 
 Sends raw CCSDS command packets (SYN_RESET_CC, CC=5) to the cFS Command
 Ingestor (CI) app over UDP. Each command causes the SYN app to allocate a
@@ -17,10 +17,10 @@ Options:
     --measure-leak Print VmRSS before/after to estimate bytes leaked per command
     --pid          PID of core-cpu1 (auto-detected if omitted)
 
-Example — Phase A (measure leak size):
+Example - Phase A (measure leak size):
     python3 attack_syn_leak.py --count 10 --rate-hz 1 --measure-leak
 
-Example — Phase C (sustained flood while noisy_app detonates):
+Example - Phase C (sustained flood while noisy_app detonates):
     python3 attack_syn_leak.py --count 500 --rate-hz 10
 
 References:
