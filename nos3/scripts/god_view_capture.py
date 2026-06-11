@@ -200,12 +200,12 @@ _DECODE_BY_NAME: dict = {
         ("fss_error_code", 24, "B"),
     ]),
     "GENERIC_CSS_DEVICE_TLM_MID": ("CSS", [
-        ("css_voltage_0",  16, "<H"),
-        ("css_voltage_1",  18, "<H"),
-        ("css_voltage_2",  20, "<H"),
-        ("css_voltage_3",  22, "<H"),
-        ("css_voltage_4",  24, "<H"),
-        ("css_voltage_5",  26, "<H"),
+        ("css_v0",         16, "<H"),
+        ("css_v1",         18, "<H"),
+        ("css_v2",         20, "<H"),
+        ("css_v3",         22, "<H"),
+        ("css_v4",         24, "<H"),
+        ("css_v5",         26, "<H"),
     ]),
     "SAMPLE_DEVICE_TLM_MID": ("SAMPLE", [
         ("sample_counter",   16, "<I"),
@@ -400,7 +400,6 @@ SENSOR_ENABLES = [
     (0x1910, 2, "GENERIC_CSS"),
     (0x18FA, 2, "SAMPLE"),
     (0x18EA, 2, "GENERIC_THRUSTER"),
-    (0x1935, 2, "GENERIC_STAR_TRACKER"),
 ]
 
 # (req_hk_mid, name) -- FC=1 = REQ_DATA_TLM for these generic-pattern apps.

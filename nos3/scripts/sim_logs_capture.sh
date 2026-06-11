@@ -76,11 +76,21 @@ trap cleanup SIGTERM SIGINT SIGHUP
 # debug/FOLLOWUPS.md.
 reattach_worker() {
     local container="$1" log_file="$2" docker_pid=
-    # Track StartedAt so we only re-attach `docker logs -f` when the
-    # container has actually been restarted. Without this guard, an
-    # early-exiting container (e.g. a sim disabled in mission config)
-    # gets its full historical log re-dumped on every loop iteration,
-    # multiplying file size by ~one cycle per 2 seconds.
+    # Re-attach `docker logs -f` whenever the stream drops, not only on a
+    # container restart. The previous version reattached ONLY when StartedAt
+    # changed; if the follow stream broke for any other reason (daemon hiccup
+    # under heavy CPU load, EOF, broken pipe) while the container kept running,
+    # `wait` returned, StartedAt was unchanged, and the file froze PERMANENTLY
+    # even though the sim was alive and still emitting (e.g. nos3-gnss.log
+    # "truth stops" in Kibana - see debug/journal.md 2026-06-10).
+    #
+    # `--since` keeps the re-dump guard the old StartedAt check was protecting:
+    #   * container (re)started  -> --since <StartedAt>: capture the whole new run
+    #   * same run, stream dropped -> --since <now>: resume without re-dumping
+    #     history (loses at most the ~2 s reconnect gap; never duplicates lines,
+    #     which would double-count telemetry in Logstash).
+    # The "container not Running" branch is skipped entirely, so an early-exiting
+    # disabled sim is never re-dumped on every loop iteration.
     local last_started_at=""
     _signal_handler() {
         [ -n "$docker_pid" ] && kill "$docker_pid" 2>/dev/null
@@ -89,11 +99,17 @@ reattach_worker() {
     trap _signal_handler SIGTERM SIGINT SIGHUP
 
     while [ -f "$SHUTDOWN_SENTINEL" ]; do
-        local started_at
-        started_at=$(docker inspect -f '{{.State.StartedAt}}' "$container" 2>/dev/null)
-        if [ -n "$started_at" ] && [ "$started_at" != "$last_started_at" ]; then
-            last_started_at="$started_at"
-            docker logs -f "$container" >> "$log_file" 2>&1 &
+        local started_at running since
+        running=$(docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null)
+        if [ "$running" = "true" ]; then
+            started_at=$(docker inspect -f '{{.State.StartedAt}}' "$container" 2>/dev/null)
+            if [ -n "$started_at" ] && [ "$started_at" != "$last_started_at" ]; then
+                last_started_at="$started_at"
+                since="$started_at"
+            else
+                since="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            fi
+            docker logs -f --since "$since" "$container" >> "$log_file" 2>&1 &
             docker_pid=$!
             wait "$docker_pid" 2>/dev/null
         fi
