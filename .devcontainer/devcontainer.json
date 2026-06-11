@@ -22,18 +22,10 @@
         }
     },
     "forwardPorts": [
-        5601,
-        9200,
         5604,
         9203
     ],
     "portsAttributes": {
-        "5601": {
-            "label": "Kibana"
-        },
-        "9200": {
-            "label": "Elasticsearch"
-        },
         "5604": {
             "label": "Kibana (legacy)"
         },
