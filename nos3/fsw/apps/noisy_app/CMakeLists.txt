@@ -17,13 +17,9 @@ target_include_directories(noisy_app PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../components/generic_eps/fsw/cfs/platform_inc
 )
 
-# For the OPCODE_GNSS_SPOOF/DRIFT direct-memory scenario: include the victim GNSS
-# app's real headers so the GENERIC_GNSS_AppData_t layout (field offsets) is exact.
-# The symbol itself is resolved at runtime via dlopen(RTLD_NOLOAD)+dlsym (the .so is
-# loaded RTLD_LOCAL on this Linux target, so a link-time extern cannot reach it).
-# generic_gnss_app.h pulls in hwlib.h plus the GNSS msg/msgid/platform headers, so
-# we add the same include roots generic_gnss's own CMakeLists uses (src, platform_inc,
-# mission_inc, and hwlib public_inc).
+# OPCODE_GNSS_SPOOF/DRIFT: the victim GNSS app's real headers (for exact struct offsets).
+# generic_gnss_app.h pulls in hwlib.h plus the GNSS msg/msgid/platform headers, so add
+# the same include roots generic_gnss's own CMakeLists uses.
 target_include_directories(noisy_app PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../components/generic_gnss/fsw/cfs/src
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../components/generic_gnss/fsw/cfs/platform_inc
@@ -31,5 +27,10 @@ target_include_directories(noisy_app PRIVATE
     ${hwlib_MISSION_DIR}/fsw/public_inc
 )
 
-# dlopen/dlsym for the runtime GNSS symbol resolution (NOISY_ResolveGnssAppData).
-target_link_libraries(noisy_app dl)
+# dlopen/dlsym for runtime symbol resolution. ${CMAKE_DL_LIBS} is "dl" on older glibc
+# and empty on glibc >= 2.34 (where dl* live in libc) - portable either way.
+target_link_libraries(noisy_app ${CMAKE_DL_LIBS})
+
+# RTLD_NOLOAD is a GNU extension - it needs _GNU_SOURCE before <dlfcn.h>. Define it on
+# the command line so include order in the source does not matter.
+target_compile_definitions(noisy_app PRIVATE _GNU_SOURCE)

