@@ -6,8 +6,9 @@
 #     nos_build_cryptolib) - they share the $DBOX image with sim containers,
 #     so a blanket "stop containers by ancestor=$DBOX" (as stop.sh does)
 #     would kill them too. This script targets sim containers by name.
-#   - the ELK stack (nos3-elasticsearch, nos3-logstash, nos3-kibana) so the
-#     telemetry from the run remains analyzable in Kibana.
+#   - the ELK stack (${COMPOSE_PROJECT_NAME}-elasticsearch / -logstash /
+#     -kibana, default project "nos3") so the telemetry from the run remains
+#     analyzable in Kibana.
 #   - omni_logs/, attack_logs/, and nos3-telemetry-* indices so the run
 #     stays inspectable post-mortem.
 #
@@ -30,6 +31,9 @@ pkill -f "cpu_monitor.sh"      2>/dev/null || true
 pkill -f "cfs_evs_capture.sh"  2>/dev/null || true
 pkill -f "sim_logs_capture.sh" 2>/dev/null || true
 pkill -f "god_view_capture.py" 2>/dev/null || true
+pkill -f "passive_listener.py" 2>/dev/null || true
+# Passive wire-truth tcpdump sidecar (shares the FSW netns)
+"$SCRIPT_DIR/start_tcpdump_sidecar.sh" stop 2>/dev/null || true
 
 # Sim/FSW/GSW container name patterns from ci_launch.sh. Each pattern is a
 # substring match; we filter out anything beginning with nos_build_ as a
@@ -66,7 +70,7 @@ fi
 (cd "$BASE_DIR/gsw/ait" 2>/dev/null && ${DOCKER_COMPOSE_COMMAND} down > /dev/null 2>&1) || true
 
 # Remove per-spacecraft networks (recreated by next ci_launch.sh). Leave
-# nos3-core alone - ELK is still attached to it.
+# the ELK network ($NETWORK_NAME) alone - ELK is still attached to it.
 $DNETWORK ls --filter=name="nos3-sc" -q 2>/dev/null | xargs -r $DNETWORK rm > /dev/null 2>&1 || true
 
 # 42 IO directory (root-owned files written from inside the 42 container).
@@ -84,7 +88,7 @@ yes | rm "$GSW_DIR/Gemfile.lock" > /dev/null 2>&1 || true
 echo ""
 echo "Sim stopped. Preserved:"
 echo "  - build containers (if any were running)"
-echo "  - ELK stack (Kibana at http://localhost:5601)"
+echo "  - ELK stack (Kibana at http://localhost:${KIBANA_PORT:-5601})"
 echo "  - omni_logs/, attack_logs/, and nos3-telemetry-* indices"
 echo "Run 'make stop' for a full teardown including ELK and indices."
 exit 0

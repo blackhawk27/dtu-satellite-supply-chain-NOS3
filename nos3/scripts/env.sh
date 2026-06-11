@@ -5,6 +5,22 @@
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 BASE_DIR=$(cd `dirname $SCRIPT_DIR` && pwd)
+
+# ELK stack identity. Single source of truth: nos3/elk/.env (also consumed
+# directly by elk/docker-compose.yml). Exported here so every script that
+# sources env.sh inherits NETWORK_NAME, COMPOSE_PROJECT_NAME, ES_PORT and
+# KIBANA_PORT. Lets multiple NOS3 stacks coexist on the same host.
+if [ -f "$BASE_DIR/elk/.env" ]; then
+    set -a
+    . "$BASE_DIR/elk/.env"
+    set +a
+fi
+: "${COMPOSE_PROJECT_NAME:=nos3}"
+: "${ES_PORT:=9200}"
+: "${KIBANA_PORT:=5601}"
+: "${NETWORK_NAME:=nos3-core}"
+export COMPOSE_PROJECT_NAME ES_PORT KIBANA_PORT NETWORK_NAME
+
 FSW_DIR=$BASE_DIR/fsw/build/exe/cpu1
 GSW_BIN=$BASE_DIR/gsw/cosmos/build/openc3-cosmos-nos3
 GSW_DIR=$BASE_DIR/gsw/cosmos
@@ -44,13 +60,13 @@ fi
 ###
 #if [ -f "/etc/redhat-release" ]; then
 #    DCALL="docker"
-#    DFLAGS="docker run --rm -it -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro -u $(id -u $(stat -c '%U' $SCRIPT_DIR/env.sh)):$(getent group $(stat -c '%G' $SCRIPT_DIR/env.sh) | cut -d: -f3)"
+#    DFLAGS="docker run --rm -i -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro -u $(id -u $(stat -c '%U' $SCRIPT_DIR/env.sh)):$(getent group $(stat -c '%G' $SCRIPT_DIR/env.sh) | cut -d: -f3)"
 #    DFLAGS_CPUS="$DFLAGS --cpus=$NUM_CPUS"
 #    DCREATE="docker create --rm -it"
 #    DNETWORK="docker network"
 #else
     DCALL="docker"
-    DFLAGS="docker run --rm -it -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro -u $(id -u $(stat -c '%U' $SCRIPT_DIR/env.sh)):$(getent group $(stat -c '%G' $SCRIPT_DIR/env.sh) | cut -d: -f3)"
+    DFLAGS="docker run --rm -i -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro -u $(id -u $(stat -c '%U' $SCRIPT_DIR/env.sh)):$(getent group $(stat -c '%G' $SCRIPT_DIR/env.sh) | cut -d: -f3)"
     DFLAGS_CPUS="$DFLAGS --cpus=$NUM_CPUS"
     DCREATE="docker create --rm -it"
     DNETWORK="docker network"

@@ -62,6 +62,6 @@ rm -f $BASE_DIR/attack_logs/cfs_god_view.json
 
 # Delete only telemetry indices from Elasticsearch so Kibana starts fresh
 # but preserves dashboards, visualizations, and index patterns (.kibana index)
-curl -s -X DELETE "http://localhost:9200/nos3-telemetry-*" > /dev/null 2>&1 || true
+curl -s -X DELETE "http://localhost:${ES_PORT:-9200}/nos3-telemetry-*" > /dev/null 2>&1 || true
 
 exit 0

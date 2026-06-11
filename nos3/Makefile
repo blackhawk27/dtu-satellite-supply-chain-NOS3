@@ -20,10 +20,10 @@ SC1_CFG ?=
 # COMPOSE_PROJECT_NAME mirrors the container_name prefix in elk/docker-compose.yml
 # (nos3-elasticsearch / nos3-logstash / nos3-kibana). NETWORK_NAME must match the
 # external network referenced in that compose file.
-NETWORK_NAME ?= nos3-core
-COMPOSE_PROJECT_NAME ?= nos3
-ES_PORT ?= 9200
-KIBANA_PORT ?= 5601
+NETWORK_NAME ?= nos3-legacy-core
+COMPOSE_PROJECT_NAME ?= nos3-legacy
+ES_PORT ?= 9203
+KIBANA_PORT ?= 5604
 ES_URL ?= http://localhost:$(ES_PORT)
 
 export SYSTEM_TEST_FILE_PATH = /scripts/gsw/system_test.rb
