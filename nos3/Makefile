@@ -390,7 +390,7 @@ cosmos-gui: ## Full launch (ELK + sims + FSW) with the COSMOS Launcher GUI inste
 	@$(MAKE) --no-print-directory launch
 	@echo "Replacing headless cosmos-openc3-operator-1 with GUI Launcher..."
 	@docker rm -f cosmos-openc3-operator-1 > /dev/null 2>&1 || true
-	@GSW_ONLY=1 ./scripts/ci_launch.sh --use-cosmos-gui
+	./scripts/ci_launch.sh --use-cosmos-gui
 
 scriptrunner: cosmos-gui ## Alias for cosmos-gui. After it loads, click "Script Runner" in the NOS3 Launcher window. Open COMPONENTS/GENERIC_GNSS/procedures/gnss_gs_responder.rb to manually exercise the GNSS GS responder.
 

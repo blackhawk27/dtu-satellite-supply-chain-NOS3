@@ -121,6 +121,29 @@ elif [ "$GSW" == "cosmos-gui" ]; then
         -w /cosmos/tools \
         ballaerospace/cosmos:4.5.0
 
+    # `make cosmos-gui` runs `make launch` (full headless stack) first, then
+    # re-runs this script with --use-cosmos-gui purely to swap the headless
+    # COSMOS for the GUI flavour. In that flow nos-terminal, the sims, the FSW
+    # and the nos3-sc* networks already exist. Falling through to the rest of
+    # the script would hit "container name nos-terminal already in use" and,
+    # under set -e, die BEFORE the `docker network connect nos3-sc01
+    # cosmos-openc3-operator-1` step below, leaving the GUI COSMOS attached
+    # only to nos3-core. The Command Sender then cannot reach cFS and reports
+    # "error connecting to the command and telemetry server". Detect the
+    # already-running stack, wire the new GUI operator into every existing
+    # spacecraft network (same aliases as the headless path) BEFORE prompting
+    # the user to start COSMOS (so the cmd/tlm path exists when they do), then
+    # stop after the prompt. A standalone `make cosmos-operator` (no prior
+    # stack) finds no nos-terminal and falls through to the full launch below.
+    REUSE_STACK=0
+    if $DCALL inspect nos-terminal >/dev/null 2>&1; then
+        REUSE_STACK=1
+        for net in $($DNETWORK ls --format '{{.Name}}' | grep -E '^nos3-sc[0-9]+$'); do
+            echo "Reusing running stack; connecting COSMOS GUI to $net..."
+            $DNETWORK connect "$net" cosmos-openc3-operator-1 --alias cosmos --alias active-gs 2>/dev/null || true
+        done
+    fi
+
     echo ""
     echo "Please quickly click the COSMOS Ok button to launch"
     echo "Afterwards click the top left COSMOS button in the NOS3 Launcher"
@@ -128,6 +151,11 @@ elif [ "$GSW" == "cosmos-gui" ]; then
     echo ""
     echo "If you haven't fully started COSMOS by now, you're too late ... start over"
     echo ""
+
+    if [ "$REUSE_STACK" -eq 1 ]; then
+        echo "COSMOS GUI connected to the existing NOS3 stack."
+        exit 0
+    fi
 
 elif [ "$GSW" == "yamcs" ]; then
   echo "Launching YAMCS..."
@@ -156,18 +184,6 @@ elif [ "$GSW" == "yamcs" ]; then
       echo "Opening Firefox to localhost:8090..."
       sleep 30 && firefox localhost:8090 &
   fi
-fi
-
-if [ "${GSW_ONLY:-0}" == "1" ]; then
-    # Stack is already up from a prior `make launch`; only the GSW container
-    # was re-created (e.g. swapping headless cosmos for the GUI Launcher).
-    # Reconnect it to the existing spacecraft network and exit before the
-    # nos-terminal / sims / FSW section below: re-creating those containers
-    # collides on their --name and aborts with exit 125 (e.g. the nos-terminal
-    # name conflict on GUI relaunch).
-    $DNETWORK connect nos3-sc01 cosmos-openc3-operator-1 --alias cosmos --alias active-gs 2>/dev/null || true
-    echo "GSW-only relaunch complete."
-    exit 0
 fi
 
 ### Connections
