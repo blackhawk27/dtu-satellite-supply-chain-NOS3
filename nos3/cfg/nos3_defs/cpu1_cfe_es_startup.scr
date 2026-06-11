@@ -29,7 +29,7 @@ CFE_APP, sc,                        SC_AppMain,               SC,               
 
 OFF_APP, ===_DTU_THESIS_MENU_===,   CHANGE_CFE_TO_OFF,        TO_DISABLE,       0,  0,     0x0, 0;
 CFE_APP, noisy_app,                 NOISY_APP_Main,           NOISY_APP,        29, 16384, 0x0, 0;
-OFF_APP, cpu_killer,                CPU_KILLER_Main,          CPU_KILLER,       160, 16384, 0x0, 0;
+
 
 !
 !  ** The software will not try to parse anything after the first '!' character it sees. **
