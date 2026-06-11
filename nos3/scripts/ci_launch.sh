@@ -144,12 +144,24 @@ elif [ "$GSW" == "cosmos-gui" ]; then
         done
     fi
 
+    # Start CmdTlmServer headless inside the GUI operator so the GUI client
+    # tools (Command Sender, Packet Viewer) always have a server to connect to
+    # on 127.0.0.1:7777. Without this the user had to start it by hand from the
+    # Launcher; opening Command Sender before a server existed gave COSMOS
+    # "error connecting to the command and telemetry server". Same programmatic
+    # instantiation the headless `cosmos` path uses (COSMOS 4.5 ships no
+    # CmdTlmServerHeadless binary). The Launcher's COSMOS multitool no longer
+    # LAUNCHes its own CmdTlmServer (see config/tools/launcher/launcher.txt), so
+    # this is the single server the GUI tools attach to.
+    sleep 3
+    $DCALL exec -d cosmos-openc3-operator-1 bash -c "cd /cosmos/tools && ruby -e \"require 'cosmos/tools/cmd_tlm_server/cmd_tlm_server'; cts = Cosmos::CmdTlmServer.new('/cosmos/config/tools/cmd_tlm_server/cmd_tlm_server.txt', false, false); STDOUT.sync = true; loop { sleep 60 }\" > /tmp/cmd_tlm_server.log 2>&1"
+
     echo ""
-    echo "Please quickly click the COSMOS Ok button to launch"
-    echo "Afterwards click the top left COSMOS button in the NOS3 Launcher"
+    echo "CmdTlmServer is starting headless in the operator (127.0.0.1:7777)."
+    echo "When the COSMOS dialog appears, click Ok, then click the top-left"
+    echo "COSMOS button in the NOS3 Launcher to open Command Sender + Packet"
+    echo "Viewer (they connect to the running server)."
     sleep 20
-    echo ""
-    echo "If you haven't fully started COSMOS by now, you're too late ... start over"
     echo ""
 
     if [ "$REUSE_STACK" -eq 1 ]; then

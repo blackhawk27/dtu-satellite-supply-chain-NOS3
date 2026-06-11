@@ -4,8 +4,10 @@ LABEL_FONT tahoma 16
 NUM_COLUMNS 5
 
 MULTITOOL_START "COSMOS" NULL
-  TOOL "LAUNCH CmdTlmServer -w 875 -t 430 -c cmd_tlm_server.txt" 
-  DELAY 2
+  # CmdTlmServer is started headless by ci_launch.sh inside the operator
+  # container (binds 127.0.0.1:7777). Do NOT LAUNCH CmdTlmServer here: a second
+  # instance would fail to bind the already-used port. The GUI tools below
+  # attach to the headless server.
   TOOL "LAUNCH CmdSender -w 650 -t 300"
   DELAY 2
   #TOOL "LAUNCH DataViewer --config data_viewer.txt"
