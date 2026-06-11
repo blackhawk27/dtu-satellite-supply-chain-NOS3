@@ -23,6 +23,7 @@
         "sim_timestamp":         { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 64 } } },
         "sim_timestamp_unix":    { "type": "double" },
         "sim_timestamp_iso":     { "type": "date" },
+        "obs_time":              { "type": "date" },
 
         "type":                  { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },
         "subsystem":             { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },

@@ -76,6 +76,12 @@ REQUIRED_NEW_FIELDS = {
     # so the cached field list exposes sc_timestamp (date) before any panel or
     # ad-hoc query tries to use it as a time axis.
     "sc_timestamp", "host_timestamp",
+    # obs_time is the shared bus/truth observation clock (logstash.conf): bus
+    # docs get it from timestamp/host_timestamp, sim-truth docs from the sim log
+    # line's own emit time. The bus-vs-truth overlay panels (poc-imu/gnss/eps,
+    # gnss-gs-validation) bucket their date_histogram on it, so it must be in
+    # the cached field list as a date or they render "field not found".
+    "obs_time",
 }
 NEW_FIELDS_WAIT_TIMEOUT = 180
 RETRY_CODES = (404, 408, 425, 500, 502, 503, 504)

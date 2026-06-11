@@ -366,6 +366,25 @@ def col_date_hist():
             "params": {"interval": "auto"}}
 
 
+def col_date_hist_on(field):
+    # date_histogram bucketed on an arbitrary date field (not @timestamp).
+    # Used by the bus-vs-truth overlay panels with field="obs_time" so the two
+    # series are positioned by when each sample was observed at its source,
+    # immune to the truth path's slower/jitterier ingest (see the obs_time
+    # block in logstash.conf). The dashboard global time range still filters on
+    # the index pattern's @timestamp; buckets land on `field`.
+    # Live runs: obs_time ~= now, so a "last N minutes" view shows truth and bus
+    # tracking together. Replay (make load-run): obs_time is the ORIGINAL run's
+    # wall-clock (not replay-fresh like @timestamp), so set the Kibana time
+    # range to the archived run's window to see these overlays. Only the genuine
+    # bus(hk_decoded)-vs-truth(system_log) overlays use this; same-path overlays
+    # (e.g. sim-vs-sim GNSS lat) stay on @timestamp and remain replay-fresh.
+    return {"label": field, "dataType": "date",
+            "operationType": "date_histogram", "sourceField": field,
+            "isBucketed": True, "scale": "interval",
+            "params": {"interval": "auto"}}
+
+
 def col_filters(filters_list):
     return {"label": "Filters", "dataType": "string",
             "operationType": "filters", "isBucketed": True, "scale": "ordinal",
@@ -491,10 +510,17 @@ def bar_panel(title, description, terms_field, size=15, horizontal=True,
 
 
 def line_panel(title, description, metric_cols, query="", break_by=None,
-               series_type="line", layer_id=None):
+               series_type="line", layer_id=None, x_interval=None,
+               date_field="@timestamp"):
     layer_id = layer_id or sid("lyr")
     date_id = sid("d")
-    columns = {date_id: col_date_hist()}
+    date_col = col_date_hist() if date_field == "@timestamp" else col_date_hist_on(date_field)
+    if x_interval:
+        # Force a fine fixed bucket so a per-sample series approximates the raw
+        # reading (e.g. the EPS override sawtooth). Use a SHORT dashboard time
+        # range or Kibana will coarsen the interval back toward auto.
+        date_col["params"]["interval"] = x_interval
+    columns = {date_id: date_col}
     accessors = []
     order = [date_id]
     for col, lbl in metric_cols:
@@ -2793,6 +2819,484 @@ def build_fsw_vs_sim_xref():
     return attrs, refs
 
 
+# ===========================================================================
+# Per-PoC dashboards (ported from the draco testbed, which adapted them from
+# the RTEMS ZTA testbed for a single-index, no-SB_ACL fork like this one).
+# The 8 genuine bus(hk_decoded)-vs-truth(system_log) overlays bucket on
+# obs_time (see col_date_hist_on + the obs_time blocks in logstash.conf) so
+# the two series stay aligned despite the truth path's slower ingest.
+# ===========================================================================
+
+def _poc_dashboard(title, description, panels, time_restore=True):
+    """Assemble a per-PoC dashboard saved object from its panels. Shared by the
+    nos3-poc-* boards (ported from the RTEMS testbed). Returns (attrs, refs) like
+    every other builder here."""
+    panelsJSON = json.dumps(panels, separators=(",", ":"))
+    refs = collect_dashboard_refs(panels)
+    attrs = {
+        "title": title,
+        "hits": 0,
+        "description": description,
+        "panelsJSON": panelsJSON,
+        "optionsJSON": json.dumps({"useMargins": True, "syncColors": False, "hidePanelTitles": False}),
+        "version": 1,
+        "timeRestore": time_restore,
+        "kibanaSavedObjectMeta": {"searchSourceJSON": json.dumps({"query": {"query": "", "language": "kuery"}, "filter": []})},
+    }
+    if time_restore:
+        # Open on a rolling last-30-min window with live auto-refresh instead of
+        # inheriting whatever absolute range the global picker was left on.
+        attrs["timeFrom"] = "now-30m"
+        attrs["timeTo"] = "now"
+        attrs["refreshInterval"] = {"pause": False, "value": 10000}
+    return attrs, refs
+
+
+def build_poc_eps():
+    panels = []
+    panels.append(markdown_panel(
+        "## PoC: EPS Battery Spoof / Override\n"
+        "**Attack**: the implant forges `GENERIC_EPS_HK` (msg `0x091A`) with "
+        "`battery_mv = 10000` (opcode `0x02` one-shot, `0x06` persistent "
+        "override). That is below the LC threshold (14800 mV), so AP0 fires "
+        "RTS 4 -> MGR `SAFE`.\n\n"
+        "This cFS testbed has **no SB_ACL**, so the forged 0x091A publish is "
+        "never gated - it lands unconditionally and the SAFE chain fires.\n\n"
+        "**Read top to bottom**: mode + bus-vs-truth battery -> SAFE outcome -> "
+        "decisive EVS events. Bus `battery_mv` drops to ~10000 (forged) while "
+        "truth `eps_battery_mv` holds ~25000; mode flips SAFE.",
+        "Header", 0, 0, 48, 7))
+
+    m_mode = metric_panel(
+        "Spacecraft mode (last)",
+        "spacecraft_mode_name from MGR HK. SAFE here is the EPS PoC payoff: the "
+        "forged low battery drove the autonomous SAFE chain. Stays SCIENCE / "
+        "STANDBY in a clean run.",
+        col_last_value("spacecraft_mode_name.keyword", "Mode"),
+        query='spacecraft_mode_name: *')
+    panels.append(lens_panel(m_mode, "Spacecraft mode", 0, 7, 16, 9))
+
+    m_bus = metric_panel(
+        "Bus battery mV (last, FSW HK)",
+        "Last battery_mv decoded from the downlinked GENERIC_EPS_HK - the value "
+        "the implant forges. Under attack this reads ~10000; compare against the "
+        "truth tile. LC threshold = 14800.",
+        col_last_value_num("battery_mv", "Bus mV"),
+        query='battery_mv: *')
+    panels.append(lens_panel(m_bus, "Bus battery mV", 16, 7, 16, 9))
+
+    m_truth = metric_panel(
+        "Truth battery mV (last, sim)",
+        "Last eps_battery_mv from the EPS simulator log (ground truth the "
+        "implant cannot reach). Holds ~25000 even during a successful attack - "
+        "the divergence from the bus tile is the detection signal.",
+        col_last_value_num("eps_battery_mv", "Truth mV"),
+        query='eps_battery_mv: *')
+    panels.append(lens_panel(m_truth, "Truth battery mV", 32, 7, 16, 9))
+
+    bus_min = line_panel(
+        "EPS battery: bus vs truth - MIN per bucket (forged floor)",
+        "Per-bucket MINIMUM of battery_mv (bus) vs eps_battery_mv (truth). The "
+        "bus MIN drops to the forged 10000 floor the instant one forged packet "
+        "lands in a bucket; truth holds ~25000. Best 'did the forged value "
+        "appear' view.",
+        [(col_min("battery_mv", "Bus MIN mV"), "Bus MIN mV"),
+         (col_min("eps_battery_mv", "Truth MIN mV"), "Truth MIN mV")],
+        query='battery_mv: * or eps_battery_mv: *',
+        series_type="line", date_field="obs_time")
+    panels.append(lens_panel(bus_min, "Bus vs truth (MIN)", 0, 16, 48, 11))
+
+    bus_avg = line_panel(
+        "EPS battery: bus vs truth - AVERAGE per bucket",
+        "Per-bucket AVERAGE. The override interleaves forged 10000 with genuine "
+        "~25000 each cycle, so the bus average lands near the midpoint (~17000) "
+        "and UNDERSTATES the attack - compare with the MIN and RAW panels.",
+        [(col_avg("battery_mv", "Bus AVG mV"), "Bus AVG mV"),
+         (col_avg("eps_battery_mv", "Truth AVG mV"), "Truth AVG mV")],
+        query='battery_mv: * or eps_battery_mv: *',
+        series_type="line", date_field="obs_time")
+    panels.append(lens_panel(bus_avg, "Bus vs truth (AVG)", 0, 27, 48, 11))
+
+    bus_raw = line_panel(
+        "EPS battery: bus vs truth - RAW per-sample (jumps)",
+        "Per-bucket LAST value at a 1s interval, approximating the raw "
+        "downlinked reading. Under the override the bus line sawtooths between "
+        "the forged 10000 and the genuine ~25000 while truth stays flat. Use a "
+        "SHORT time range (last 5-15 min) so Kibana keeps the 1s buckets fine.",
+        [(col_last_value_num("battery_mv", "Bus mV (raw)"), "Bus mV (raw)"),
+         (col_last_value_num("eps_battery_mv", "Truth mV (raw)"), "Truth mV (raw)")],
+        query='battery_mv: * or eps_battery_mv: *',
+        series_type="line",
+        x_interval="1s", date_field="obs_time")
+    panels.append(lens_panel(bus_raw, "Bus vs truth (RAW)", 0, 38, 48, 11))
+
+    mode_line = line_panel(
+        "Spacecraft mode over time (1=SAFE 2=STANDBY 3=SCIENCE)",
+        "spacecraft_mode trace from MGR HK. A step down to 1 (SAFE) aligned "
+        "with the battery drop is the autonomous SAFE chain firing on the "
+        "forged value.",
+        [(col_last_value_num("spacecraft_mode", "Mode"), "Mode")],
+        query='spacecraft_mode: *',
+        series_type="line")
+    panels.append(lens_panel(mode_line, "Mode timeline", 0, 49, 48, 14))
+
+    evs = filters_bar_panel(
+        "Decisive EVS events (EPS SAFE chain)",
+        "Did each link of the SAFE chain fire? Bars count the EVS events that "
+        "mark a successful EPS PoC: implant override, LC battery trip, RTS 4, "
+        "and the TO_LAB SAFE comms-downgrade. All nonzero = the chain ran end "
+        "to end.",
+        [{"label": "Implant EPS override", "input": {"query": 'message: "EPS override ENGAGED"', "language": "kuery"}},
+         {"label": "LC batt volt critical", "input": {"query": 'message: "Batt volt critical"', "language": "kuery"}},
+         {"label": "RTS 004 started", "input": {"query": 'message: "RTS Number 004 Started"', "language": "kuery"}},
+         {"label": "Downlink disabled (TO_LAB)", "input": {"query": 'message: "telemetry output DISABLED"', "language": "kuery"}}],
+        horizontal=True)
+    panels.append(lens_panel(evs, "EPS decisive EVS", 0, 63, 48, 14))
+
+    evs_tail = table_panel(
+        "EPS-chain EVS tail",
+        "Raw EVS events from the apps in the EPS SAFE chain (NOISY_APP, LC, SC, "
+        "TO_LAB, MGR). Replaces hand-searching Discover.",
+        [{"op": "terms", "field": "evs_app_name.keyword", "size": 6, "label": "App"},
+         {"op": "terms", "field": "evs_message.keyword", "size": 40, "label": "Message"}],
+        query='evs_app_name.keyword: ("NOISY_APP" or "LC" or "SC" or "TO_LAB_APP" or "MGR")')
+    panels.append(lens_panel(evs_tail, "EPS EVS tail", 0, 77, 48, 14))
+
+    return _poc_dashboard(
+        "PoC: EPS Battery Spoof",
+        "Self-contained board for the EPS battery-spoof PoC (opcodes 0x02/0x06, "
+        "msg 0x091A). Bus battery_mv vs sim truth eps_battery_mv, the SAFE "
+        "outcome, and the decisive EVS chain. No SB_ACL on this testbed, so the "
+        "forged packet always lands.",
+        panels)
+
+
+def build_poc_gnss():
+    panels = []
+    panels.append(markdown_panel(
+        "## PoC: GNSS Position Spoof (teleport / drift)\n"
+        "**Attack**: the implant overwrites the FSW's in-memory position globals "
+        "(`GENERIC_GNSS_AppData.LastBusLat/Lon`) directly via dlopen+dlsym - "
+        "opcode `0x0C` teleports to (0,0), `0x0E` drifts slowly. **Off-bus**: it "
+        "never publishes or subscribes, so there is no Software Bus trace at all "
+        "(and no SB_ACL on this testbed regardless). Detection is purely "
+        "cross-source: FSW-reported `gnss_lat/lon` vs ground truth "
+        "`gnss_truth_lat/lon`, plus the geofence.\n"
+        "- **TELEPORT (0x0C)**: bus lat steps to 0 while truth holds ~55.\n"
+        "- **DRIFT (0x0E)**: bus lat fans away from truth with no step.\n\n"
+        "The **Spacecraft mode** tile/timeline is the payoff: the geofence reads "
+        "GENERIC_GNSS InDenmarkBox, computed from the same LastBusLat/Lon the "
+        "implant overwrites, so a teleport from SCIENCE flips InDenmarkBox 1->0 "
+        "and kicks the satellite back to SAFE.",
+        "Header", 0, 0, 48, 8))
+
+    m_mode = metric_panel(
+        "Spacecraft mode (last)",
+        "spacecraft_mode_name from MGR HK (SAFE / STANDBY / SCIENCE). The GNSS "
+        "PoC payoff: in SCIENCE over Denmark, a teleport flips InDenmarkBox 1->0 "
+        "(geofence exit) and kicks the satellite back to SAFE.",
+        col_last_value("spacecraft_mode_name.keyword", "Mode"),
+        query='spacecraft_mode_name: *')
+    panels.append(lens_panel(m_mode, "Spacecraft mode", 0, 8, 16, 9))
+
+    m_geo_bus = metric_panel(
+        "In Denmark box - bus (last)",
+        "in_denmark_box from the FSW-reported position. A teleport to (0,0) "
+        "flips this to 0 (outside) while the satellite is really over Denmark.",
+        col_last_value_num("in_denmark_box", "Bus in-box"),
+        query='in_denmark_box: *')
+    panels.append(lens_panel(m_geo_bus, "Bus geofence", 16, 8, 16, 9))
+
+    m_geo_truth = metric_panel(
+        "In Denmark box - truth (last)",
+        "in_denmark_box_truth from the sim ground-truth position. Stays 1 over "
+        "Denmark regardless of the spoof - the trustworthy reference.",
+        col_last_value_num("in_denmark_box_truth", "Truth in-box"),
+        query='in_denmark_box_truth: *')
+    panels.append(lens_panel(m_geo_truth, "Truth geofence", 32, 8, 16, 9))
+
+    mode_line = line_panel(
+        "Spacecraft mode over time (1=SAFE 2=STANDBY 3=SCIENCE)",
+        "spacecraft_mode trace from MGR HK. During a Denmark pass it sits at 3 "
+        "(SCIENCE); the teleport/drift driving InDenmarkBox to 0 steps it down "
+        "to 1 (SAFE). The clearest operational consequence of the GNSS spoof.",
+        [(col_last_value_num("spacecraft_mode", "Mode"), "Mode")],
+        query='spacecraft_mode: *',
+        series_type="line")
+    panels.append(lens_panel(mode_line, "Mode timeline", 0, 17, 36, 12))
+
+    m_teleport = metric_panel(
+        "Teleport ticks (bus lat near 0)",
+        "Count of GENERIC_GNSS HK docs whose gnss_lat is in [-0.5, 0.5] deg - "
+        "the (0,0) signature of TELEPORT (0x0C). 0 in a clean run; nonzero "
+        "during a pass is the spoof. Does NOT catch DRIFT (use the lat chart).",
+        col_count("Teleport ticks"),
+        query='gnss_lat >= -0.5 and gnss_lat <= 0.5')
+    panels.append(lens_panel(m_teleport, "Teleport ticks", 36, 17, 12, 12))
+
+    sec_lat = line_panel(
+        "Bus lat vs truth lat (spoof detector)",
+        "gnss_lat (FSW-reported, decoded from GENERIC_GNSS HK - the value the "
+        "implant corrupts) overlaid with gnss_truth_lat (42 ground truth, which "
+        "the in-process implant cannot reach). Normal: the two lines coincide. "
+        "TELEPORT: bus steps to 0. DRIFT: bus fans away. PRIMARY detector.",
+        [(col_avg("gnss_lat", "Bus lat (FSW HK, deg)"), "Bus lat (FSW HK, deg)"),
+         (col_avg("gnss_truth_lat", "Truth lat (42, deg)"), "Truth lat (42, deg)")],
+        query='gnss_lat: * or gnss_truth_lat: *',
+        series_type="line", date_field="obs_time")
+    panels.append(lens_panel(sec_lat, "Bus lat vs truth lat", 0, 29, 24, 15))
+
+    sec_lon = line_panel(
+        "Bus lon vs truth lon (spoof detector)",
+        "gnss_lon (FSW-reported) overlaid with gnss_truth_lon (42 ground truth). "
+        "Same fault model as the lat panel. Judge the spoof on the LAT panel "
+        "first; this confirms it on the second axis.",
+        [(col_avg("gnss_lon", "Bus lon (FSW HK, deg)"), "Bus lon (FSW HK, deg)"),
+         (col_avg("gnss_truth_lon", "Truth lon (42, deg)"), "Truth lon (42, deg)")],
+        query='gnss_lon: * or gnss_truth_lon: *',
+        series_type="line", date_field="obs_time")
+    panels.append(lens_panel(sec_lon, "Bus lon vs truth lon", 24, 29, 24, 15))
+
+    m_bus_lat = metric_panel(
+        "Bus lat (last)",
+        "Last gnss_lat (FSW-reported). Compare against 'Truth lat (last)': under "
+        "attack these diverge; normally they match.",
+        col_last_value_num("gnss_lat", "Bus lat"),
+        query='gnss_lat: *')
+    panels.append(lens_panel(m_bus_lat, "Bus lat (last)", 0, 44, 12, 8))
+
+    m_truth_lat = metric_panel(
+        "Truth lat (last)",
+        "Last gnss_truth_lat (42 ground truth). The implant cannot reach this, "
+        "so it is the trustworthy reference for the bus value to the left.",
+        col_last_value_num("gnss_truth_lat", "Truth lat"),
+        query='gnss_truth_lat: *')
+    panels.append(lens_panel(m_truth_lat, "Truth lat (last)", 12, 44, 12, 8))
+
+    m_bus_lon = metric_panel(
+        "Bus lon (last)",
+        "Last gnss_lon (FSW-reported). Compare against 'Truth lon (last)'.",
+        col_last_value_num("gnss_lon", "Bus lon"),
+        query='gnss_lon: *')
+    panels.append(lens_panel(m_bus_lon, "Bus lon (last)", 24, 44, 12, 8))
+
+    m_truth_lon = metric_panel(
+        "Truth lon (last)",
+        "Last gnss_truth_lon (42 ground truth).",
+        col_last_value_num("gnss_truth_lon", "Truth lon"),
+        query='gnss_truth_lon: *')
+    panels.append(lens_panel(m_truth_lon, "Truth lon (last)", 36, 44, 12, 8))
+
+    panels.append(markdown_panel(
+        "### Off-bus: no Software Bus trace\n"
+        "This PoC writes FSW memory directly, so there is **no GNSS-related SB "
+        "publish or deny** - the proof is the bus-vs-truth divergence, the "
+        "geofence tiles, and the Spacecraft mode flip above. The EVS tail below "
+        "carries the implant's own opcode-dispatch events (NOISY_APP) and any "
+        "MGR mode change.",
+        "OffBusNote", 0, 52, 48, 5))
+
+    evs_tail = table_panel(
+        "GNSS PoC EVS tail",
+        "Raw EVS events from NOISY_APP (opcode dispatch + GNSS spoof/drift "
+        "engaged/cleared), GENERIC_GNSS, and MGR (mode).",
+        [{"op": "terms", "field": "evs_app_name.keyword", "size": 6, "label": "App"},
+         {"op": "terms", "field": "evs_message.keyword", "size": 40, "label": "Message"}],
+        query='evs_app_name.keyword: ("NOISY_APP" or "GENERIC_GNSS" or "MGR")')
+    panels.append(lens_panel(evs_tail, "GNSS EVS tail", 0, 57, 48, 14))
+
+    return _poc_dashboard(
+        "PoC: GNSS Position Spoof",
+        "Self-contained board for the GNSS memory-overwrite PoC (opcodes 0x0C "
+        "teleport / 0x0E drift). Bus gnss_lat/lon vs ground truth "
+        "gnss_truth_lat/lon, the Denmark geofence (bus vs truth), and the "
+        "teleport signature. Off-bus: detection is divergence only.",
+        panels)
+
+
+def build_poc_imu():
+    panels = []
+    panels.append(markdown_panel(
+        "## PoC: IMU Gyro Bias\n"
+        "**Attack**: the implant injects a slow gyro bias via the "
+        "`/ram/.imu_cal` file dead-drop (opcode `0x0A`), consumed in-process by "
+        "generic_imu. **Off-bus**: no subscribe, no publish, no SB/EVS trace for "
+        "the bias itself (only the one-time arm). The detector is cross-source "
+        "divergence between two DISTINCT fields per axis:\n"
+        "- `imu_gyro_*` (`subsystem: IMU`) = the **downlinked** HK (0x0926), "
+        "biased in FSW.\n"
+        "- `imu_truth_gyro_*` (`subsystem: IMU_TRUTH`) = the IMU **sim's own** "
+        "rate (ground truth the implant cannot reach), from the sim's "
+        "`[IMU_TRUTH]` log line.\n\n"
+        "Normal: each bus axis sits on top of its truth axis. Under attack the "
+        "bus axis walks away and clamps at the +5 rad/s bias cap while truth "
+        "stays flat; only the comparison reveals it.",
+        "Header", 0, 0, 48, 9))
+
+    for col, ax in ((0, "x"), (16, "y"), (32, "z")):
+        m_bus = metric_panel(
+            f"Bus gyro {ax.upper()} (last, downlinked)",
+            f"Last imu_gyro_{ax} from the downlinked HK (subsystem IMU). Compare "
+            f"with 'Truth gyro {ax.upper()}' directly below: under the bias they "
+            f"diverge (bus clamps at the +5 rad/s cap); normally they match.",
+            col_last_value_num(f"imu_gyro_{ax}", f"Bus gyro {ax.upper()}"),
+            query=f'imu_gyro_{ax}: * and subsystem.keyword: "IMU"')
+        panels.append(lens_panel(m_bus, f"Bus gyro {ax.upper()} (last)", col, 9, 16, 9))
+
+        m_truth = metric_panel(
+            f"Truth gyro {ax.upper()} (last, sim)",
+            f"Last imu_truth_gyro_{ax} from the IMU sim's [IMU_TRUTH] line "
+            f"(subsystem IMU_TRUTH). The implant cannot reach this, so it is the "
+            f"trustworthy reference for the bus tile above.",
+            col_last_value_num(f"imu_truth_gyro_{ax}", f"Truth gyro {ax.upper()}"),
+            query=f'imu_truth_gyro_{ax}: *')
+        panels.append(lens_panel(m_truth, f"Truth gyro {ax.upper()} (last)", col, 18, 16, 9))
+
+    sec_gx = line_panel(
+        "Gyro X: bus vs truth (bias detector)",
+        "imu_gyro_x (downlinked bus HK, subsystem IMU - the value the bias "
+        "corrupts) overlaid with imu_truth_gyro_x (sim ground truth). Normal: the "
+        "two lines coincide. IMU_BIAS: the bus line steps up and clamps at the +5 "
+        "rad/s cap while truth stays flat. PRIMARY detector.",
+        [(col_avg("imu_gyro_x", "Bus gyro X (rad/s)"), "Bus gyro X (rad/s)"),
+         (col_avg("imu_truth_gyro_x", "Truth gyro X (rad/s)"), "Truth gyro X (rad/s)")],
+        query='(imu_gyro_x: * and subsystem.keyword: "IMU") or imu_truth_gyro_x: *',
+        series_type="line", date_field="obs_time")
+    panels.append(lens_panel(sec_gx, "Gyro X bus vs truth", 0, 27, 24, 14))
+
+    sec_gy = line_panel(
+        "Gyro Y: bus vs truth (bias detector)",
+        "imu_gyro_y (downlinked bus HK) overlaid with imu_truth_gyro_y (sim "
+        "ground truth). Same fault model as the X panel; the IMU_BIAS profile "
+        "biases all enabled axes (axis_mask 0x07 = X, Y, Z).",
+        [(col_avg("imu_gyro_y", "Bus gyro Y (rad/s)"), "Bus gyro Y (rad/s)"),
+         (col_avg("imu_truth_gyro_y", "Truth gyro Y (rad/s)"), "Truth gyro Y (rad/s)")],
+        query='(imu_gyro_y: * and subsystem.keyword: "IMU") or imu_truth_gyro_y: *',
+        series_type="line", date_field="obs_time")
+    panels.append(lens_panel(sec_gy, "Gyro Y bus vs truth", 24, 27, 24, 14))
+
+    sec_gz = line_panel(
+        "Gyro Z: bus vs truth (bias detector)",
+        "imu_gyro_z (downlinked bus HK) overlaid with imu_truth_gyro_z (sim "
+        "ground truth). Same fault model; the bus clamps at the +5 rad/s cap "
+        "while truth holds its small real rate.",
+        [(col_avg("imu_gyro_z", "Bus gyro Z (rad/s)"), "Bus gyro Z (rad/s)"),
+         (col_avg("imu_truth_gyro_z", "Truth gyro Z (rad/s)"), "Truth gyro Z (rad/s)")],
+        query='(imu_gyro_z: * and subsystem.keyword: "IMU") or imu_truth_gyro_z: *',
+        series_type="line", date_field="obs_time")
+    panels.append(lens_panel(sec_gz, "Gyro Z bus vs truth", 0, 41, 24, 14))
+
+    evs_tail = table_panel(
+        "IMU PoC EVS tail",
+        "Raw EVS events from NOISY_APP (opcode dispatch / dead-drop write) and "
+        "GENERIC_IMU. Off-bus PoC: only the one-time 0x0A arm is visible.",
+        [{"op": "terms", "field": "evs_app_name.keyword", "size": 6, "label": "App"},
+         {"op": "terms", "field": "evs_message.keyword", "size": 40, "label": "Message"}],
+        query='evs_app_name.keyword: ("NOISY_APP" or "GENERIC_IMU")')
+    panels.append(lens_panel(evs_tail, "IMU EVS tail", 24, 41, 24, 14))
+
+    return _poc_dashboard(
+        "PoC: IMU Gyro Bias",
+        "Self-contained board for the IMU gyro-bias PoC (opcode 0x0A, "
+        "/ram/.imu_cal dead-drop). Per-axis bus imu_gyro_* (downlinked, subsystem "
+        "IMU) vs sim truth imu_truth_gyro_* (subsystem IMU_TRUTH). Off-bus: "
+        "detection is divergence only.",
+        panels)
+
+
+def build_poc_sb_lock():
+    panels = []
+    panels.append(markdown_panel(
+        "## PoC: Software Bus DoS (pipe flood + pool lock)\n"
+        "**Attack (opcode `0x08`), two phases:**\n"
+        "1. **Pipe flood** - the implant publishes junk to OTHER apps' command "
+        "MIDs (EPS/RW/ADCS/RADIO/GPS/SAMPLE) to overflow their pipes.\n"
+        "2. **Pool lock** - self-subscribes `LOCK_MID` (`0x08F2`) and parks "
+        "buffers to drain the SB pool.\n\n"
+        "This cFS testbed has **no SB_ACL**, so nothing gates the cross-MID "
+        "publishes or the lock subscribe: both phases land unconditionally. A "
+        "priority-29 holder drains every SB pool bucket, driving the **SB packet "
+        "rate to ZERO** and triggering a buffer-allocation-failure storm across "
+        "every app (incl. core cFE). Complete flatline; needs a sim restart.",
+        "Header", 0, 0, 48, 8))
+
+    m_sb_total = metric_panel(
+        "Software Bus docs (in time range)",
+        "Count of software_bus docs in the dashboard time range. A sharp drop to "
+        "near-zero during the attack window is the DoS succeeding.",
+        col_count("SB docs"),
+        query='type: "software_bus"')
+    panels.append(lens_panel(m_sb_total, "SB docs", 0, 8, 24, 9))
+
+    m_engaged = metric_panel(
+        "Pool lock engaged",
+        "Count of the 'SB POOL LOCK engaged' EVS event. Nonzero = the implant "
+        "armed the pool-lock DoS (it always arms here - no SB_ACL to abort it).",
+        col_count("Lock engaged"),
+        query='message: "SB POOL LOCK engaged"')
+    panels.append(lens_panel(m_engaged, "Pool lock engaged", 24, 8, 24, 9))
+
+    sb_rate = line_panel(
+        "Software Bus packet rate (DoS detector)",
+        "All software_bus docs per second. Baseline ~30-50 pps. A collapse to a "
+        "flatline is the pool-lock DoS succeeding - HK, mode, attitude all stall "
+        "when the shared pool is exhausted.",
+        [(col_count(), "Packets")],
+        query='type: "software_bus"',
+        series_type="bar_stacked")
+    panels.append(lens_panel(sb_rate, "SB packet rate", 0, 17, 48, 15))
+
+    buf_fail_rate = line_panel(
+        "SB buffer-allocation failures (rate)",
+        "Rate of CFE_SB buffer-allocation-failure EVS events. 0 in a healthy "
+        "run. A burst the instant the pool lock engages = apps can no longer "
+        "publish (HK, mode, attitude all stall). This is the DoS, regardless of "
+        "any residual packet rate.",
+        [(col_count(), "Buffer failures")],
+        query='message: "Request for Buffer"',
+        series_type="bar_stacked")
+    panels.append(lens_panel(buf_fail_rate, "Buffer-alloc failures (rate)", 0, 32, 24, 14))
+
+    pipe_overflow = line_panel(
+        "Victim pipe overflows (phase-1 flood landed)",
+        "CFE_SB 'Pipe Overflow' events. The implant floods other apps' command "
+        "pipes with junk; with no SB_ACL the cross-MID publishes are allowed, so "
+        "the victim pipes OVERFLOW (nonzero here = phase-1 landed).",
+        [(col_count(), "Pipe overflows")],
+        query='message: "Pipe Overflow"',
+        series_type="bar_stacked")
+    panels.append(lens_panel(pipe_overflow, "Victim pipe overflows", 24, 32, 24, 14))
+
+    decisive = filters_bar_panel(
+        "Decisive EVS events",
+        "The implant's own DoS markers: the pipe-flood summary and the pool-lock "
+        "engagement. Correlate with the SB packet-rate collapse above.",
+        [{"label": "Pipe flood ran", "input": {"query": 'message: "PIPE FLOOD"', "language": "kuery"}},
+         {"label": "Pool lock engaged", "input": {"query": 'message: "SB POOL LOCK engaged"', "language": "kuery"}},
+         {"label": "Buffer-alloc failure", "input": {"query": 'message: "Request for Buffer"', "language": "kuery"}},
+         {"label": "Victim pipe overflow", "input": {"query": 'message: "Pipe Overflow"', "language": "kuery"}}],
+        horizontal=True)
+    panels.append(lens_panel(decisive, "Decisive EVS", 0, 46, 48, 14))
+
+    evs_tail = table_panel(
+        "SB pool-lock EVS tail",
+        "Raw EVS events from NOISY_APP (the implant) and CFE_SB. Look for 'PIPE "
+        "FLOOD - N delivered, M blocked' and 'SB POOL LOCK engaged'.",
+        [{"op": "terms", "field": "evs_app_name.keyword", "size": 6, "label": "App"},
+         {"op": "terms", "field": "evs_message.keyword", "size": 40, "label": "Message"}],
+        query='evs_app_name.keyword: ("NOISY_APP" or "CFE_SB")')
+    panels.append(lens_panel(evs_tail, "SB lock EVS tail", 0, 60, 48, 14))
+
+    return _poc_dashboard(
+        "PoC: SB Pool-Lock DoS",
+        "Self-contained board for the Software Bus pool-lock DoS PoC (opcode "
+        "0x08, LOCK_MID 0x08F2). SB packet-rate collapse, buffer-allocation "
+        "failures, victim pipe overflows, and the implant's DoS EVS markers. "
+        "No SB_ACL on this testbed, so the flood + pool lock land "
+        "unconditionally (needs a sim restart).",
+        panels)
+
+
 # ---------- registry + CLI -------------------------------------------------
 # Single source of truth: every saved object this script owns. The CLI selects
 # from this list via --only / --exclude; prune_orphan_dashboards() uses the
@@ -2830,6 +3334,14 @@ REGISTRY = [
      "OBC performance monitor"),
     ("nos3-fsw-vs-sim-xref",            "dashboard", build_fsw_vs_sim_xref,
      "FSW vs sim cross-reference"),
+    ("nos3-poc-eps",                    "dashboard", build_poc_eps,
+     "PoC: EPS battery spoof"),
+    ("nos3-poc-gnss",                   "dashboard", build_poc_gnss,
+     "PoC: GNSS position spoof"),
+    ("nos3-poc-imu",                    "dashboard", build_poc_imu,
+     "PoC: IMU gyro bias"),
+    ("nos3-poc-sb-lock",                "dashboard", build_poc_sb_lock,
+     "PoC: SB pool-lock DoS"),
     ("nos3-evs-error-tail",             "search",    build_evs_error_search,
      "cFE EVS - ERROR / CRITICAL tail (saved search)"),
 ]
