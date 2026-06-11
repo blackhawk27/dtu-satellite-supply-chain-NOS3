@@ -24,7 +24,12 @@ NETWORK_NAME ?= nos3-legacy-core
 COMPOSE_PROJECT_NAME ?= nos3-legacy
 ES_PORT ?= 9203
 KIBANA_PORT ?= 5604
-ES_URL ?= http://localhost:$(ES_PORT)
+ES_CONTAINER := $(COMPOSE_PROJECT_NAME)-elasticsearch
+LS_CONTAINER := $(COMPOSE_PROJECT_NAME)-logstash
+KB_CONTAINER := $(COMPOSE_PROJECT_NAME)-kibana
+ES_URL := http://localhost:$(ES_PORT)
+KIBANA_URL := http://localhost:$(KIBANA_PORT)
+export ES_URL KIBANA_URL
 
 export SYSTEM_TEST_FILE_PATH = /scripts/gsw/system_test.rb
 
@@ -346,7 +351,7 @@ launch: ## Launch NOS3 System
 	@$(MAKE) --no-print-directory purge-logs
 	@$(MAKE) --no-print-directory start-elk
 	@echo "Deleting nos3-telemetry-* indices so Kibana starts clean..."
-	@curl -s -X DELETE 'http://localhost:9200/nos3-telemetry-*' > /dev/null 2>&1 || true
+	@curl -s -X DELETE '$(ES_URL)/nos3-telemetry-*' > /dev/null 2>&1 || true
 	@echo "Removing stale NOS3 containers so ci_launch.sh can recreate them..."
 	@docker rm -f cosmos-openc3-operator-1 nos-terminal nos-udp-terminal nos-sim-bridge nos-time-driver > /dev/null 2>&1 || true
 	@docker ps -a --format '{{.Names}}' | grep -E '^sc[0-9]+-' | xargs -r docker rm -f > /dev/null 2>&1 || true
@@ -371,9 +376,9 @@ endif
 	@echo "Waiting 15s for capture scripts to populate log files before Logstash rescan..."
 	@sleep 15
 	@echo "Restarting Logstash so it picks up freshly-created log files..."
-	@docker restart nos3-logstash > /dev/null 2>&1 || true
+	@docker restart $(LS_CONTAINER) > /dev/null 2>&1 || true
 	@for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do \
-	  if curl -fsS http://localhost:9600/_node/stats > /dev/null 2>&1; then \
+	  if docker exec $(LS_CONTAINER) curl -fsS http://localhost:9600/_node/stats > /dev/null 2>&1; then \
 	    echo "Logstash is responsive."; break; \
 	  fi; \
 	  sleep 2; \
@@ -434,7 +439,7 @@ apply-index-template: ## Register elk/index_template.json with Elasticsearch and
 refresh-kibana-fields: ## Re-populate field cache on nos3-telemetry* index-patterns (idempotent). Closes a daily-rollover bug where Lens panels render "No data" until the saved-object's cached field list is rewritten. Safe to run any time.
 	@echo "Refreshing Kibana index-pattern field caches..."
 	@for i in 1 2 3 4 5 6 7 8 9 10; do \
-	  curl -fsS http://localhost:5601/api/status > /dev/null 2>&1 && break; \
+	  curl -fsS $(KIBANA_URL)/api/status > /dev/null 2>&1 && break; \
 	  sleep 2; \
 	done
 	@python3 elk/refresh_index_pattern_fields.py || \
@@ -513,18 +518,18 @@ load-run: ## Load a saved run into Kibana (ELK only, no sim). Usage: make load-r
 	cp -r $$SRC/omni_logs/*.log omni_logs/ 2>/dev/null || true; \
 	cp $$SRC/cfs_god_view.json attack_logs/ 2>/dev/null || true; \
 	echo "Deleting old telemetry indices..."; \
-	curl -s -X DELETE "http://localhost:9200/nos3-telemetry-*" > /dev/null 2>&1 || true; \
+	curl -s -X DELETE "$(ES_URL)/nos3-telemetry-*" > /dev/null 2>&1 || true; \
 	echo "Starting ELK stack and restarting Logstash..."; \
 	cd elk && docker compose up -d; \
-	docker restart nos3-logstash > /dev/null 2>&1 || true; \
+	docker restart $(LS_CONTAINER) > /dev/null 2>&1 || true; \
 	echo ""; \
-	echo "Logstash is re-indexing. Kibana will be ready at http://localhost:5601 in ~30s"
+	echo "Logstash is re-indexing. Kibana will be ready at $(KIBANA_URL) in ~30s"
 	@$(MAKE) --no-print-directory refresh-kibana-fields
 
 stop: ## Stop entire system. Deletes nos3-telemetry-* indices unless KEEP_TLM=1 (save-run sets it)
 	@if [ -z "$(KEEP_TLM)" ]; then \
 	  echo "Deleting nos3-telemetry-* indices (pass KEEP_TLM=1 to preserve)..."; \
-	  curl -s -X DELETE 'http://localhost:9200/nos3-telemetry-*' > /dev/null 2>&1 || true; \
+	  curl -s -X DELETE '$(ES_URL)/nos3-telemetry-*' > /dev/null 2>&1 || true; \
 	else \
 	  echo "Preserving nos3-telemetry-* indices (KEEP_TLM=$(KEEP_TLM))"; \
 	fi

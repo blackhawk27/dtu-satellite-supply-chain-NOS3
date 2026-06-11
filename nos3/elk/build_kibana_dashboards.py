@@ -19,13 +19,14 @@ replaced with sources that actually carry data:
   - sb_sequence_gap tag
 """
 import json
+import os
 import subprocess
 import sys
 import uuid
 from pathlib import Path
 from urllib.parse import quote
 
-KIBANA = "http://localhost:5601"
+KIBANA = os.environ.get("KIBANA_URL", "http://localhost:5601")
 IP = "5b3163a0-3ea7-11f1-adf4-55f5fc5a104a"   # nos3-telemetry* data view
 VERSION = "7.17.10"
 
