@@ -126,7 +126,7 @@ elif [ "$GSW" == "cosmos-gui" ]; then
         fi
         echo "---------------------------" >&2
         echo "Hint: re-run the Launcher in the foreground to watch the error live:" >&2
-        echo "  docker rm -f cosmos-openc3-operator-1; docker run --rm -it \\" >&2
+        echo "  docker rm -f cosmos-openc3-operator-1; docker run --rm -it --init \\" >&2
         echo "    -v \"$GSW_DIR/config:/cosmos/config:ro\" -v \"$GSW_DIR:/cosmos\" \\" >&2
         echo "    -v /tmp/.X11-unix:/tmp/.X11-unix:rw -e DISPLAY=\$DISPLAY -e QT_X11_NO_MITSHM=1 \\" >&2
         echo "    -w /cosmos/tools ballaerospace/cosmos:4.5.0 ruby Launcher" >&2
@@ -140,7 +140,14 @@ elif [ "$GSW" == "cosmos-gui" ]; then
     mkdir -p "$GSW_DIR/outputs"/{logs,tmp,saved_config,dart,handbooks,sequences,tables}
 
     xhost +local:docker 2>/dev/null || true
-    $DCALL run -dit --name cosmos-openc3-operator-1 \
+    # --init is load-bearing: the image CMD `sh -c 'ruby Launcher'` is
+    # exec-optimised by dash into ruby, so with the `-t` TTY ruby becomes the
+    # session-leading PID 1. COSMOS's QtTool#initialize then calls
+    # Process.setpgrp (gui/qt_tool.rb:52), which is EPERM for a session leader,
+    # and the Launcher dies with "FATAL: EPERM" right after the legal dialog
+    # (clean exit, no window). tini as PID 1 demotes ruby to a child, so
+    # setpgrp is allowed. Do NOT remove --init. See debug/journal.md.
+    $DCALL run -dit --init --name cosmos-openc3-operator-1 \
         --log-driver json-file --log-opt max-size=5m --log-opt max-file=3 \
         -v "$GSW_DIR/config:/cosmos/config:ro" \
         -v "$GSW_DIR:/cosmos" \
