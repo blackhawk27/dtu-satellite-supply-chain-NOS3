@@ -58,3 +58,45 @@ startup.
 This likely never worked end-to-end on the GUI main window; the recent
 cosmos-gui commits (networking, headless CmdTlmServer) did not exercise the
 QtTool main-window path, so the EPERM went unnoticed.
+
+## 2026-06-12 - decoded downlink (tlm_hk_decoded.log) empty on a fresh clone
+
+### Symptom
+
+After the cosmos-gui fixes above, telemetry flowed and the raw downlink
+(attack_logs/cfs_god_view.json) filled, but omni_logs/tlm_hk_decoded.log
+stayed empty on a fresh clone. Worked on the maintainer's machine.
+
+### Root cause
+
+scripts/passive_listener.py decodes packets using a decode table built from
+cfg/build/mid_registry.json (_load_decode_table). If that file is unreadable
+the table is {} -> raw packets are still written, but nothing is decoded.
+The table is loaded ONCE at module import, so the listener must be restarted
+after the registry exists.
+
+cfg/build is gitignored, and scripts/mid/gen_mid_registry.py (run at
+`make config`) is already known broken on this cFE - it greps for Draco-era
+CFE_PLATFORM_*_TOPICID_TO_MIDV macros that no longer exist, exits 1, and
+config.sh swallows the failure. So a fresh clone never gets
+cfg/build/mid_registry.json. The maintainer only had it because cfg/build is
+gitignored and the file persisted from an older run (dated May 6).
+
+The Makefile launch target already seeded the ELK YAMLs from elk/seed_mid/
+when the generator fails, but had no equivalent fallback for
+mid_registry.json.
+
+### Fix
+
+- Commit elk/seed_mid/mid_registry.json (snapshot of the working 180-entry
+  registry for the default config).
+- Extend the Makefile MID-artifact block to (a) also trigger when
+  mid_registry.json is missing even if the elk YAMLs exist, and (b) copy the
+  mid_registry.json seed into cfg/build/ when the generator does not produce
+  it. Switched to per-file fallbacks instead of one all-or-nothing guard.
+
+Real fix would be to repair gen_mid_registry.py for the current cFE msgid
+macros; the seed is the same pragmatic fallback the elk YAMLs already use.
+
+Applying the fix to an already-running stack also requires restarting
+passive_listener.py (re-run make launch / cosmos-gui) so it reloads the table.

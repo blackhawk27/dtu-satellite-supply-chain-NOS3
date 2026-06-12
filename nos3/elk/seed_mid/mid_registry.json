@@ -1,0 +1,902 @@
+{
+  "0x0800": {
+    "layer": "FSW_CORE",
+    "name": "CFE_ES_HK_TLM_MID",
+    "subsystem": "ES"
+  },
+  "0x0801": {
+    "layer": "FSW_CORE",
+    "name": "CFE_EVS_HK_TLM_MID",
+    "subsystem": "EVS"
+  },
+  "0x0803": {
+    "layer": "FSW_CORE",
+    "name": "CFE_SB_HK_TLM_MID",
+    "subsystem": "SB"
+  },
+  "0x0804": {
+    "layer": "FSW_CORE",
+    "name": "CFE_TBL_HK_TLM_MID",
+    "subsystem": "TBL"
+  },
+  "0x0805": {
+    "layer": "FSW_CORE",
+    "name": "CFE_TIME_HK_TLM_MID",
+    "subsystem": "TIME"
+  },
+  "0x0806": {
+    "layer": "FSW_CORE",
+    "name": "CFE_TIME_DIAG_TLM_MID",
+    "subsystem": "TIME"
+  },
+  "0x0808": {
+    "layer": "FSW_CORE",
+    "name": "CFE_EVS_LONG_EVENT_MSG_MID",
+    "subsystem": "EVS"
+  },
+  "0x0809": {
+    "layer": "FSW_CORE",
+    "name": "CFE_EVS_SHORT_EVENT_MSG_MID",
+    "subsystem": "EVS"
+  },
+  "0x080A": {
+    "layer": "FSW_CORE",
+    "name": "CFE_SB_STATS_TLM_MID",
+    "subsystem": "SB"
+  },
+  "0x080B": {
+    "layer": "FSW_CORE",
+    "name": "CFE_ES_APP_TLM_MID",
+    "subsystem": "ES"
+  },
+  "0x080C": {
+    "layer": "FSW_CORE",
+    "name": "CFE_TBL_REG_TLM_MID",
+    "subsystem": "TBL"
+  },
+  "0x080D": {
+    "layer": "FSW_CORE",
+    "name": "CFE_SB_ALLSUBS_TLM_MID",
+    "subsystem": "SB"
+  },
+  "0x080E": {
+    "layer": "FSW_CORE",
+    "name": "CFE_SB_ONESUB_TLM_MID",
+    "subsystem": "SB"
+  },
+  "0x0810": {
+    "layer": "FSW_CORE",
+    "name": "CFE_ES_MEMSTATS_TLM_MID",
+    "subsystem": "ES"
+  },
+  "0x0870": {
+    "layer": "COMPONENT",
+    "name": "NOVATEL_OEM615_HK_TLM_MID",
+    "subsystem": "GPS"
+  },
+  "0x0871": {
+    "layer": "COMPONENT",
+    "name": "NOVATEL_OEM615_DEVICE_TLM_MID",
+    "subsystem": "GPS"
+  },
+  "0x0880": {
+    "layer": "FSW_HERITAGE",
+    "name": "TO_HK_TLM_MID",
+    "subsystem": "TO"
+  },
+  "0x0881": {
+    "layer": "FSW_HERITAGE",
+    "name": "TO_OUT_DATA_MID",
+    "subsystem": "TO"
+  },
+  "0x0882": {
+    "layer": "FSW_HERITAGE",
+    "name": "TO_DATA_TYPE_MID",
+    "subsystem": "TO"
+  },
+  "0x0884": {
+    "layer": "FSW_HERITAGE",
+    "name": "CI_HK_TLM_MID",
+    "subsystem": "CI"
+  },
+  "0x0885": {
+    "layer": "FSW_HERITAGE",
+    "name": "CI_OUT_DATA_MID",
+    "subsystem": "CI"
+  },
+  "0x0887": {
+    "layer": "FSW_HERITAGE",
+    "name": "MM_HK_TLM_MID",
+    "subsystem": "MM"
+  },
+  "0x088A": {
+    "layer": "FSW_HERITAGE",
+    "name": "FM_HK_TLM_MID",
+    "subsystem": "FM"
+  },
+  "0x088B": {
+    "layer": "FSW_HERITAGE",
+    "name": "FM_FILE_INFO_TLM_MID",
+    "subsystem": "FM"
+  },
+  "0x088C": {
+    "layer": "FSW_HERITAGE",
+    "name": "FM_DIR_LIST_TLM_MID",
+    "subsystem": "FM"
+  },
+  "0x088D": {
+    "layer": "FSW_HERITAGE",
+    "name": "FM_OPEN_FILES_TLM_MID",
+    "subsystem": "FM"
+  },
+  "0x088E": {
+    "layer": "FSW_HERITAGE",
+    "name": "FM_FREE_SPACE_TLM_MID",
+    "subsystem": "FM"
+  },
+  "0x0890": {
+    "layer": "FSW_HERITAGE",
+    "name": "MD_HK_TLM_MID",
+    "subsystem": "MD"
+  },
+  "0x0891": {
+    "layer": "FSW_HERITAGE",
+    "name": "MD_DWELL_PKT_MID_BASE",
+    "subsystem": "MD"
+  },
+  "0x0897": {
+    "layer": "FSW_HERITAGE",
+    "name": "SCH_HK_TLM_MID",
+    "subsystem": "SCH"
+  },
+  "0x0898": {
+    "layer": "FSW_HERITAGE",
+    "name": "SCH_DIAG_TLM_MID",
+    "subsystem": "SCH"
+  },
+  "0x089B": {
+    "layer": "FSW_HERITAGE",
+    "name": "HK_HK_TLM_MID",
+    "subsystem": "HK"
+  },
+  "0x089C": {
+    "layer": "FSW_HERITAGE",
+    "name": "HK_COMBINED_PKT1_MID",
+    "subsystem": "HK"
+  },
+  "0x089D": {
+    "layer": "FSW_HERITAGE",
+    "name": "HK_COMBINED_PKT2_MID",
+    "subsystem": "HK"
+  },
+  "0x089E": {
+    "layer": "FSW_HERITAGE",
+    "name": "HK_COMBINED_PKT3_MID",
+    "subsystem": "HK"
+  },
+  "0x089F": {
+    "layer": "FSW_HERITAGE",
+    "name": "HK_COMBINED_PKT4_MID",
+    "subsystem": "HK"
+  },
+  "0x08A4": {
+    "layer": "FSW_HERITAGE",
+    "name": "CS_HK_TLM_MID",
+    "subsystem": "CS"
+  },
+  "0x08A7": {
+    "layer": "FSW_HERITAGE",
+    "name": "LC_HK_TLM_MID",
+    "subsystem": "LC"
+  },
+  "0x08AA": {
+    "layer": "FSW_HERITAGE",
+    "name": "SC_HK_TLM_MID",
+    "subsystem": "SC"
+  },
+  "0x08AD": {
+    "layer": "FSW_HERITAGE",
+    "name": "HS_HK_TLM_MID",
+    "subsystem": "HS"
+  },
+  "0x08B0": {
+    "layer": "FSW_HERITAGE",
+    "name": "CF_HK_TLM_MID",
+    "subsystem": "CF"
+  },
+  "0x08B3": {
+    "layer": "FSW_HERITAGE",
+    "name": "CF_EOT_TLM_MID",
+    "subsystem": "CF"
+  },
+  "0x08B8": {
+    "layer": "FSW_HERITAGE",
+    "name": "DS_HK_TLM_MID",
+    "subsystem": "DS"
+  },
+  "0x08B9": {
+    "layer": "FSW_HERITAGE",
+    "name": "DS_DIAG_TLM_MID",
+    "subsystem": "DS"
+  },
+  "0x08BA": {
+    "layer": "FSW_HERITAGE",
+    "name": "DS_COMP_TLM_MID",
+    "subsystem": "DS"
+  },
+  "0x08C8": {
+    "layer": "COMPONENT",
+    "name": "CAM_HK_TLM_MID",
+    "subsystem": "CAM"
+  },
+  "0x08C9": {
+    "layer": "COMPONENT",
+    "name": "CAM_EXP_TLM_MID",
+    "subsystem": "CAM"
+  },
+  "0x08DC": {
+    "layer": "FSW_HERITAGE",
+    "name": "SBN_TLM_MID",
+    "subsystem": "SBN"
+  },
+  "0x08E0": {
+    "layer": "FSW_HERITAGE",
+    "name": "CI_LAB_HK_TLM_MID",
+    "subsystem": "CI_LAB"
+  },
+  "0x08E8": {
+    "layer": "FSW_HERITAGE",
+    "name": "TO_LAB_HK_TLM_MID",
+    "subsystem": "TO_LAB"
+  },
+  "0x08E9": {
+    "layer": "FSW_HERITAGE",
+    "name": "TO_LAB_DATA_TYPES_MID",
+    "subsystem": "TO_LAB"
+  },
+  "0x08EA": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_THRUSTER_HK_TLM_MID",
+    "subsystem": "THRUSTER"
+  },
+  "0x08F0": {
+    "layer": "RESEARCH",
+    "name": "BEACON_APP_HK_TLM_MID",
+    "subsystem": "BEACON"
+  },
+  "0x08F8": {
+    "layer": "FSW_HERITAGE",
+    "name": "MGR_HK_TLM_MID",
+    "subsystem": "MGR"
+  },
+  "0x08FA": {
+    "layer": "COMPONENT",
+    "name": "SAMPLE_HK_TLM_MID",
+    "subsystem": "SAMPLE"
+  },
+  "0x08FB": {
+    "layer": "COMPONENT",
+    "name": "SAMPLE_DEVICE_TLM_MID",
+    "subsystem": "SAMPLE"
+  },
+  "0x08FC": {
+    "layer": "COMPONENT",
+    "name": "SYN_HK_TLM_MID",
+    "subsystem": "SYN"
+  },
+  "0x08FD": {
+    "layer": "COMPONENT",
+    "name": "SYN_DEVICE_TLM_MID",
+    "subsystem": "SYN"
+  },
+  "0x0910": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_CSS_HK_TLM_MID",
+    "subsystem": "CSS"
+  },
+  "0x0911": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_CSS_DEVICE_TLM_MID",
+    "subsystem": "CSS"
+  },
+  "0x091A": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_EPS_HK_TLM_MID",
+    "subsystem": "EPS"
+  },
+  "0x0920": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_FSS_HK_TLM_MID",
+    "subsystem": "FSS"
+  },
+  "0x0921": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_FSS_DEVICE_TLM_MID",
+    "subsystem": "FSS"
+  },
+  "0x0925": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_IMU_HK_TLM_MID",
+    "subsystem": "IMU"
+  },
+  "0x0926": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_IMU_DEVICE_TLM_MID",
+    "subsystem": "IMU"
+  },
+  "0x092A": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_MAG_HK_TLM_MID",
+    "subsystem": "MAG"
+  },
+  "0x092B": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_MAG_DEVICE_TLM_MID",
+    "subsystem": "MAG"
+  },
+  "0x0930": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_RADIO_HK_TLM_MID",
+    "subsystem": "RADIO"
+  },
+  "0x0931": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_RADIO_DEVICE_TLM_MID",
+    "subsystem": "RADIO"
+  },
+  "0x0935": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_STAR_TRACKER_HK_TLM_MID",
+    "subsystem": "STAR_TRACKER"
+  },
+  "0x0936": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_STAR_TRACKER_DEVICE_TLM_MID",
+    "subsystem": "STAR_TRACKER"
+  },
+  "0x093A": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_TORQUER_HK_TLM_MID",
+    "subsystem": "TORQUER"
+  },
+  "0x0940": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_ADCS_HK_TLM_MID",
+    "subsystem": "ADCS"
+  },
+  "0x0941": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_ADCS_DI_MID",
+    "subsystem": "ADCS"
+  },
+  "0x0942": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_ADCS_AD_MID",
+    "subsystem": "ADCS"
+  },
+  "0x0943": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_ADCS_GNC_MID",
+    "subsystem": "ADCS"
+  },
+  "0x0944": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_ADCS_AC_MID",
+    "subsystem": "ADCS"
+  },
+  "0x0945": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_ADCS_DO_MID",
+    "subsystem": "ADCS"
+  },
+  "0x0950": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_TT_C_HK_TLM_MID",
+    "subsystem": "GENERIC_TT_C"
+  },
+  "0x0951": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_TT_C_DEVICE_TLM_MID",
+    "subsystem": "GENERIC_TT_C"
+  },
+  "0x0952": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_GNSS_HK_TLM_MID",
+    "subsystem": "GENERIC_GNSS"
+  },
+  "0x0953": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_GNSS_DEVICE_TLM_MID",
+    "subsystem": "GENERIC_GNSS"
+  },
+  "0x0954": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_GNSS_SAT_HELLO_TLM_MID",
+    "subsystem": "GENERIC_GNSS"
+  },
+  "0x0993": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_RW_APP_HK_TLM_MID",
+    "subsystem": "RW"
+  },
+  "0x1801": {
+    "layer": "FSW_CORE",
+    "name": "CFE_EVS_CMD_MID",
+    "subsystem": "EVS"
+  },
+  "0x1803": {
+    "layer": "FSW_CORE",
+    "name": "CFE_SB_CMD_MID",
+    "subsystem": "SB"
+  },
+  "0x1804": {
+    "layer": "FSW_CORE",
+    "name": "CFE_TBL_CMD_MID",
+    "subsystem": "TBL"
+  },
+  "0x1805": {
+    "layer": "FSW_CORE",
+    "name": "CFE_TIME_CMD_MID",
+    "subsystem": "TIME"
+  },
+  "0x1806": {
+    "layer": "FSW_CORE",
+    "name": "CFE_ES_CMD_MID",
+    "subsystem": "ES"
+  },
+  "0x1808": {
+    "layer": "FSW_CORE",
+    "name": "CFE_ES_SEND_HK_MID",
+    "subsystem": "ES"
+  },
+  "0x1809": {
+    "layer": "FSW_CORE",
+    "name": "CFE_EVS_SEND_HK_MID",
+    "subsystem": "EVS"
+  },
+  "0x180B": {
+    "layer": "FSW_CORE",
+    "name": "CFE_SB_SEND_HK_MID",
+    "subsystem": "SB"
+  },
+  "0x180C": {
+    "layer": "FSW_CORE",
+    "name": "CFE_TBL_SEND_HK_MID",
+    "subsystem": "TBL"
+  },
+  "0x180D": {
+    "layer": "FSW_CORE",
+    "name": "CFE_TIME_SEND_HK_MID",
+    "subsystem": "TIME"
+  },
+  "0x180E": {
+    "layer": "FSW_CORE",
+    "name": "CFE_SB_SUB_RPT_CTRL_MID",
+    "subsystem": "SB"
+  },
+  "0x1810": {
+    "layer": "FSW_CORE",
+    "name": "CFE_TIME_TONE_CMD_MID",
+    "subsystem": "TIME"
+  },
+  "0x1811": {
+    "layer": "FSW_CORE",
+    "name": "CFE_TIME_1HZ_CMD_MID",
+    "subsystem": "TIME"
+  },
+  "0x1860": {
+    "layer": "FSW_CORE",
+    "name": "CFE_TIME_DATA_CMD_MID",
+    "subsystem": "TIME"
+  },
+  "0x1862": {
+    "layer": "FSW_CORE",
+    "name": "CFE_TIME_SEND_CMD_MID",
+    "subsystem": "TIME"
+  },
+  "0x1870": {
+    "layer": "COMPONENT",
+    "name": "NOVATEL_OEM615_CMD_MID",
+    "subsystem": "GPS"
+  },
+  "0x1871": {
+    "layer": "COMPONENT",
+    "name": "NOVATEL_OEM615_REQ_HK_MID",
+    "subsystem": "GPS"
+  },
+  "0x1880": {
+    "layer": "FSW_HERITAGE",
+    "name": "TO_APP_CMD_MID",
+    "subsystem": "TO"
+  },
+  "0x1881": {
+    "layer": "FSW_HERITAGE",
+    "name": "TO_SEND_HK_MID",
+    "subsystem": "TO"
+  },
+  "0x1882": {
+    "layer": "FSW_HERITAGE",
+    "name": "TO_WAKEUP_MID",
+    "subsystem": "TO"
+  },
+  "0x1884": {
+    "layer": "FSW_HERITAGE",
+    "name": "CI_APP_CMD_MID",
+    "subsystem": "CI"
+  },
+  "0x1885": {
+    "layer": "FSW_HERITAGE",
+    "name": "CI_SEND_HK_MID",
+    "subsystem": "CI"
+  },
+  "0x1886": {
+    "layer": "FSW_HERITAGE",
+    "name": "CI_WAKEUP_MID",
+    "subsystem": "CI"
+  },
+  "0x1887": {
+    "layer": "FSW_HERITAGE",
+    "name": "CI_GATE_CMD_MID",
+    "subsystem": "CI"
+  },
+  "0x1888": {
+    "layer": "FSW_HERITAGE",
+    "name": "MM_CMD_MID",
+    "subsystem": "MM"
+  },
+  "0x1889": {
+    "layer": "FSW_HERITAGE",
+    "name": "MM_SEND_HK_MID",
+    "subsystem": "MM"
+  },
+  "0x188C": {
+    "layer": "FSW_HERITAGE",
+    "name": "FM_CMD_MID",
+    "subsystem": "FM"
+  },
+  "0x188D": {
+    "layer": "FSW_HERITAGE",
+    "name": "FM_SEND_HK_MID",
+    "subsystem": "FM"
+  },
+  "0x1890": {
+    "layer": "FSW_HERITAGE",
+    "name": "MD_CMD_MID",
+    "subsystem": "MD"
+  },
+  "0x1891": {
+    "layer": "FSW_HERITAGE",
+    "name": "MD_SEND_HK_MID",
+    "subsystem": "MD"
+  },
+  "0x1892": {
+    "layer": "FSW_HERITAGE",
+    "name": "MD_WAKEUP_MID",
+    "subsystem": "MD"
+  },
+  "0x1895": {
+    "layer": "FSW_HERITAGE",
+    "name": "SCH_CMD_MID",
+    "subsystem": "SCH"
+  },
+  "0x1896": {
+    "layer": "FSW_HERITAGE",
+    "name": "SCH_SEND_HK_MID",
+    "subsystem": "SCH"
+  },
+  "0x1897": {
+    "layer": "FSW_HERITAGE",
+    "name": "SCH_UNUSED_MID",
+    "subsystem": "SCH"
+  },
+  "0x189A": {
+    "layer": "FSW_HERITAGE",
+    "name": "HK_CMD_MID",
+    "subsystem": "HK"
+  },
+  "0x189B": {
+    "layer": "FSW_HERITAGE",
+    "name": "HK_SEND_HK_MID",
+    "subsystem": "HK"
+  },
+  "0x189C": {
+    "layer": "FSW_HERITAGE",
+    "name": "HK_SEND_COMBINED_PKT_MID",
+    "subsystem": "HK"
+  },
+  "0x189F": {
+    "layer": "FSW_HERITAGE",
+    "name": "CS_CMD_MID",
+    "subsystem": "CS"
+  },
+  "0x18A0": {
+    "layer": "FSW_HERITAGE",
+    "name": "CS_SEND_HK_MID",
+    "subsystem": "CS"
+  },
+  "0x18A1": {
+    "layer": "FSW_HERITAGE",
+    "name": "CS_BACKGROUND_CYCLE_MID",
+    "subsystem": "CS"
+  },
+  "0x18A4": {
+    "layer": "FSW_HERITAGE",
+    "name": "LC_CMD_MID",
+    "subsystem": "LC"
+  },
+  "0x18A5": {
+    "layer": "FSW_HERITAGE",
+    "name": "LC_SEND_HK_MID",
+    "subsystem": "LC"
+  },
+  "0x18A6": {
+    "layer": "FSW_HERITAGE",
+    "name": "LC_SAMPLE_AP_MID",
+    "subsystem": "LC"
+  },
+  "0x18A9": {
+    "layer": "FSW_HERITAGE",
+    "name": "SC_CMD_MID",
+    "subsystem": "SC"
+  },
+  "0x18AA": {
+    "layer": "FSW_HERITAGE",
+    "name": "SC_SEND_HK_MID",
+    "subsystem": "SC"
+  },
+  "0x18AB": {
+    "layer": "FSW_HERITAGE",
+    "name": "SC_1HZ_WAKEUP_MID",
+    "subsystem": "SC"
+  },
+  "0x18AE": {
+    "layer": "FSW_HERITAGE",
+    "name": "HS_CMD_MID",
+    "subsystem": "HS"
+  },
+  "0x18AF": {
+    "layer": "FSW_HERITAGE",
+    "name": "HS_SEND_HK_MID",
+    "subsystem": "HS"
+  },
+  "0x18B0": {
+    "layer": "FSW_HERITAGE",
+    "name": "HS_WAKEUP_MID",
+    "subsystem": "HS"
+  },
+  "0x18B3": {
+    "layer": "FSW_HERITAGE",
+    "name": "CF_CMD_MID",
+    "subsystem": "CF"
+  },
+  "0x18B4": {
+    "layer": "FSW_HERITAGE",
+    "name": "CF_SEND_HK_MID",
+    "subsystem": "CF"
+  },
+  "0x18B5": {
+    "layer": "FSW_HERITAGE",
+    "name": "CF_WAKE_UP_MID",
+    "subsystem": "CF"
+  },
+  "0x18BB": {
+    "layer": "FSW_HERITAGE",
+    "name": "DS_CMD_MID",
+    "subsystem": "DS"
+  },
+  "0x18BC": {
+    "layer": "FSW_HERITAGE",
+    "name": "DS_SEND_HK_MID",
+    "subsystem": "DS"
+  },
+  "0x18C8": {
+    "layer": "COMPONENT",
+    "name": "CAM_CMD_MID",
+    "subsystem": "CAM"
+  },
+  "0x18C9": {
+    "layer": "COMPONENT",
+    "name": "CAM_SEND_HK_MID",
+    "subsystem": "CAM"
+  },
+  "0x18DA": {
+    "layer": "FSW_HERITAGE",
+    "name": "SBN_CMD_MID",
+    "subsystem": "SBN"
+  },
+  "0x18E0": {
+    "layer": "FSW_HERITAGE",
+    "name": "CI_LAB_CMD_MID",
+    "subsystem": "CI_LAB"
+  },
+  "0x18E1": {
+    "layer": "FSW_HERITAGE",
+    "name": "CI_LAB_SEND_HK_MID",
+    "subsystem": "CI_LAB"
+  },
+  "0x18E8": {
+    "layer": "FSW_HERITAGE",
+    "name": "TO_LAB_CMD_MID",
+    "subsystem": "TO_LAB"
+  },
+  "0x18E9": {
+    "layer": "FSW_HERITAGE",
+    "name": "TO_LAB_SEND_HK_MID",
+    "subsystem": "TO_LAB"
+  },
+  "0x18EA": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_THRUSTER_CMD_MID",
+    "subsystem": "THRUSTER"
+  },
+  "0x18EB": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_THRUSTER_REQ_HK_MID",
+    "subsystem": "THRUSTER"
+  },
+  "0x18F0": {
+    "layer": "RESEARCH",
+    "name": "BEACON_APP_CMD_MID",
+    "subsystem": "BEACON"
+  },
+  "0x18F1": {
+    "layer": "RESEARCH",
+    "name": "BEACON_APP_SEND_HK_MID",
+    "subsystem": "BEACON"
+  },
+  "0x18F8": {
+    "layer": "FSW_HERITAGE",
+    "name": "MGR_CMD_MID",
+    "subsystem": "MGR"
+  },
+  "0x18F9": {
+    "layer": "FSW_HERITAGE",
+    "name": "MGR_REQ_HK_MID",
+    "subsystem": "MGR"
+  },
+  "0x18FA": {
+    "layer": "COMPONENT",
+    "name": "SAMPLE_CMD_MID",
+    "subsystem": "SAMPLE"
+  },
+  "0x18FB": {
+    "layer": "COMPONENT",
+    "name": "SAMPLE_REQ_HK_MID",
+    "subsystem": "SAMPLE"
+  },
+  "0x18FC": {
+    "layer": "COMPONENT",
+    "name": "SYN_CMD_MID",
+    "subsystem": "SYN"
+  },
+  "0x18FD": {
+    "layer": "COMPONENT",
+    "name": "SYN_REQ_HK_MID",
+    "subsystem": "SYN"
+  },
+  "0x1910": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_CSS_CMD_MID",
+    "subsystem": "CSS"
+  },
+  "0x1911": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_CSS_REQ_HK_MID",
+    "subsystem": "CSS"
+  },
+  "0x191A": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_EPS_CMD_MID",
+    "subsystem": "EPS"
+  },
+  "0x191B": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_EPS_REQ_HK_MID",
+    "subsystem": "EPS"
+  },
+  "0x1920": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_FSS_CMD_MID",
+    "subsystem": "FSS"
+  },
+  "0x1921": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_FSS_REQ_HK_MID",
+    "subsystem": "FSS"
+  },
+  "0x1925": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_IMU_CMD_MID",
+    "subsystem": "IMU"
+  },
+  "0x1926": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_IMU_REQ_HK_MID",
+    "subsystem": "IMU"
+  },
+  "0x192A": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_MAG_CMD_MID",
+    "subsystem": "MAG"
+  },
+  "0x192B": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_MAG_REQ_HK_MID",
+    "subsystem": "MAG"
+  },
+  "0x1930": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_RADIO_CMD_MID",
+    "subsystem": "RADIO"
+  },
+  "0x1931": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_RADIO_REQ_HK_MID",
+    "subsystem": "RADIO"
+  },
+  "0x1935": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_STAR_TRACKER_CMD_MID",
+    "subsystem": "STAR_TRACKER"
+  },
+  "0x1936": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_STAR_TRACKER_REQ_HK_MID",
+    "subsystem": "STAR_TRACKER"
+  },
+  "0x193A": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_TORQUER_CMD_MID",
+    "subsystem": "TORQUER"
+  },
+  "0x193B": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_TORQUER_REQ_HK_MID",
+    "subsystem": "TORQUER"
+  },
+  "0x1940": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_ADCS_CMD_MID",
+    "subsystem": "ADCS"
+  },
+  "0x1941": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_ADCS_REQ_HK_MID",
+    "subsystem": "ADCS"
+  },
+  "0x1942": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_ADCS_ADAC_UPDATE_MID",
+    "subsystem": "ADCS"
+  },
+  "0x1950": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_TT_C_CMD_MID",
+    "subsystem": "GENERIC_TT_C"
+  },
+  "0x1951": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_TT_C_REQ_HK_MID",
+    "subsystem": "GENERIC_TT_C"
+  },
+  "0x1952": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_GNSS_CMD_MID",
+    "subsystem": "GENERIC_GNSS"
+  },
+  "0x1953": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_GNSS_REQ_HK_MID",
+    "subsystem": "GENERIC_GNSS"
+  },
+  "0x1992": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_RW_APP_CMD_MID",
+    "subsystem": "RW"
+  },
+  "0x1993": {
+    "layer": "COMPONENT",
+    "name": "GENERIC_RW_APP_SEND_HK_MID",
+    "subsystem": "RW"
+  }
+}

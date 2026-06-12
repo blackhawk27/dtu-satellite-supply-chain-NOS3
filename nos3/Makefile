@@ -408,15 +408,21 @@ start-elk: ## Bring up the ELK stack (idempotent). Waits for Elasticsearch to le
 	@# writing the YAMLs, and config.sh swallows that failure. Falling
 	@# back to a checked-in seed under elk/seed_mid/ guarantees Logstash
 	@# has its dictionaries even when the generator is broken.
-	@if [ ! -s cfg/build/elk/mid_to_name.yml ]; then \
-	  echo "cfg/build/elk/mid_to_name.yml is missing - generating MID registry..."; \
+	@# cfg/build/mid_registry.json is the same story: it is the decode
+	@# table scripts/passive_listener.py uses to write the *decoded*
+	@# downlink (omni_logs/tlm_hk_decoded.log). The broken generator
+	@# never writes it on a fresh clone, so raw telemetry reaches
+	@# cfs_god_view.json but tlm_hk_decoded.log stays empty. Seed it too.
+	@# Per-file fallbacks (not one all-or-nothing guard) so a clone that
+	@# already has the elk YAMLs but no mid_registry.json is still fixed.
+	@if [ ! -s cfg/build/elk/mid_to_name.yml ] || [ ! -s cfg/build/mid_registry.json ]; then \
+	  echo "MID registry artifacts missing - generating..."; \
 	  mkdir -p cfg/build/elk; \
-	  if ! python3 scripts/mid/gen_mid_registry.py 2>&1; then \
-	    echo "gen_mid_registry.py failed; falling back to elk/seed_mid/ snapshot."; \
-	    cp elk/seed_mid/mid_to_name.yml      cfg/build/elk/; \
-	    cp elk/seed_mid/mid_to_layer.yml     cfg/build/elk/; \
-	    cp elk/seed_mid/mid_to_subsystem.yml cfg/build/elk/; \
-	  fi; \
+	  python3 scripts/mid/gen_mid_registry.py 2>&1 || echo "gen_mid_registry.py failed; falling back to elk/seed_mid/ snapshot."; \
+	  [ -s cfg/build/elk/mid_to_name.yml ]      || cp elk/seed_mid/mid_to_name.yml      cfg/build/elk/; \
+	  [ -s cfg/build/elk/mid_to_layer.yml ]     || cp elk/seed_mid/mid_to_layer.yml     cfg/build/elk/; \
+	  [ -s cfg/build/elk/mid_to_subsystem.yml ] || cp elk/seed_mid/mid_to_subsystem.yml cfg/build/elk/; \
+	  [ -s cfg/build/mid_registry.json ]        || cp elk/seed_mid/mid_registry.json    cfg/build/; \
 	fi
 	@if ! docker ps --format '{{.Names}}' | grep -q '^$(COMPOSE_PROJECT_NAME)-elasticsearch$$'; then \
 	  echo "Starting ELK stack ($(COMPOSE_PROJECT_NAME)-* on $(NETWORK_NAME), ES :$(ES_PORT) Kibana :$(KIBANA_PORT))..."; \
