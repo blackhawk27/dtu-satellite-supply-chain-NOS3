@@ -105,6 +105,40 @@ if [ "$GSW" == "cosmos" ]; then
 
 elif [ "$GSW" == "cosmos-gui" ]; then
     echo "Launching COSMOS (GUI)..."
+
+    # The old flow started the GUI container, slept 20s blind, and claimed
+    # success. When the Launcher exits during its startup window (a fresh clone
+    # with an empty gsw/cosmos/outputs, a COSMOS init error, or a declined
+    # agreement) the user got no window and no message. This helper turns that
+    # silent failure into an actionable one on any machine: dump the exit code,
+    # the container logs, and the newest COSMOS exception file, then exit 1.
+    cosmos_gui_failed() {
+        local code exc
+        code=$($DCALL inspect -f '{{.State.ExitCode}}' cosmos-openc3-operator-1 2>/dev/null)
+        echo "" >&2
+        echo "ERROR: COSMOS Launcher (cosmos-openc3-operator-1) exited (code ${code:-?}) before it could be used." >&2
+        echo "--- docker logs (tail) ---" >&2
+        $DCALL logs cosmos-openc3-operator-1 2>&1 | tail -40 >&2
+        exc=$(ls -t "$GSW_DIR/outputs/logs/"*exception*.txt 2>/dev/null | head -1)
+        if [ -n "$exc" ]; then
+            echo "--- newest COSMOS exception file: $exc ---" >&2
+            tail -40 "$exc" >&2
+        fi
+        echo "---------------------------" >&2
+        echo "Hint: re-run the Launcher in the foreground to watch the error live:" >&2
+        echo "  docker rm -f cosmos-openc3-operator-1; docker run --rm -it \\" >&2
+        echo "    -v \"$GSW_DIR/config:/cosmos/config:ro\" -v \"$GSW_DIR:/cosmos\" \\" >&2
+        echo "    -v /tmp/.X11-unix:/tmp/.X11-unix:rw -e DISPLAY=\$DISPLAY -e QT_X11_NO_MITSHM=1 \\" >&2
+        echo "    -w /cosmos/tools ballaerospace/cosmos:4.5.0 ruby Launcher" >&2
+        exit 1
+    }
+
+    # COSMOS USERPATH is /cosmos (== gsw/cosmos, mounted rw) and it writes
+    # runtime state under outputs/. That dir is gitignored, so a fresh clone
+    # starts with it empty/absent. Pre-create the subdirs COSMOS expects so the
+    # Launcher does not trip over a missing path on first run.
+    mkdir -p "$GSW_DIR/outputs"/{logs,tmp,saved_config,dart,handbooks,sequences,tables}
+
     xhost +local:docker 2>/dev/null || true
     $DCALL run -dit --name cosmos-openc3-operator-1 \
         --log-driver json-file --log-opt max-size=5m --log-opt max-file=3 \
@@ -120,6 +154,11 @@ elif [ "$GSW" == "cosmos-gui" ]; then
         -e PROCESSOR_ENDIANNESS="LITTLE_ENDIAN" \
         -w /cosmos/tools \
         ballaerospace/cosmos:4.5.0
+
+    # If the Launcher died on startup, say why now instead of pressing on into
+    # the CmdTlmServer exec (which would fail opaquely under `set -e`).
+    sleep 2
+    [ "$($DCALL inspect -f '{{.State.Running}}' cosmos-openc3-operator-1 2>/dev/null)" = "true" ] || cosmos_gui_failed
 
     # `make cosmos-gui` runs `make launch` (full headless stack) first, then
     # re-runs this script with --use-cosmos-gui purely to swap the headless
@@ -154,14 +193,20 @@ elif [ "$GSW" == "cosmos-gui" ]; then
     # LAUNCHes its own CmdTlmServer (see config/tools/launcher/launcher.txt), so
     # this is the single server the GUI tools attach to.
     sleep 3
-    $DCALL exec -d cosmos-openc3-operator-1 bash -c "cd /cosmos/tools && ruby -e \"require 'cosmos/tools/cmd_tlm_server/cmd_tlm_server'; cts = Cosmos::CmdTlmServer.new('/cosmos/config/tools/cmd_tlm_server/cmd_tlm_server.txt', false, false); STDOUT.sync = true; loop { sleep 60 }\" > /tmp/cmd_tlm_server.log 2>&1"
+    $DCALL exec -d cosmos-openc3-operator-1 bash -c "cd /cosmos/tools && ruby -e \"require 'cosmos/tools/cmd_tlm_server/cmd_tlm_server'; cts = Cosmos::CmdTlmServer.new('/cosmos/config/tools/cmd_tlm_server/cmd_tlm_server.txt', false, false); STDOUT.sync = true; loop { sleep 60 }\" > /tmp/cmd_tlm_server.log 2>&1" || cosmos_gui_failed
 
     echo ""
     echo "CmdTlmServer is starting headless in the operator (127.0.0.1:7777)."
     echo "When the COSMOS dialog appears, click Ok, then click the top-left"
     echo "COSMOS button in the NOS3 Launcher to open Command Sender + Packet"
     echo "Viewer (they connect to the running server)."
-    sleep 20
+
+    # Was a blind `sleep 20`. Poll instead: if the Launcher container exits
+    # during the startup window, surface the cause rather than claiming success.
+    for _i in $(seq 1 20); do
+        [ "$($DCALL inspect -f '{{.State.Running}}' cosmos-openc3-operator-1 2>/dev/null)" = "true" ] || cosmos_gui_failed
+        sleep 1
+    done
     echo ""
 
     if [ "$REUSE_STACK" -eq 1 ]; then
