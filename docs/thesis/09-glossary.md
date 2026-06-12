@@ -159,14 +159,16 @@ treatment is in the document linked from the entry.
   (TT&C HK), `0x0952`-`0x0954` (GNSS HK, device, hello),
   `0x08F8` (mgr HK).
 - **`0x1XXX` MIDs.** Command packets. Notable values:
-  `0x18F0` (`noisy_app`'s `MALWARE_TRIGGER_MID`), `0x18F8`
-  (mgr command), `0x18F9` (mgr HK request), `0x1940`
-  (ADCS command), `0x1950` (TT&C command), `0x1952` (GNSS
-  command).
+  `0x18E0` (CI_LAB command MID, the carrier `noisy_app`
+  sniffs), `0x18F0` (`beacon_app` command), `0x18F2`
+  (`noisy_app`'s own command MID), `0x18F8` (mgr command),
+  `0x18F9` (mgr HK request), `0x1940` (ADCS command),
+  `0x1950` (TT&C command), `0x1952` (GNSS command).
 - **Function code.** The 7-bit value in the CCSDS secondary
   header on a command packet. Selects the command code
-  within a MID. `noisy_app` uses `BEACON_PING_FC = 2` and
-  `SPOOF_EPS_FC = 3` against its trigger MID.
+  within a MID. `noisy_app` does not use a function code to
+  arm: it sniffs the CI_LAB carrier (`0x18E0`) and reads a
+  covert opcode byte appended after a header-only NOOP.
 - **Layer taxonomy.** Logstash classifies every MID into
   one of `FSW_CORE`, `FSW_HERITAGE`, `COMPONENT`,
   `RESEARCH`, or `UNKNOWN`. Definitions are at the top of

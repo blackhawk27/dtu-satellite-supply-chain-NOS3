@@ -9,6 +9,11 @@
     "name": "CFE_EVS_HK_TLM_MID",
     "subsystem": "EVS"
   },
+  "0x0802": {
+    "layer": "UNKNOWN",
+    "name": "CFE_TEST_HK_TLM_MID",
+    "subsystem": "UNKNOWN"
+  },
   "0x0803": {
     "layer": "FSW_CORE",
     "name": "CFE_SB_HK_TLM_MID",
@@ -264,6 +269,11 @@
     "name": "BEACON_APP_HK_TLM_MID",
     "subsystem": "BEACON"
   },
+  "0x08F2": {
+    "layer": "RESEARCH",
+    "name": "NOISY_APP_HK_TLM_MID",
+    "subsystem": "NOISY_APP"
+  },
   "0x08F8": {
     "layer": "FSW_HERITAGE",
     "name": "MGR_HK_TLM_MID",
@@ -423,6 +433,11 @@
     "layer": "FSW_CORE",
     "name": "CFE_EVS_CMD_MID",
     "subsystem": "EVS"
+  },
+  "0x1802": {
+    "layer": "UNKNOWN",
+    "name": "CFE_TEST_CMD_MID",
+    "subsystem": "UNKNOWN"
   },
   "0x1803": {
     "layer": "FSW_CORE",
@@ -743,6 +758,16 @@
     "layer": "RESEARCH",
     "name": "BEACON_APP_SEND_HK_MID",
     "subsystem": "BEACON"
+  },
+  "0x18F2": {
+    "layer": "RESEARCH",
+    "name": "NOISY_APP_CMD_MID",
+    "subsystem": "NOISY_APP"
+  },
+  "0x18F3": {
+    "layer": "RESEARCH",
+    "name": "NOISY_APP_SEND_HK_MID",
+    "subsystem": "NOISY_APP"
   },
   "0x18F8": {
     "layer": "FSW_HERITAGE",

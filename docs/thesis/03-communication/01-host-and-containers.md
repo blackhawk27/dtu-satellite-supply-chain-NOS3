@@ -10,12 +10,18 @@ attacker has no foothold here.
 
 NOS3 creates two bridge networks at launch time:
 
-- **`nos3-core`** is external and shared. It is created on demand by
-  the `start-elk` Makefile target (`docker network create
-  nos3-core`) before any compose stack comes up. The ELK
-  containers, the NOS Engine time driver, the ground software
-  (COSMOS or OpenC3 depending on `<gsw>`), and the CryptoLib
-  standalone all attach here.
+- **`nos3-legacy-core`** is the shared core network, named by the
+  `$NETWORK_NAME` variable (default `nos3-legacy-core`, set in
+  `nos3/elk/.env`; the `nos3-legacy-` prefix lets the RTEMS / Draco /
+  Legacy testbeds coexist without a name collision). It is created on
+  demand by `scripts/ci_launch.sh` via `$NETWORK_NAME` (subnet
+  `192.168.41.0/24`); the `start-elk` Makefile target also ensures
+  it exists before the ELK compose stack comes up. The NOS Engine
+  time driver, the ground software (COSMOS or OpenC3 depending on
+  `<gsw>`), the CryptoLib standalone, and the three ELK containers
+  all attach here. `nos3/elk/docker-compose.yml` attaches ELK to it
+  as an `external` network; ELK still ingests telemetry through
+  host-file bind-mounts, not over this network.
 - **`nos3-sc01`** is the per-spacecraft network. It is created by
   `scripts/ci_launch.sh` as part of bringing up the simulators and
   the cFS container. With `<number-spacecraft>` greater than one,
@@ -28,12 +34,12 @@ configuration that breaks intra-bridge forwarding breaks NOS3
 silently. The most common case is `net.bridge.bridge-nf-call-
 iptables=1`, which causes the kernel to route bridge traffic through
 the host's filter tables; that path drops the simulator-to-42 TCP
-flows. `scripts/cfg/install-deps.sh` sets it to `0`, and
-`scripts/ci_launch.sh` reasserts it on every launch in case the
-Docker daemon flipped it back during start. This is the only
+flows. `scripts/ci_launch.sh` sets it to `0` and reasserts it on
+every launch in case the Docker daemon flipped it back during start. This is the only
 host-kernel tweak the stack requires.
 
-Five containers are dual-homed across both networks: the COSMOS
+Five containers are dual-homed across both `nos3-legacy-core` and
+`nos3-sc01`: the COSMOS
 operator container (`cosmos-openc3-operator-1`) and the four NOS
 Engine helpers (`nos-time-driver`, `nos-terminal`,
 `nos-udp-terminal`, `nos-sim-bridge`). Each is started on one
@@ -49,10 +55,10 @@ By default only three ports are published from any container to the
 host loopback interface. Everything else is reachable only between
 containers on the same network.
 
-- **`localhost:9200`** is `nos3-elasticsearch`'s REST endpoint. The
+- **`localhost:9203`** is `nos3-legacy-elasticsearch`'s REST endpoint. The
   `make doctor` script and the per-launch index-cleanup curl both
   hit it. No authentication.
-- **`localhost:5601`** is `nos3-kibana`. The operator's browser
+- **`localhost:5604`** is `nos3-legacy-kibana`. The operator's browser
   attaches here. No authentication; reverse-proxying with auth in
   front is a deployment-side concern.
 - **`localhost:2900`** is the COSMOS / OpenC3 web UI. Brought up by
@@ -75,9 +81,9 @@ What the operator actually does across this boundary:
 
 - Issues commands and reads telemetry through COSMOS on
   `http://localhost:2900`.
-- Watches dashboards on `http://localhost:5601`.
+- Watches dashboards on `http://localhost:5604`.
 - Optionally runs ad-hoc `curl` queries against
-  `http://localhost:9200` for forensic spot checks. Every
+  `http://localhost:9203` for forensic spot checks. Every
   verification step in
   [01-reproducibility.md](../01-reproducibility.md) is shaped
   around this surface.
@@ -101,11 +107,14 @@ host.
 
 Two specifics differ from the import baseline (`55ad2148`):
 
-- The `nos3-core` network's purpose was originally just to give the
-  NOS Engine and the GSW a shared bus. This fork extends that to
-  include the ELK stack, which is why
-  `nos3/elk/docker-compose.yml` declares the network `external:
-  true` rather than creating its own.
+- The `nos3-legacy-core` network gives the NOS Engine, the GSW, and
+  the ELK stack a shared bus. The ELK stack runs on this same shared
+  core network, which is why `nos3/elk/docker-compose.yml` declares
+  that network `external: true` (created by `scripts/ci_launch.sh`
+  via `$NETWORK_NAME`, or by `make start-elk`) rather than creating
+  its own. Previously `ci_launch.sh` hardcoded `nos3-core` while ELK
+  used `nos3-legacy-core`, which accidentally split one logical
+  network into two; both now use `$NETWORK_NAME`.
 - The early `DISPLAY` guard in `scripts/ci_launch.sh` (added in
   this fork) lives here, at the host boundary, because the
   failure mode it prevents is purely host-side. The guard is

@@ -37,7 +37,7 @@ spacecraft.
 
 ## NOS Engine as the carrier
 
-NOS Engine is a separate process (one container on `nos3-core`)
+NOS Engine is a separate process (one container on `nos3-legacy-core`)
 that hosts named buses. Each bus models one physical interface
 (`I2C_0`, `SPI_0`, `CAN_0`, `UART_0`, and so on). NOS Engine
 clients (the HWLIB backend on one side, the component simulator on

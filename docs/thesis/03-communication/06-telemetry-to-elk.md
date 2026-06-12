@@ -139,7 +139,7 @@ The bind-mounted file inputs are read-only on the Logstash side.
 The four capture processes run host-side; the Logstash container
 has no path back to them. The Elasticsearch container has no
 security (`xpack.security.enabled=false`) but is only reachable
-from the host loopback and from inside the `nos3-core` Docker
+from the host loopback and from inside the `nos3-legacy-core` Docker
 network. The whole pipeline is therefore one-way and forensically
 useful: a compromised cFS app cannot corrupt the `cfs_god_view.json`
 file (it is written by the host-side `god_view_capture.py`, not

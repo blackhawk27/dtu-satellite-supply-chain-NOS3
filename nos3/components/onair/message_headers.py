@@ -2,7 +2,7 @@ from ctypes import *
 import sbn_python_client as sbn
 
 
-# these classes were generated with ChatGPT
+# ctypes mirrors of the cFS telemetry/command structs, packed to match the wire layout
 class SAMPLE_Device_HK_tlm_t(Structure):
     _pack_ = 1
     _fields_ = [

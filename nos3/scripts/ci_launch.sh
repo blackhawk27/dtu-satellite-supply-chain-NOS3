@@ -58,17 +58,17 @@ cp $BASE_DIR/fsw/build/exe/cpu1/cf/sample.so /tmp/nos3/uplink/tmp1.so 2>/dev/nul
 # install-deps.sh, but Docker daemon startup can flip it back to 1).
 # Without this, intra-bridge container traffic on nos3-sc01 is silently
 # dropped: sims never reach fortytwo, 42 stalls in InitInterProcessComm's
-# accept(), and no GUI windows appear. See debug/journal.md.
+# accept(), and no GUI windows appear. See docs/debug/sim-ipc-and-42-connectivity.md.
 if [ "$(cat /proc/sys/net/bridge/bridge-nf-call-iptables 2>/dev/null)" = "1" ]; then
     sudo sysctl -w net.bridge.bridge-nf-call-iptables=0 >/dev/null
 fi
 
-if ! $DNETWORK inspect nos3-core >/dev/null 2>&1; then
+if ! $DNETWORK inspect $NETWORK_NAME >/dev/null 2>&1; then
     $DNETWORK create \
         --driver=bridge \
         --subnet=192.168.41.0/24 \
         --gateway=192.168.41.1 \
-        nos3-core
+        $NETWORK_NAME
 fi
 
 echo "Launch GSW..."
@@ -92,7 +92,7 @@ if [ "$GSW" == "cosmos" ]; then
       -v "$BASE_DIR/scripts:/scripts:ro" \
       -v "$BASE_DIR/omni_logs:/omni_logs:rw" \
       -v /tmp/nos3:/tmp/nos3 \
-      --network=nos3-core \
+      --network=$NETWORK_NAME \
       -p 5113:5013/udp \
       -e PROCESSOR_ENDIANNESS="LITTLE_ENDIAN" \
       -w /cosmos/tools \
@@ -146,7 +146,7 @@ elif [ "$GSW" == "cosmos-gui" ]; then
     # Process.setpgrp (gui/qt_tool.rb:52), which is EPERM for a session leader,
     # and the Launcher dies with "FATAL: EPERM" right after the legal dialog
     # (clean exit, no window). tini as PID 1 demotes ruby to a child, so
-    # setpgrp is allowed. Do NOT remove --init. See debug/journal.md.
+    # setpgrp is allowed. Do NOT remove --init. See docs/debug/gui-x11-forwarding.md.
     $DCALL run -dit --init --name cosmos-openc3-operator-1 \
         --log-driver json-file --log-opt max-size=5m --log-opt max-file=3 \
         -v "$GSW_DIR/config:/cosmos/config:ro" \
@@ -154,7 +154,7 @@ elif [ "$GSW" == "cosmos-gui" ]; then
         -v "$BASE_DIR/scripts:/scripts:ro" \
         -v "$BASE_DIR/omni_logs:/omni_logs:rw" \
         -v /tmp/nos3:/tmp/nos3 \
-        --network=nos3-core \
+        --network=$NETWORK_NAME \
         -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
         -e DISPLAY=$DISPLAY \
         -e QT_X11_NO_MITSHM=1 \
@@ -174,7 +174,7 @@ elif [ "$GSW" == "cosmos-gui" ]; then
     # the script would hit "container name nos-terminal already in use" and,
     # under set -e, die BEFORE the `docker network connect nos3-sc01
     # cosmos-openc3-operator-1` step below, leaving the GUI COSMOS attached
-    # only to nos3-core. The Command Sender then cannot reach cFS and reports
+    # only to $NETWORK_NAME. The Command Sender then cannot reach cFS and reports
     # "error connecting to the command and telemetry server". Detect the
     # already-running stack, wire the new GUI operator into every existing
     # spacecraft network (same aliases as the headless path) BEFORE prompting
@@ -234,7 +234,7 @@ elif [ "$GSW" == "yamcs" ]; then
   $DCALL run -dit \
       --name cosmos-openc3-operator-1 \
       --hostname cosmos \
-      --network=nos3-core \
+      --network=$NETWORK_NAME \
       --network-alias=cosmos \
       -p 8090:8090 -p 5012:5012 \
       -e COMPONENT_DIR=$COMPONENT_DIR \
@@ -251,21 +251,21 @@ elif [ "$GSW" == "yamcs" ]; then
 fi
 
 ### Connections
-$DCALL run -dit --name nos-terminal --network=nos3-core \
+$DCALL run -dit --name nos-terminal --network=$NETWORK_NAME \
     -v "$SIM_DIR:$SIM_DIR" -w "$SIM_BIN" $DBOX \
     ./nos3-single-simulator -f nos3-simulator.xml stdio-terminal
 
-$DCALL run -dit --name nos-udp-terminal --network=nos3-core \
+$DCALL run -dit --name nos-udp-terminal --network=$NETWORK_NAME \
     -v "$SIM_DIR:$SIM_DIR" -w "$SIM_BIN" $DBOX \
     ./nos3-single-simulator -f nos3-simulator.xml udp-terminal
 
-$DCALL run -dit --name nos-sim-bridge --network=nos3-core \
+$DCALL run -dit --name nos-sim-bridge --network=$NETWORK_NAME \
     -v "$SIM_DIR:$SIM_DIR" -w "$SIM_BIN" $DBOX \
     ./nos3-sim-cmdbus-bridge -f nos3-simulator.xml
 
 CFG_FILE="-f nos3-simulator.xml"
 
-$DCALL run -dit --name nos-time-driver --network=nos3-core \
+$DCALL run -dit --name nos-time-driver --network=$NETWORK_NAME \
     --log-driver json-file --log-opt max-size=5m --log-opt max-file=3 \
     -v "$SIM_DIR:$SIM_DIR" -w "$SIM_BIN" $DBOX \
     ./nos3-single-simulator -f nos3-simulator.xml time
@@ -340,7 +340,7 @@ for (( i=1; i<=$SATNUM; i++ )); do
         elif [[ "$sim" == "generic-eps-sim" ]]; then
             # Mount attack_logs read-only so the EPS sim can tail
             # cfs_god_view.json and infer per-app activity rates
-            # (see debug/EPS_DESIGN.md). Other sims do not need this.
+            #. Other sims do not need this.
             mkdir -p "$BASE_DIR/attack_logs"
             $DCALL run -d --name ${SC_NUM}-${sim} --network=$SC_NET \
                 -v "$SIM_DIR:$SIM_DIR" -w "$SIM_BIN" \

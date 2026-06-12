@@ -65,7 +65,7 @@ namespace Nos3
             double        _battery_watthrs;
         };
 
-        /* Mode-based per-app load model (see debug/EPS_DESIGN.md). Active mode is
+        /* Mode-based per-app load model. Active mode is
         ** picked by SB-message-rate inference from cfs_god_view.json. */
         struct ModeThreshold
         {

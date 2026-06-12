@@ -55,10 +55,11 @@ cd nos3
 make prep
 ```
 
-This wraps `scripts/cfg/prepare.sh`, which performs the host-side
-work, then in turn calls `scripts/cfg/install-deps.sh` to pull the
-pinned NOS3 build image. The image tag is `ivvitc/nos3-64:20251107`;
-nothing else in the build matters if this image is not local.
+This wraps `scripts/cfg/prepare.sh`, which pulls the pinned NOS3
+build image (`$DCALL image pull $DBOX`), sets up the per-user
+directories, and builds the 42 dynamics engine inline. The image
+tag is `ivvitc/nos3-64:20251107`; nothing else in the build matters
+if this image is not local.
 
 **Verification.**
 ```
@@ -149,12 +150,14 @@ host shell scrolls past.
 
 ## Phase 5: launch the full stack
 
-**Goal.** Bring up the ELK stack on the shared `nos3-core` Docker
-network, start every simulator and the FSW container on
-`nos3-sc01`, attach the four telemetry-capture scripts
-(`god_view_capture.py`, `cfs_evs_capture.sh`, `sim_logs_capture.sh`,
-`cpu_monitor.sh`), and import the fifteen Kibana dashboards through
-the Saved Objects API.
+**Goal.** Bring up the ELK stack on the shared `nos3-legacy-core`
+Docker network, start every simulator and the FSW container on
+`nos3-sc01` (with the shared services on `nos3-legacy-core`),
+attach the four
+telemetry-capture scripts (`god_view_capture.py`,
+`cfs_evs_capture.sh`, `sim_logs_capture.sh`, `cpu_monitor.sh`), and
+import the twenty Kibana saved objects (nineteen dashboards and one
+saved search) through the Saved Objects API.
 
 **Command.**
 ```
@@ -170,15 +173,15 @@ unless the previous run was archived through `make save-run`.
 **Verification.**
 ```
 docker ps --format '{{.Names}}' | sort | grep -E 'nos3-(elastic|logstash|kibana)|nos_'
-curl -fsS http://localhost:9200/_cluster/health | python3 -c 'import sys,json; print(json.load(sys.stdin)["status"])'
-curl -fsS http://localhost:5601/api/status | python3 -c 'import sys,json; print(json.load(sys.stdin)["status"]["overall"]["level"])'
+curl -fsS http://localhost:9203/_cluster/health | python3 -c 'import sys,json; print(json.load(sys.stdin)["status"])'
+curl -fsS http://localhost:5604/api/status | python3 -c 'import sys,json; print(json.load(sys.stdin)["status"]["overall"]["level"])'
 ```
-The first command must list `nos3-elasticsearch`, `nos3-logstash`,
-`nos3-kibana`, and at least one `nos_*` build or runtime container.
+The first command must list `nos3-legacy-elasticsearch`, `nos3-legacy-logstash`,
+`nos3-legacy-kibana`, and at least one `nos_*` build or runtime container.
 The second must print `yellow` or `green` (a single-node ES never
 goes green; yellow is the steady state). The third must print
 `available`. After roughly thirty seconds, opening
-`http://localhost:5601` shows the dashboards under "Analytics /
+`http://localhost:5604` shows the dashboards under "Analytics /
 Dashboard".
 
 ## Phase 6: confirm telemetry is flowing
@@ -200,9 +203,9 @@ record when Kibana shows no data after `make launch`.
 
 **Verification.**
 ```
-curl -s 'http://localhost:9200/_cat/indices/nos3-telemetry-*?v'
-curl -s 'http://localhost:9200/nos3-telemetry-*/_count?q=type:software_bus' | python3 -c 'import sys,json; print(json.load(sys.stdin)["count"])'
-curl -s 'http://localhost:9200/nos3-telemetry-*/_count?q=type:system_log'    | python3 -c 'import sys,json; print(json.load(sys.stdin)["count"])'
+curl -s 'http://localhost:9203/_cat/indices/nos3-telemetry-*?v'
+curl -s 'http://localhost:9203/nos3-telemetry-*/_count?q=type:software_bus' | python3 -c 'import sys,json; print(json.load(sys.stdin)["count"])'
+curl -s 'http://localhost:9203/nos3-telemetry-*/_count?q=type:system_log'    | python3 -c 'import sys,json; print(json.load(sys.stdin)["count"])'
 ```
 The index listing must show at least one `nos3-telemetry-YYYY.MM.DD`
 index in `yellow` or `green` health. The two counts must both be
@@ -240,7 +243,7 @@ docker ps --format '{{.Names}}' | grep -E '^(nos_|cosmos-)' | wc -l
 The first two files must exist. The third command must print `0`
 (the sim has stopped). The ELK containers remain running on
 purpose, so Kibana still serves the archived run on
-`http://localhost:5601`.
+`http://localhost:5604`.
 
 To replay later, on a different machine or after a `make stop`, run
 `make load-run RUN=baseline_clean`; the equivalent verification is

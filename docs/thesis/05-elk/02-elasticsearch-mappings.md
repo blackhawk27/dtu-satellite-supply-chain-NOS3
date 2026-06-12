@@ -6,7 +6,7 @@ pipeline relies on, and the operational properties of the
 daily-rolled index pattern.
 
 The cluster is a single-node Elasticsearch 7.17.10 running in
-`nos3-elasticsearch` on the `nos3-core` Docker network, with
+`nos3-legacy-elasticsearch` on the `nos3-legacy-core` Docker network, with
 `xpack.security.enabled=false` and a 512 MB JVM heap. These are
 the defaults from `nos3/elk/docker-compose.yml`; nothing in the
 pipeline assumes a more capable cluster. The data lives on the
@@ -44,7 +44,7 @@ which matches every index whose name begins with
 `nos3-telemetry-`. The template is not currently applied
 automatically; the comment at the top of the JSON records the
 manual application command
-(`curl -X PUT http://localhost:9200/_index_template/nos3-telemetry
+(`curl -X PUT http://localhost:9203/_index_template/nos3-telemetry
 -H 'Content-Type: application/json' -d @nos3/elk/index_template.json`).
 This is a known operational gap; applying the template at first
 launch is a candidate addition to the Makefile.
@@ -113,7 +113,7 @@ timestamps rather than with the Logstash receive time.
   `evs_severity`, `evs_message`, `evs_raw`. The severity is
   the keyword Kibana groups on; the numeric event id is the
   filter the attack-radar dashboard uses to find specific
-  events like the `OMNIDIRECTIONAL STORM INITIATED` event.
+  events like the `EPS HK SPOOF sent on 0x091A` event.
 
 ### Mode and mission
 
@@ -184,7 +184,7 @@ The end-to-end verification queries from
 [../01-reproducibility.md](../01-reproducibility.md) Phase 6 hit
 this layer directly:
 
-- `curl http://localhost:9200/_cat/indices/nos3-telemetry-*?v`
+- `curl http://localhost:9203/_cat/indices/nos3-telemetry-*?v`
   must show at least one index in yellow or green health.
 - `_count?q=type:software_bus` must be greater than zero
   within roughly a minute of launch.

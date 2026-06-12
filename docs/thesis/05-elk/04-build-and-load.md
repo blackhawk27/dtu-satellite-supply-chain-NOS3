@@ -52,7 +52,7 @@ following sub-steps, in order. The Makefile target
 orchestrates this; the description below names each step so
 that a failure at any of them can be identified.
 
-1. **`make start-elk`.** Creates the `nos3-core` Docker network
+1. **`make start-elk`.** Creates the `nos3-legacy-core` Docker network
    if it does not exist, ensures the MID-registry YAMLs are
    present (regenerating them, or falling back to the seed),
    brings up the three ELK containers from
@@ -189,8 +189,8 @@ each. The layers it checks, in order:
 
 0. **Build-time prerequisites.** Are the MID-registry YAMLs
    under `cfg/build/elk/` present and non-empty.
-1. **Containers.** Are `nos3-elasticsearch`, `nos3-logstash`,
-   and `nos3-kibana` running.
+1. **Containers.** Are `nos3-legacy-elasticsearch`, `nos3-legacy-logstash`,
+   and `nos3-legacy-kibana` running.
 2. **Capture processes.** Are the four host-side capture
    scripts running.
 3. **Log file sizes.** Are the four capture files non-empty.

@@ -1,8 +1,8 @@
 # Kibana dashboards
 
-Kibana 7.17.10 in container `nos3-kibana` is the consumer
-surface of the pipeline. It serves a curated set of fifteen
-saved objects (fourteen dashboards and one saved search) that
+Kibana 7.17.10 in container `nos3-legacy-kibana` is the consumer
+surface of the pipeline. It serves a curated set of twenty
+saved objects (nineteen dashboards and one saved search) that
 the operator and the researcher open against a live or archived
 run. This document describes what each saved object is for, what
 it queries, and how the dashboard set as a whole maps onto the
@@ -121,23 +121,30 @@ from the most general to the most specialised.
 
 - **`nos3-thesis-attack-radar`** ("Thesis: Cyber-Physical
   Attack Radar"). The flagship research dashboard. Tag count
-  over time for `attack_loaded`, `attack_armed`,
-  `attack_trigger_ping`, `sb_pipe_overflow`,
-  `noisy_app_spam_target`, `hs_app_failure`. A timeline panel
-  shows the moment-by-moment progression of an attack run
-  (attack loaded at boot, three pings, threshold, storm,
-  resulting overflow events). A second panel correlates the
-  CPU saturation against the attack tags. This is the
-  dashboard the thesis discussion refers to when it talks
-  about "what does a `noisy_app` run look like in Kibana".
+  over time for the live piggyback tags `piggyback_opcode`,
+  `eps_spoof`, `sb_pool_lock`, `noisy_app_spam_target`,
+  `sb_pipe_overflow`, and `hs_app_failure`. A timeline panel
+  shows the moment-by-moment progression of an attack run:
+  the covert opcode decode (`piggyback_opcode`), the spoof or
+  DoS payload it selects (`eps_spoof`, `sb_pool_lock`,
+  spam-target bursts), and any resulting overflow events. A
+  second panel correlates CPU saturation against the attack
+  tags. This is the dashboard the thesis discussion refers to
+  when it talks about "what does a `noisy_app` run look like in
+  Kibana". (The dashboard also retains the legacy lifecycle
+  tags `attack_loaded`, `attack_armed`, and
+  `attack_trigger_ping`, but the current piggyback `noisy_app`
+  emits none of the EVS strings that drive them, so those
+  panels stay empty.)
 - **`nos3-fsw-vs-sim-xref`** ("FSW vs Sim Cross-Reference").
   Side-by-side panels of FSW-published telemetry against
   simulator-side log lines for the same component. The
   dashboard is built so that a spoofed publisher (e.g.
   `noisy_app` forging EPS HK) appears as a divergence between
   the two columns: the FSW view of EPS battery voltage
-  jumps to `0xDEAD` while the EPS sim's own log keeps
-  reporting the truth value. This is the dashboard that makes
+  drops to 10000 mV (the low-battery spoof) while the EPS
+  sim's own log keeps reporting the truth value. This is the
+  dashboard that makes
   the EPS-spoof attack visible without payload decoding.
 
 ### Saved search

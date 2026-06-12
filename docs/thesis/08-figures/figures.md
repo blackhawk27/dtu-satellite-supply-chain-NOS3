@@ -17,9 +17,10 @@ references are stable to subsequent edits.
 trust boundaries.
 
 **Caption.** Container-level view of a running NOS3 stack on
-this fork. Two Docker bridge networks (`nos3-core` and
-`nos3-sc01`) carry every process; trust boundaries are
-annotated as dashed lines.
+this fork. Two Docker bridge networks (the shared
+`nos3-legacy-core`, which hosts the shared services and the ELK
+stack together, and the per-spacecraft `nos3-sc01`) carry every
+process; trust boundaries are annotated as dashed lines.
 
 **Referenced by.**
 [00-overview.md](../00-overview.md),
@@ -39,13 +40,13 @@ rectangles represent the Docker networks, side by side:
   `generic_radio`, `generic_reaction_wheel`,
   `generic_torquer`, `blackboard`, `mgr`), and the 42
   dynamics container at the bottom.
-- Right rectangle, labelled `nos3-core`: contains the NOS
-  Engine time-driver container at the top, the COSMOS
-  ground-software cluster (one rectangle grouping
-  `cosmos-openc3-*-1` containers) in the middle, the
-  CryptoLib standalone container next, and the three ELK
-  containers (`nos3-elasticsearch`, `nos3-logstash`,
-  `nos3-kibana`) at the bottom.
+- Right rectangle, labelled `nos3-legacy-core` (the shared core
+  network): contains the NOS Engine time-driver container at the
+  top, the COSMOS ground-software cluster (one rectangle grouping
+  `cosmos-openc3-*-1` containers), the CryptoLib standalone
+  container, and the three ELK containers
+  (`nos3-legacy-elasticsearch`, `nos3-legacy-logstash`,
+  `nos3-legacy-kibana`) all inside this same rectangle.
 
 The COSMOS operator container and the four NOS Engine helpers
 (`nos-time-driver`, `nos-terminal`, `nos-udp-terminal`,
@@ -67,10 +68,10 @@ because COSMOS is attached there on its second hop.
 - Four host-side capture scripts (drawn outside the Docker
   rectangles, on the bottom edge of the host frame) feeding
   the two log directories (`attack_logs/`, `omni_logs/`),
-  which feed `nos3-logstash` via a bind-mount arrow.
+  which feed `nos3-legacy-logstash` via a bind-mount arrow.
 - The operator's browser (drawn outside the host frame)
-  reaching `nos3-kibana` and the COSMOS UI on
-  `localhost:5601` and `localhost:2900`.
+  reaching `nos3-legacy-kibana` and the COSMOS UI on
+  `localhost:5604` and `localhost:2900`.
 
 **Trust boundaries.** Dashed lines, annotated:
 
@@ -169,8 +170,8 @@ index, visualise.
 **Caption.** The four host-side capture surfaces feed Logstash
 through a read-only bind mount. Logstash dispatches by `type`,
 applies per-input filters, and writes to a daily-rolled
-Elasticsearch index. Kibana hosts fifteen saved objects on
-top.
+Elasticsearch index. Kibana hosts twenty saved objects
+(nineteen dashboards and one saved search) on top.
 
 **Referenced by.**
 [05-elk/00-pipeline.md](../05-elk/00-pipeline.md).
@@ -195,7 +196,7 @@ top.
   output emerges from the right.
 - Column 4: Elasticsearch and Kibana. ES drawn as a database
   cylinder labelled `nos3-telemetry-YYYY.MM.dd`; Kibana drawn
-  as a window labelled `15 saved objects` with thumbnails of
+  as a window labelled `20 saved objects` with thumbnails of
   three dashboards visible.
 
 **Cross-cutting arrows.**
@@ -207,7 +208,7 @@ top.
   diagnostic icon at the bottom) reaching every column,
   indicating the seven layers it walks.
 - A return arrow from Kibana back to the operator (off-
-  diagram on the right) labelled `localhost:5601`.
+  diagram on the right) labelled `localhost:5604`.
 
 ## F5: Denmark orbit track in Kibana
 
@@ -248,11 +249,11 @@ the dashboard normally renders it.
 
 ## F6: noisy_app attack timeline
 
-**Title.** `noisy_app` attack sequence, from load through
-broadcast storm, with observable Kibana tags.
+**Title.** `noisy_app` attack sequence, from covert-opcode
+trigger through payload, with observable Kibana tags.
 
-**Caption.** The full lifecycle of a `noisy_app` attack run.
-Time runs left to right; each tag in the bottom strip is the
+**Caption.** The lifecycle of a `noisy_app` attack run. Time
+runs left to right; each tag in the bottom strip is the
 Logstash tag that becomes visible in Kibana at that moment.
 
 **Referenced by.**
@@ -261,45 +262,51 @@ Logstash tag that becomes visible in Kibana at that moment.
 **Layout.** A horizontal swim-lane diagram with four lanes
 and one time-axis tag strip at the bottom.
 
-- Lane 1 (top): `noisy_app` internal state. Three states
+- Lane 1 (top): `noisy_app` internal state. Two states
   drawn as rounded boxes connected left to right:
-  `DORMANT`, `ARMED`, `STORMING`. The transition from
-  `DORMANT` to `ARMED` happens after three pings; the
-  transition from `ARMED` to `STORMING` is the same
-  instant (the source code arms and storms in the same
-  iteration of the run loop). Annotate the transitions
-  with the source-file line numbers from `noisy_app.c`.
-- Lane 2: Software Bus traffic. A timeline of the
-  `MALWARE_TRIGGER_MID` packets (three short vertical
-  bars during DORMANT, labelled `PING #1`, `PING #2`,
-  `PING #3`). After arming, the lane is solid red,
-  labelled `4 KB packets x 4 x 8192 MIDs`.
+  `SNIFFING` and `ACTING`. While `SNIFFING`, the app
+  watches the CI_LAB carrier MID `0x18E0` for a covert
+  opcode byte appended after a header-only NOOP. The
+  transition to `ACTING` happens the instant a covert
+  opcode arrives. Annotate the transition with the
+  source-file line numbers from `noisy_app.c`.
+- Lane 2: Software Bus traffic. A timeline showing the
+  CI_LAB carrier (MID `0x18E0`) with a single covert
+  opcode byte riding a header-only NOOP (one short
+  vertical bar, labelled e.g. `opcode 0x02`). There is
+  no three-ping arming and no carpet-bomb storm; the
+  payload that follows depends on the opcode (a forged
+  EPS HK packet on `0x091A`, a burst at the seven spam
+  targets, or a pool-lock DoS).
 - Lane 3: cFS resource state. A line graph of CPU
-  utilisation (rising from baseline ~5% during DORMANT
-  to ~100% in STORMING) and a parallel line for buffer-
-  pool usage (jumps from ~10% to 100% within milliseconds
-  of arming).
+  utilisation and a parallel line for buffer-pool usage.
+  For the EPS-spoof opcode (`0x02`) both stay flat (the
+  spoof is a single forged packet, no resource hit). For
+  the SB-burst (`0x04`) and SB pool-lock DoS (`0x08`)
+  opcodes, buffer-pool usage rises toward saturation.
 - Lane 4: EVS event stream. Discrete event markers
   corresponding to each `CFE_EVS_SendEvent` call in
-  `noisy_app.c`: event id 1 (loaded), event id 3 (each
-  ping intercepted), event id 2 (storm initiated). Plus
-  external events on the same lane: `SB_PIPE_OVERFLOW`
-  from `cfe_sb` (one per overflowing subscriber, drawn
-  as small black ticks at high density during STORMING)
-  and `HS_APP_FAILURE` from `hs` (one per starved app,
-  drawn slightly later in the STORMING phase).
-- Tag strip (bottom): horizontal bar with the Kibana
+  `noisy_app.c`: the startup event ("Initialized. CMD MID
+  0x.., sniffing carrier 0x.."), the per-opcode event
+  ("piggyback opcode 0x.. on MID 0x.."), and the payload
+  event for the selected action (e.g. "EPS HK SPOOF sent
+  on 0x091A (BatteryVoltage=10000 mV)", "SB POOL LOCK
+  engaged", or "PIPE FLOOD - .. junk cmds delivered").
+  Plus external events on the same lane: `SB_PIPE_OVERFLOW`
+  from `cfe_sb` and `HS_APP_FAILURE` from `hs` during the
+  DoS opcodes.
+- Tag strip (bottom): horizontal bar with the live Kibana
   tags from `nos3/elk/logstash.conf` colour-coded along
-  the same time axis: `attack_loaded` at run start,
-  `attack_trigger_ping` x3 in DORMANT, `attack_armed` at
-  the transition, `noisy_app_spam_target` densely
-  throughout STORMING, `sb_pipe_overflow` overlapping,
-  `hs_app_failure` near the end.
+  the same time axis: `piggyback_opcode` at the opcode
+  decode, then the payload tag (`eps_spoof`,
+  `sb_pool_lock`, or `noisy_app_spam_target`), with
+  `sb_pipe_overflow` and `hs_app_failure` overlapping
+  during the DoS opcodes.
 
 **Annotations.** A small inset panel labelled "EPS spoof
-variant" depicts the alternative function-code-3 path: a
-single `BatteryVoltage = 0xDEAD` packet on the EPS HK MID,
-with a callout indicating that the spoof leaves no trace in
-lane 3 (no CPU spike) but is detectable in the `fsw-vs-sim
-cross-reference` dashboard as a divergence between the FSW
-view and the simulator-side log.
+variant" depicts the EPS-spoof opcode (`0x02`) path: a single
+forged `BatteryVoltage = 10000 mV` (low-battery spoof) packet
+on the EPS HK MID `0x091A`, with a callout indicating that the
+spoof leaves no trace in lane 3 (no CPU spike) but is
+detectable in the `fsw-vs-sim cross-reference` dashboard as a
+divergence between the FSW view and the simulator-side log.

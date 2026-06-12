@@ -88,7 +88,7 @@ STRIDE: Spoofing, Information Disclosure. SPARTA: EX-0014 Spoofing.
 
 ### 2.3 Autonomous SAFE trigger is driven by a single unauthenticated value (TB-2)
 
-`lc_def_wdt.c` WP0 watches `GENERIC_EPS_HK` BatteryVoltage (wire offset 16);
+`lc_def_wdt.c` WP0 watches `GENERIC_EPS_HK` BatteryVoltage (watchpoint offset 20);
 `< 14800 mV` -> actionpoint AP0 (`lc_def_adt.c:180-189`, `SAFE_ON_LOW_BAT`,
 `MaxFailsBeforeRTS = 3`) -> **RTS 4** (`sc_rts004.c`). One spoofed HK field, held
 true for three LC sample cycles, autonomously forces SAFE. There is no

@@ -82,7 +82,7 @@ reattach_worker() {
     # under heavy CPU load, EOF, broken pipe) while the container kept running,
     # `wait` returned, StartedAt was unchanged, and the file froze PERMANENTLY
     # even though the sim was alive and still emitting (e.g. nos3-gnss.log
-    # "truth stops" in Kibana - see debug/journal.md 2026-06-10).
+    # "truth stops" in Kibana - see docs/debug/telemetry-and-elk-pipeline.md).
     #
     # `--since` keeps the re-dump guard the old StartedAt check was protecting:
     #   * container (re)started  -> --since <StartedAt>: capture the whole new run

@@ -213,7 +213,7 @@ namespace Nos3
         sim_logger->info("    _switch[0]._current = %d", _switch[0]._current);
         sim_logger->info("    _switch[0]._status = 0x%04x", _switch[0]._status);
 
-        /* Load mode-based per-app load model. See debug/EPS_DESIGN.md. */
+        /* Load mode-based per-app load model. */
         _activity_window_s = 10.0;
         _current_tm_rate   = "nominal";
         _shutdown_follower.store(false);
@@ -666,7 +666,7 @@ namespace Nos3
         // is not replicated here.
 
         /* Load model: pick each app's mode from its observed SB-message rate
-        ** (see debug/EPS_DESIGN.md) and sum the per-mode draws. */
+        ** and sum the per-mode draws. */
         double p_out = compute_p_out_from_apps();
 
         // Inhibit Solar Panel charging battery once full; reenable charging at the

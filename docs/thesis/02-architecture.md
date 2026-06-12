@@ -15,13 +15,23 @@ this layout end-to-end. References to it below are by number only.
 
 Every process in a running NOS3 stack lives in a Docker container.
 There are no host-resident services. The containers are organised
-onto two named Docker networks:
+onto named Docker networks:
 
-- **`nos3-core`.** Shared services that have to be visible to
-  multiple spacecraft and to the operator. The NOS Engine time
-  driver, the ground software (COSMOS by default), the CryptoLib
-  standalone, and the three ELK containers (`nos3-elasticsearch`,
-  `nos3-logstash`, `nos3-kibana`) all sit here.
+- **`nos3-legacy-core`.** The shared core network, named by the
+  `$NETWORK_NAME` variable (default `nos3-legacy-core`, set in
+  `elk/.env`; the `nos3-legacy-` prefix lets the RTEMS / Draco /
+  Legacy testbeds coexist without a name collision). It hosts the
+  shared services that have to be visible to multiple spacecraft and
+  to the operator: the NOS Engine time driver, the ground software
+  (COSMOS by default), the CryptoLib standalone, AND the three ELK
+  containers (`nos3-legacy-elasticsearch`, `nos3-legacy-logstash`,
+  `nos3-legacy-kibana`). `scripts/ci_launch.sh` creates it via
+  `$NETWORK_NAME` (env.sh sources `elk/.env` and exports
+  `NETWORK_NAME`); `make start-elk` also ensures it exists; and
+  `elk/docker-compose.yml` attaches ELK to it as an `external`
+  network. ELK still ingests telemetry through host-file bind-mounts
+  (`attack_logs/`, `omni_logs/`), not over this network; being on
+  the network is only for coexistence and management.
 - **`nos3-sc01`.** The per-spacecraft network. The cFS process
   (one container named after the spacecraft profile), every
   hardware simulator, and the 42 dynamics engine sit here. With
@@ -30,8 +40,9 @@ onto two named Docker networks:
   configuration these documents target, only `nos3-sc01` exists.
 
 The networks are bridged Docker networks, not overlay networks.
-Containers on `nos3-sc01` cannot reach containers on `nos3-core`
-unless the launch scripts explicitly attach them to both. The
+Containers on `nos3-sc01` cannot reach containers on
+`nos3-legacy-core` unless the launch scripts explicitly attach them
+to both. The
 COSMOS operator container (`cosmos-openc3-operator-1`) and the
 four NOS Engine helper containers (`nos-time-driver`,
 `nos-terminal`, `nos-udp-terminal`, `nos-sim-bridge`) are
@@ -62,10 +73,11 @@ treats only the outermost as adversary-free.
    Docker daemon is trusted. The build scripts assume the user can
    talk to Docker without sudo. Outside this boundary, only the
    git remote is read.
-2. **Docker to network boundary.** Containers on `nos3-core` can
-   reach Elasticsearch directly on `nos3-elasticsearch:9200` and
-   Kibana on `nos3-kibana:5601`. The host can reach them on
-   `localhost:9200` and `localhost:5601` because the compose file
+2. **Docker to network boundary.** Containers on `nos3-legacy-core`
+   can reach Elasticsearch directly on
+   `nos3-legacy-elasticsearch:9200` and
+   Kibana on `nos3-legacy-kibana:5601`. The host can reach them on
+   `localhost:9203` and `localhost:5604` because the compose file
    publishes those ports. No authentication is enabled
    (`xpack.security.enabled=false`); this is acceptable because
    the network is local-bridge-only.
@@ -259,7 +271,7 @@ all of these except generic-thruster and generic-star-tracker.
   [03-communication/04-sim-to-42.md](03-communication/04-sim-to-42.md)
   for the full reasoning).
 - **NOS Engine time driver.** A separate container on
-  `nos3-core` that emits monotonic time ticks consumed by every
+  `nos3-legacy-core` that emits monotonic time ticks consumed by every
   other component. Without it, every component free-runs against
   the host clock and the sim is no longer deterministic.
 
@@ -300,21 +312,21 @@ all of these except generic-thruster and generic-star-tracker.
 
 ### ELK stack
 
-- **`nos3-elasticsearch`.** Elasticsearch 7.17.10, single-node,
+- **`nos3-legacy-elasticsearch`.** Elasticsearch 7.17.10, single-node,
   no security. Stores `nos3-telemetry-YYYY.MM.DD` daily-rolled
   indices on a named volume (`es_data_vol`). The volume is
   preserved across `docker compose down`; `make stop` deletes
   the indices but not the volume.
-- **`nos3-logstash`.** Logstash 7.17.10. Runs the pipeline in
+- **`nos3-legacy-logstash`.** Logstash 7.17.10. Runs the pipeline in
   `nos3/elk/logstash.conf` against the two file inputs bind-
   mounted in from the host (`attack_logs/`, `omni_logs/`). Uses
   the generated MID-registry YAMLs under `cfg/build/elk/` as
   `translate` filter dictionaries to turn raw MID numbers into
   human-readable names, subsystems, and protocol layers.
-- **`nos3-kibana`.** Kibana 7.17.10. Hosts the fifteen
-  DTU-built dashboards (built by
-  `elk/build_kibana_dashboards.py` and re-imported on every
-  `make launch`).
+- **`nos3-legacy-kibana`.** Kibana 7.17.10. Hosts the twenty
+  DTU-built saved objects (nineteen dashboards and one saved
+  search, built by `elk/build_kibana_dashboards.py` and
+  re-imported on every `make launch`).
 
 ## How the pieces start
 
@@ -326,7 +338,7 @@ boundaries crossing is explicit.
    (`pkill -f god_view_capture.py` and the three shell siblings).
    The `attack_logs/` and `omni_logs/` files are truncated so the
    new run starts on a clean slate.
-2. `make start-elk` ensures the `nos3-core` Docker network
+2. `make start-elk` ensures the `nos3-legacy-core` Docker network
    exists, seeds the MID-registry YAMLs if they are missing,
    brings up the three ELK containers, and waits until
    Elasticsearch's cluster health is at least yellow.
@@ -336,19 +348,20 @@ boundaries crossing is explicit.
    `make save-run`, which sets `KEEP_TLM=1` on `make stop`.)
 4. `scripts/ci_launch.sh` brings up 42, then every simulator on
    `nos3-sc01`, then the cFS container, then the ground software
-   on `nos3-core`. Each step waits for the previous step's
+   on `nos3-legacy-core`. Each step waits for the previous step's
    health check.
 5. The four capture scripts attach. Logstash is restarted so it
    picks up the freshly-created log files.
 6. `elk/build_kibana_dashboards.py` runs against the Kibana
-   Saved Objects API, importing or updating the fifteen
-   dashboards. `elk/refresh_index_pattern_fields.py` rewrites
+   Saved Objects API, importing or updating the twenty saved
+   objects (nineteen dashboards and one saved search).
+   `elk/refresh_index_pattern_fields.py` rewrites
    the index-pattern field cache so Lens panels do not render
    "No data" on the first opening.
 
 After step 6 the system is steady-state: simulators publishing,
 cFS scheduling, the four capture surfaces feeding Logstash,
 Elasticsearch indexing, and Kibana serving dashboards on
-`http://localhost:5601`. The wire-level detail of each arrow
+`http://localhost:5604`. The wire-level detail of each arrow
 between the boxes drawn by Figure F1 is the subject of
 [03-communication/](03-communication/).

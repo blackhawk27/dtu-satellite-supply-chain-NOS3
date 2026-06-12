@@ -118,6 +118,25 @@ BASE_MASK_RE = re.compile(
     r"\(\w+\)\s+\(\s*(0x[0-9A-Fa-f]+)",
     re.M,
 )
+# This cFE baseline defines core/heritage MIDs with the classic additive form
+# instead of the Draco-era TOPICID_TO_MIDV masks, e.g.
+#   #define CFE_PLATFORM_TLM_MID_BASE 0x0800
+#   #define CFE_MISSION_ES_HK_TLM_MSG 0
+#   #define CFE_ES_HK_TLM_MID  CFE_PLATFORM_TLM_MID_BASE + CFE_MISSION_ES_HK_TLM_MSG
+ADDITIVE_BASE_RE = re.compile(
+    r"^\s*#define\s+(CFE_PLATFORM_(?:CMD|TLM)_MID_BASE(?:_GLOB)?)"
+    r"\s+\(?\s*(0x[0-9A-Fa-f]+)\b",
+    re.M,
+)
+MISSION_MSG_RE = re.compile(
+    r"^\s*#define\s+(CFE_MISSION_\w+_MSG)\s+\(?\s*(0x[0-9A-Fa-f]+|\d+)\b",
+    re.M,
+)
+ADDITIVE_MID_RE = re.compile(
+    r"^\s*#define\s+(\w+_MID(?:_\w+)*)\s+"
+    r"(CFE_PLATFORM_(?:CMD|TLM)_MID_BASE(?:_GLOB)?)\s*\+\s*(CFE_MISSION_\w+_MSG)\b",
+    re.M,
+)
 
 
 def included_path(p: Path) -> bool:
@@ -144,11 +163,35 @@ def collect_bases() -> dict[tuple[str, str], int]:
         for m in BASE_MASK_RE.finditer(read_text(h)):
             scope = "COMPONENT" if m.group(1) else "HERITAGE"
             bases[(scope, m.group(2))] = int(m.group(3), 16)
+    # The Draco-era CFE_PLATFORM_*_TOPICID_TO_MIDV base masks are absent on
+    # this cFE baseline: every MID is defined as a literal hex value (or a
+    # token-paste MIDVAL), so resolve_mids() resolves them without the bases.
+    # Warn if the expected four are not all present, but do not fail - the
+    # literal path still produces the full registry.
     if len(bases) != 4:
-        raise SystemExit(
-            f"gen_mid_registry: expected 4 base masks, found {bases}"
+        print(
+            f"  note: {len(bases)}/4 TOPICID_TO_MIDV base masks found; "
+            f"resolving MIDs from literal definitions.",
+            file=sys.stderr,
         )
     return bases
+
+
+def collect_additive() -> tuple[dict[str, int], dict[str, int]]:
+    """Gather the additive MID bases (CFE_PLATFORM_*_MID_BASE) and the
+    CFE_MISSION_*_MSG offsets used by the classic 'BASE + offset' MID defines
+    on this cFE baseline."""
+    add_bases: dict[str, int] = {}
+    offsets: dict[str, int] = {}
+    for h in (header_files("msgids.h")
+              + header_files("topicids.h")
+              + header_files("msgid_values.h")):
+        text = read_text(h)
+        for m in ADDITIVE_BASE_RE.finditer(text):
+            add_bases.setdefault(m.group(1), int(m.group(2), 16))
+        for m in MISSION_MSG_RE.finditer(text):
+            offsets.setdefault(m.group(1), int(m.group(2), 0))
+    return add_bases, offsets
 
 
 def collect_topics() -> dict[str, int]:
@@ -212,6 +255,8 @@ def resolve_mids(
     bases: dict[tuple[str, str], int],
     topic_wrappers: dict[tuple[str, str, str], tuple[str, str]],
     literal_table: dict[tuple[str, str, str], int],
+    add_bases: dict[str, int],
+    offsets: dict[str, int],
 ) -> dict[str, int]:
     """Resolve every <NAME>_MID symbol to its literal 16-bit value."""
     mids: dict[str, int] = {}
@@ -228,13 +273,19 @@ def resolve_mids(
                 continue
             mids.setdefault(name, int(m.group(2), 16))
 
+        # Classic additive form: <MID> = CFE_PLATFORM_*_MID_BASE + CFE_MISSION_*_MSG
+        for m in ADDITIVE_MID_RE.finditer(text):
+            base = add_bases.get(m.group(2))
+            off = offsets.get(m.group(3))
+            if base is not None and off is not None:
+                mids.setdefault(m.group(1), base + off)
+
         for m in DIRECT_MIDV_RE.finditer(text):
             scope = "COMPONENT" if m.group(2) else "HERITAGE"
             topic_val = topics.get(m.group(4))
-            if topic_val is not None:
-                mids.setdefault(
-                    m.group(1), bases[(scope, m.group(3))] | topic_val
-                )
+            base = bases.get((scope, m.group(3)))
+            if topic_val is not None and base is not None:
+                mids.setdefault(m.group(1), base | topic_val)
 
         for use_re, style in ((MIDVAL_USE_HERITAGE_RE, "heritage"),
                               (MIDVAL_USE_ALT_RE, "alt")):
@@ -244,11 +295,9 @@ def resolve_mids(
                 if wrap is not None:
                     base_dir, topic_prefix = wrap
                     topic_val = topics.get(f"{topic_prefix}_{sub}_TOPICID")
-                    if topic_val is not None:
-                        mids.setdefault(
-                            m.group(1),
-                            bases[("HERITAGE", base_dir)] | topic_val,
-                        )
+                    base = bases.get(("HERITAGE", base_dir))
+                    if topic_val is not None and base is not None:
+                        mids.setdefault(m.group(1), base | topic_val)
                         continue
                 literal = literal_table.get((app, direction, sub))
                 if literal is not None:
@@ -330,8 +379,10 @@ def write_yaml_dict(path: Path, data: dict[str, str]) -> None:
 def main() -> int:
     bases = collect_bases()
     topics = collect_topics()
+    add_bases, offsets = collect_additive()
     topic_wrappers, literal_table = collect_midval_wrappers()
-    mids = resolve_mids(topics, bases, topic_wrappers, literal_table)
+    mids = resolve_mids(topics, bases, topic_wrappers, literal_table,
+                        add_bases, offsets)
     rules = load_groupings()
 
     by_hex: dict[str, dict[str, str]] = {}

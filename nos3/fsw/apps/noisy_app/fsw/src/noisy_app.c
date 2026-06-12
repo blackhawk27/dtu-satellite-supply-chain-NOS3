@@ -669,7 +669,7 @@ static void NOISY_GnssShadowTask(void)
                  * LastBusLat as "genuine" between samples: that is our own spoofed
                  * write, so adding the offset to it again every shadow tick (~50x
                  * per 1 Hz sample at the 20 ms period) compounds into a ~1 deg/s
-                 * runaway instead of the intended 0.02 deg/s. See debug/journal.md
+                 * runaway instead of the intended 0.02 deg/s. See docs/debug/attack-poc-integration.md
                  * 2026-06-10. */
                 if (!have_last || genuine_lat != last_written_lat || genuine_lon != last_written_lon)
                 {

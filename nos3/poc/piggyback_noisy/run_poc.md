@@ -55,16 +55,25 @@ grep noisy cfg/build/nos3_defs/cpu1_cfe_es_startup.scr   # expect CFE_APP, noisy
 
 ## Launch
 
+The PoC is triggered manually from the COSMOS Command Sender, so launch with
+the GUI flavour:
+
 ```bash
-cd nos3 && make launch
+cd nos3 && make cosmos-gui
 ```
+
+`make cosmos-gui` brings up the full stack (ELK + sims + FSW) and the COSMOS
+Launcher GUI; open the Command Sender from the Launcher to send the piggyback
+command by hand (next section). This is the workflow used consistently across
+the testbeds. For a headless run with no GUI, use `make launch` instead and
+drive the PoC with `drive_poc.py` (see "Send headless" below).
 
 Confirm noisy_app loaded (EVS): `NOISY_APP: Initialized. CMD MID 0x18F2,
 sniffing carrier 0x18E0.`
 
 ## Send from COSMOS (manual)
 
-In the COSMOS Command Sender:
+In the COSMOS Command Sender (opened from the `make cosmos-gui` Launcher):
 - Target `CI_DEBUG`, Command `CI_DEBUG_PIGGYBACK_NOOP_CC`.
 - Set `OPCODE` to the scenario (start with `DORMANT`, then `EPS_SPOOF`, then `SB_BURST`).
 - Send.

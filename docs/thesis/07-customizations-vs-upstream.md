@@ -155,16 +155,17 @@ entry text.
   [04-apps/noisy_app.md](04-apps/noisy_app.md). The
   centrepiece of the supply-chain threat model: a cFS app
   that ships through the same build path as legitimate apps
-  and arms via the trigger MID `0x18F0`.
+  and arms by sniffing the CI_LAB command carrier (MID
+  `0x18E0`) for a covert opcode byte.
 - **`beacon_app`.** Commit `90e024c1`. A ground-commandable
-  ping / pong telemetry app. The companion to `noisy_app`'s
-  trigger MID: a ground operator can issue a beacon ping
-  through the legitimate `BEACON_APP` interface, which
-  `noisy_app` opportunistically subscribes to and uses as its
-  detonation signal. The threat-model framing is that an
-  attacker need not have direct ground access; a single
-  unauthenticated ping from any compromised ground station
-  is sufficient to arm.
+  ping / pong telemetry app on MID `0x18F0`. It is an
+  independent, legitimate app and is NOT part of `noisy_app`'s
+  trigger path; `noisy_app` does not subscribe to it. The
+  threat-model framing of the passive trigger lives entirely
+  with `noisy_app`'s carrier sniffing (see
+  [04-apps/noisy_app.md](04-apps/noisy_app.md)): an attacker
+  need not have direct ground access; a single unauthenticated
+  command on the sniffed carrier is sufficient to arm.
 - **`generic_gnss`.** Commits `ee347c91` (initial), `f766be00`
   (restore on main after a merge mishap). Documented in
   [04-apps/generic_gnss.md](04-apps/generic_gnss.md).
@@ -297,13 +298,16 @@ observability beyond stdout.
   scenario scripts under `nos3/scripts/attack/` that
   reproduce the FSW vulnerability scenarios developed in
   the Threat Model chapter.
-- **Beacon app as the legitimate detonation interface.**
-  Commit `90e024c1` (also listed under apps-added). The
-  threat model assumes the attacker arms `noisy_app` through
-  a legitimate-looking beacon ping rather than a custom
-  command. The combination of a real `beacon_app` and the
-  malicious subscriber on the same MID is the canonical
-  shape of a passive-trigger supply-chain attack.
+- **Carrier sniffing as the passive trigger.** The threat
+  model assumes the attacker arms `noisy_app` by sniffing the
+  CI_LAB command carrier (MID `0x18E0`) for a covert opcode
+  byte riding a legitimate command, rather than issuing a
+  custom command on a dedicated trigger MID. `beacon_app`
+  (commit `90e024c1`, MID `0x18F0`) is an independent,
+  legitimate ping / pong app and is NOT part of this trigger
+  path. A co-resident app reading a covert opcode off a
+  legitimate carrier on the unauthenticated Software Bus is
+  the canonical shape of a passive-trigger supply-chain attack.
 
 ## 10. Documentation and operator tooling
 

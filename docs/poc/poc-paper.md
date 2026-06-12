@@ -101,7 +101,7 @@ These are the structural properties every PoC builds on:
    per-endpoint: it stops the legitimate target from acting, it does not stop a
    co-subscribed sniffer reading the same message off the bus.
 4. The autonomous trigger plane is driven by unauthenticated telemetry (TB-2).
-   `lc_def_wdt.c` WP0 watches `GENERIC_EPS_HK` BatteryVoltage (wire offset 16);
+   `lc_def_wdt.c` WP0 watches `GENERIC_EPS_HK` BatteryVoltage (watchpoint offset 20);
    below 14800 mV drives actionpoint AP0, which fires a SAFE RTS. One spoofed HK
    field can drive the SAFE command chain.
 5. Single shared address space, no inter-app memory protection (the off-bus
@@ -264,7 +264,7 @@ Two opcodes:
 
 Forge primitive (`NOISY_SendEpsHk`). The implant carries a self-contained mirror
 of the EPS HK wire layout (`NOISY_EpsHkMimic_t`) rather than linking the victim's
-struct. Only `BatteryVoltage` (wire offset 16) matters for tripping WP0. It builds
+struct. Only `BatteryVoltage` (the operative LC watchpoint offset is 20) matters for tripping WP0. It builds
 the packet, time-stamps it, and calls `CFE_SB_TransmitMsg` on
 `GENERIC_EPS_HK_TLM_MID`. Consumers (LC, COSMOS, DS, ELK) see it as a normal EPS HK.
 
@@ -594,10 +594,20 @@ grep noisy cfg/build/nos3_defs/cpu1_cfe_es_startup.scr   # expect: CFE_APP, nois
 
 ### 7.2 Launch
 
+The PoC is triggered manually from the COSMOS Command Sender, so the primary
+launch is the GUI flavour:
+
 ```bash
 cd nos3
-make launch
+make cosmos-gui
 ```
+
+This brings up the full stack (ELK + sims + FSW) and the COSMOS Launcher; the
+interactive per-PoC procedure (the exact command and OPCODE to send for each
+scenario) is in section 7.4. `make cosmos-gui` needs X11 working in the
+devcontainer; verify with `echo "$DISPLAY"` and `xeyes &` BEFORE launching, and
+do not edit the devcontainer/X11 config (see the repository guard rails on GUI /
+X11 forwarding).
 
 Confirm the implant loaded:
 
@@ -605,11 +615,8 @@ Confirm the implant loaded:
 grep "NOISY_APP: Initialized" omni_logs/cfs_evs.log
 ```
 
-GUI (the COSMOS Launcher): `make cosmos-gui`. This needs X11 working in the
-devcontainer; verify with `echo "$DISPLAY"` and `xeyes &` BEFORE launching, and
-do not edit the devcontainer/X11 config (see the repository guard rails on GUI /
-X11 forwarding). The full per-PoC GUI workflow, with the exact command and OPCODE
-to send for each scenario, is section 7.4 below.
+For a headless run (no GUI), use `make launch` instead and drive the PoC
+non-interactively with the commands in section 7.3.
 
 ### 7.3 Headless drivers (the commands used non-interactively)
 
@@ -722,8 +729,8 @@ latency; allow for that when polling Elasticsearch right after sending a command
 
 | Thing | Value |
 |-------|-------|
-| Elasticsearch | `http://localhost:9200` |
-| Kibana | `http://localhost:5601` |
+| Elasticsearch | `http://localhost:9203` |
+| Kibana | `http://localhost:5604` |
 | ELK index / data view | `nos3-telemetry-YYYY.MM.dd` (pattern `nos3-telemetry*`) |
 | Command uplink (in) | UDP 5012 (CI_LAB) |
 | Telemetry downlink (out) | UDP 5013 (TO_LAB) |

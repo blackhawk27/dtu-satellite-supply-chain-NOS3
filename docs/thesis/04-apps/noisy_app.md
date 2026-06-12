@@ -37,11 +37,15 @@ covert opcode smuggled in that command's unused tail.
   include path.
 
 The app is registered in `cpu1_cfe_es_startup.scr` under
-`cfg/nos3_defs/`. For the experiment its row is set to `CFE_APP`
-(loaded on boot) inside the `===_DTU_THESIS_MENU_===` block; the
-shipped/mission profile keeps it `OFF_APP` (present in the image
-but not loaded). The supply-chain framing is therefore "the
-malicious binary is in the image; only its boot hook is gated".
+`cfg/nos3_defs/` (and the matching build copy under
+`cfg/build/nos3_defs/`). As shipped its row reads `CFE_APP`, so the
+app loads on every boot. The row is a simple toggle: `CFE_APP`
+means loaded on boot, `OFF_APP` means present in the image but not
+loaded, so flipping the row to `OFF_APP` disables it. The
+preceding `OFF_APP, ===_DTU_THESIS_MENU_===` line is only a visual
+separator/marker, not a conditional. The supply-chain framing is
+therefore "the malicious binary is in the image and loads like any
+other app; the boot hook is a one-line toggle".
 The app runs at a low priority (29) so the fixture never competes
 with core apps - the piggyback design does not rely on a CPU
 hijack the way the legacy storm did.

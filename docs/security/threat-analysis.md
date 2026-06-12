@@ -111,7 +111,7 @@ sufficient against a bus-resident adversary.
 
 The rewritten LC/SC machinery makes a single telemetry value autonomously drive
 command sequences:
-- `lc_def_wdt.c` WP0 watches `GENERIC_EPS_HK` BatteryVoltage (wire offset 16);
+- `lc_def_wdt.c` WP0 watches `GENERIC_EPS_HK` BatteryVoltage (watchpoint offset 20);
   `< 14800 mV` -> actionpoint AP0 -> **RTS001 (enter SAFE)**.
 - WP6 watches `GENERIC_GNSS_HK` `InDenmarkBox` (offset 55); `== 1` -> AP3 ->
   **RTS002 (SCIENCE: enable recording + CFDP downlink + rearm AP4)**.

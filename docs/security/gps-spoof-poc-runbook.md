@@ -531,7 +531,7 @@ python3 scripts/attack/attack_gps_spoof.py --disarm
 
 ---
 
-# PART 6 - Verify in Kibana (http://localhost:5601)
+# PART 6 - Verify in Kibana (http://localhost:5604)
 
 1. Open dashboard "NOS3 PoC: GPS spoof (truth vs downlink)".
 2. BEFORE arming: the two latitude series overlap (downlink tracks truth on GPGGA ticks).
@@ -557,7 +557,7 @@ python3 scripts/attack/attack_gps_spoof.py --disarm
   generic_gnss exercise.
 - Decode offsets are the single most error-prone part; the baseline overlap check (Step
   6.2) gates everything.
-- Do not touch the load-bearing edits in CLAUDE.md (IPC ports, etc.).
+- Do not touch the load-bearing IPC-port edits (see docs/debug/sim-ipc-and-42-connectivity.md).
 - The headline result: a pure cross-app memory write changes the downlinked position
   without any Software Bus publish or subscribe, so a bus-level access control never
   observes it. The detection is the truth-vs-downlink divergence in the dashboard above,

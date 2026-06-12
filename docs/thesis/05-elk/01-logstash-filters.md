@@ -74,20 +74,24 @@ generator.
 
 ### Attack-MID tagging
 
-A small set of `mutate { add_tag }` rules (around lines 150 to
-170) tag specific MID and function-code combinations:
+A small set of `mutate { add_tag }` rules (the spam-target
+tagging block, around `logstash.conf:207-213`) tag specific MID
+and function-code combinations:
 
 - `noisy_app_spam_target` on any document whose `msg_id` falls
-  in a narrow seven-MID set declared at `logstash.conf:150-155`
+  in a narrow seven-MID set declared in the spam-target tagging
+  block (around `logstash.conf:207-213`)
   (`0x1806` ES, `0x1801` EVS, `0x1803` SB, `0x1805` TIME,
   `0x1804` TBL, `0x1884` CI, `0x1880` TO). These are the
-  highest-impact saturation targets, not the full carpet-bomb
-  range. `noisy_app.c` currently iterates every MID in
-  `0x0000..0x1FFF`, so most storm packets do not receive this
-  tag; the storm is detectable instead through `attack_armed`
-  and `sb_pipe_overflow` on the EVS stream.
-- `beacon_cmd` on any command document with the
-  `MALWARE_TRIGGER_MID` (`0x18F0`).
+  highest-impact saturation targets that the current
+  piggyback `noisy_app` bursts at on the `SB_BURST` covert
+  opcode (`0x04`). The legacy app iterated every MID in
+  `0x0000..0x1FFF` (a full carpet-bomb storm); that design no
+  longer runs.
+- `beacon_cmd` on any command document with `msg_id` `0x18F0`
+  (the legitimate `beacon_app` command). This is a beacon-app
+  command MID, not a malware trigger; `noisy_app` does not
+  subscribe to it.
 - `gnss_ping_uplink` mirroring the Layer 4 tag onto the
   matching command-MID documents on the bus.
 
@@ -104,16 +108,16 @@ into per-component sub-blocks.
 
 ### Base grok
 
-A single grok pattern at line 217 extracts `timestamp`,
-`log_level`, and `sim_component` from the line. A subsequent
-`mutate` renames the post-message field to `sim_message` so
-that the index mapping's keyword sub-field
+A single grok pattern (the base `system_log` grok) extracts
+`timestamp`, `log_level`, and `sim_component` from the line. A
+subsequent `mutate` renames the post-message field to
+`sim_message` so that the index mapping's keyword sub-field
 (`ignore_above: 1024`) applies cleanly.
 
-A second grok (line 240) handles the cFS Event Service variant:
+A second grok (the cFS Event Service variant) handles
 `evs_app_name`, `evs_event_id`, `evs_event_type_num`, and
-`evs_message`. A third (line 251) handles the older EVS line
-shape that some cFS builds emit. A small ladder of mutates
+`evs_message`. A third (the older EVS line shape) handles the
+legacy form that some cFS builds emit. A small ladder of mutates
 turns the numeric event type into a human-readable
 `evs_severity` value:
 
@@ -128,27 +132,49 @@ dashboard's severity facet is never empty.
 
 ### NOISY_APP attack tagging
 
-The block at lines 328 through 347 handles the `noisy_app` event
-stream specifically. The `attack_app` field is set to
-`NOISY_APP` on any `system_log` document whose `evs_app_name`
-matches. Three tags are then added on specific event ids:
+The noisy_app event-tagging block handles the `noisy_app`
+event stream specifically, matching on the EVS message text
+that the current piggyback `noisy_app` emits. The live tags
+are:
 
-- Event id 1 (the startup event "Active. Listening on BEACON
-  MID 0x18F0.") tags `attack_loaded`.
-- Event id 2 (the threshold event "OMNIDIRECTIONAL STORM
-  INITIATED") tags `attack_armed`.
-- Event id 3 (each `PING #N intercepted` event) tags
-  `attack_trigger_ping`.
+- `piggyback_opcode` on any EVS document whose text contains
+  `piggyback opcode` (the app logs each decoded covert opcode,
+  e.g. "piggyback opcode 0x02 on MID 0x18E0").
+- `eps_spoof` on any EVS document whose text contains
+  `EPS HK SPOOF` or `EPS override ENGAGED`. The spoof event is
+  "NOISY_APP: EPS HK SPOOF sent on 0x091A (BatteryVoltage=N
+  mV)", which forges a low-battery reading of 10000 mV.
+- `sb_pool_lock` on any EVS document whose text contains
+  `SB POOL LOCK` (the pool-lock DoS, opcode `0x08`).
 
-A fourth tag, `sb_pipe_overflow`, is set on any `cfe_sb` event
-named `SB_PIPE_OVERFLOW`. The four tags together produce a
-self-contained Kibana saved search that finds the entire
-attack window from arming through carpet-bomb.
+A separate `sb_pipe_overflow` tag is still set on any `cfe_sb`
+event named `SB_PIPE_OVERFLOW`.
+
+The trigger is covert: `noisy_app` sniffs the CI_LAB carrier
+MID `0x18E0` for a covert opcode byte appended after a
+header-only NOOP. It does not use a `MALWARE_TRIGGER_MID`,
+does not subscribe to `0x18F0`, and does not arm after three
+beacon pings.
+
+The covert opcodes are `0x00` clear, `0x02` EPS spoof, `0x04`
+SB burst (the seven spam targets above), `0x06` EPS override,
+`0x08` SB pool-lock DoS, `0x0A` IMU bias, `0x0C` GNSS teleport
+(Null Island), and `0x0E` GNSS drift.
+
+The legacy lifecycle regexes `attack_loaded`
+(`Active.*Listening`), `attack_armed` (`THRESHOLD REACHED` /
+`MULTI-VECTOR ATTACK`), and `attack_trigger_ping`
+(`PING.*intercepted`) are retained in `logstash.conf` from the
+old broadcast-storm design but no longer fire: the current
+piggyback `noisy_app` emits none of those EVS strings. The
+strings `OMNIDIRECTIONAL STORM`, `0xDEAD`, and
+`MALWARE_TRIGGER_MID` appear nowhere in the current code or
+configuration.
 
 ### Mission-manager mode extraction
 
-The mgr-specific block (around line 406) extracts
-`mgr_mode_num` from the EVS event text, converts to integer, and
+The mgr-mode extraction block (around `logstash.conf:470-482`)
+extracts `mgr_mode_num` from the EVS event text, converts to integer, and
 applies the two human-readable aliases:
 
 - `mgr_mode_num == 1 -> mgr_mode = SAFE`
@@ -161,7 +187,8 @@ those values.
 
 ### Limit-checker action points
 
-A short block (around line 420) extracts `lc_ap_num` and
+A short block (the LC action-point block, around
+`logstash.conf:484-502`) extracts `lc_ap_num` and
 `lc_ap_to` from the `LC` app's action-point events. When the
 action point transitions to `FAIL`, the document is tagged
 `lc_actionpoint_fired`. This is the join key between the LC
@@ -171,8 +198,8 @@ analysis of limit-checker firings.
 
 ### Health-and-safety failures
 
-Around line 437 the HS app's failure events are tagged
-`hs_app_failure`. This is the line that surfaces
+In the HS app-failure block (around `logstash.conf:510-518`) the
+HS app's failure events are tagged `hs_app_failure`. This is the line that surfaces
 `noisy_app`'s post-arm CPU starvation: the HS app emits an event
 when an app misses its expected execution cadence, and the
 storm causes exactly that.
@@ -202,12 +229,17 @@ corresponding field in the index template (see
 The `if [type] == "hk_decoded"` branch is short because the
 input is already JSON. The block does three things:
 
-- Renames the input `timestamp` to `sim_timestamp_unix` so the
-  Layer 1 millisecond normalisation does not stomp on it.
-- Computes `sim_timestamp_iso` from `sim_timestamp_unix` for
-  date-histogram panels that prefer the ISO form.
+- Renames the input `timestamp` to `sim_timestamp_unix` (and
+  converts it to a float) so the Layer 1 millisecond
+  normalisation does not stomp on it.
 - Forwards every other field through as-is, relying on
   Elasticsearch's dynamic mapping to type them.
+
+Note that `sim_timestamp_iso` is declared in the index template
+(`elk/index_template.json`) but is not currently populated by any
+filter; date-histogram panels that would prefer the ISO form rely
+on `sim_timestamp_unix` instead. Computing `sim_timestamp_iso` is a
+known gap rather than an implemented step.
 
 ## Cross-cutting tail: mode-change detection
 

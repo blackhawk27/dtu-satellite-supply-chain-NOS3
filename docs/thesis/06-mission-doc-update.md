@@ -29,11 +29,13 @@ proposed inserts:
 
 - **Insert under "Container model".** Add one paragraph noting
   that NOS3 forks may add additional Docker networks beyond
-  `nos3-sc01` for shared services. Specifically reference the
-  `nos3-core` network as the pattern used for telemetry
-  aggregators (ELK in this fork) and for cross-spacecraft
-  services. This is a small change to the upstream page; the
-  network exists in upstream as well, but is not described.
+  `nos3-sc01` for shared services. Reference the `nos3-legacy-core`
+  shared core network as the pattern for cross-spacecraft shared
+  services, which in this fork also hosts the telemetry aggregator
+  (ELK) alongside the NOS Engine driver, COSMOS, and CryptoLib on
+  one external network. This is a small change to the upstream page;
+  the shared-services network exists in upstream as well, but is not
+  described.
 - **Insert under "Trust boundaries" (new subsection).** The
   upstream page is silent on what the system trusts and where.
   Propose adding a four-bullet subsection along the lines of

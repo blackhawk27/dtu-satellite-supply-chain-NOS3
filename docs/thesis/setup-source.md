@@ -53,13 +53,18 @@ Every runtime process lives inside a Docker container. There are no
 host-resident services. Containers are split across two Docker
 bridge networks:
 
-- `nos3-core`: shared-services network. Created on demand by
-  `make start-elk` (`nos3/Makefile:362`) and re-created if missing by
-  `scripts/ci_launch.sh:67-73` with subnet `192.168.41.0/24`. Hosts
-  the three ELK containers and the COSMOS operator container; the
+- `nos3-legacy-core`: shared core network, named by the
+  `$NETWORK_NAME` variable (default `nos3-legacy-core`, set in
+  `elk/.env`; the `nos3-legacy-` prefix lets the RTEMS / Draco /
+  Legacy testbeds coexist without a name collision). Created on
+  demand by `scripts/ci_launch.sh:66-71` via `$NETWORK_NAME` with
+  subnet `192.168.41.0/24`; `make start-elk` (`nos3/Makefile:362`)
+  also ensures it exists, and it is declared `external: true` in
+  `elk/docker-compose.yml`. Hosts the COSMOS operator container; the
   three NOS Engine helper containers (`nos-terminal`,
-  `nos-udp-terminal`, `nos-sim-bridge`, `nos-time-driver`) are
-  started here and later dual-homed onto the spacecraft network.
+  `nos-udp-terminal`, `nos-sim-bridge`, `nos-time-driver`), started
+  here and later dual-homed onto the spacecraft network; and the
+  three ELK containers.
 - `nos3-sc01`: per-spacecraft network. Created by
   `scripts/ci_launch.sh:184-188` as `SC_NET="nos3-${SC_NUM}"` where
   `SC_NUM=sc01`. Hosts the FSW container, the 42 dynamics container,
@@ -70,17 +75,18 @@ bridge networks:
 Container catalogue at steady state (verified against
 `scripts/ci_launch.sh:78-269`):
 
-- ELK stack on `nos3-core` (`elk/docker-compose.yml`):
-  `nos3-elasticsearch` (image `docker.elastic.co/elasticsearch:7.17.10`,
+- ELK stack on the shared `nos3-legacy-core` network
+  (`elk/docker-compose.yml`):
+  `nos3-legacy-elasticsearch` (image `docker.elastic.co/elasticsearch:7.17.10`,
   single-node, `xpack.security.enabled=false`, named volume
-  `es_data_vol`), `nos3-logstash` (same registry, 7.17.10, bind
+  `es_data_vol`), `nos3-legacy-logstash` (same registry, 7.17.10, bind
   mounts `attack_logs`, `omni_logs`, and `cfg/build/elk` for the
-  `translate` filter dictionaries), and `nos3-kibana` (7.17.10).
+  `translate` filter dictionaries), and `nos3-legacy-kibana` (7.17.10).
 - Ground software: `cosmos-openc3-operator-1` (image
   `ballaerospace/cosmos:4.5.0`, headless run loop started via inline
   Ruby in `ci_launch.sh:98-102`), `cryptolib` standalone built from
   `components/cryptolib/` and run as `sc01-cryptolib`.
-- NOS Engine helpers on `nos3-core` (with `--alias` attachments
+- NOS Engine helpers on `nos3-legacy-core` (with `--alias` attachments
   onto `nos3-sc01`): `nos-time-driver`, `nos-terminal`,
   `nos-udp-terminal`, `nos-sim-bridge`.
 - Spacecraft side on `nos3-sc01`: `sc01-fortytwo` (42 dynamics),
@@ -119,20 +125,21 @@ build-time copy): `sch`, `ci`, `to`, `ci_lab`, `to_lab`,
 `sample`, `generic_st`, `generic_torquer`, `arducam`, plus the
 `hwlib`, `io_lib`, `cryptolib`, `cfs_lib` libraries.
 
-`OFF_APP` entries (NOT loaded on boot, sitting behind a
-`===_DTU_THESIS_MENU_===` marker in the source script): `noisy_app`,
-`cpu_killer`. The `OFF_APP` keyword causes cFE to skip the entry.
-The source notes the menu requires "CHANGE_CFE_TO_OFF" before the
-attack apps are loaded; in practice that means an operator flips the
-keyword from `OFF_APP` to `CFE_APP` (or comments out the marker)
-before rebuilding. The `cpu_killer` source does not exist in this
-tree, so only `noisy_app` is a real opt-in attacker.
+Startup-script row keyword (`cpu1_cfe_es_startup.scr`, both the
+source copy under `cfg/nos3_defs/` and the build copy under
+`cfg/build/nos3_defs/`): the keyword is a simple toggle, `CFE_APP`
+means the app loads on boot and `OFF_APP` means it is present in the
+image but not loaded. The preceding `OFF_APP, ===_DTU_THESIS_MENU_===`
+row is only a visual separator/marker, not a conditional. As shipped,
+the `noisy_app` row reads `CFE_APP`, so the malicious app loads on
+every boot; flipping its row to `OFF_APP` disables it. The
+`cpu_killer` row is `OFF_APP` (and its source does not exist in this
+tree).
 
-This contradicts the framing in
+This matches the framing in
 `docs/thesis/04-apps/noisy_app.md:29-32` and
 `docs/thesis/02-architecture.md:145-149`, both of which state that
-`noisy_app` is loaded on every launch with no opt-in. See section
-12 (b) for the verbatim conflict.
+`noisy_app` is loaded on every launch.
 
 ### Trust boundaries
 
@@ -162,11 +169,12 @@ The "system overview" figure should draw both Docker networks with
 the dual-homed containers (COSMOS, NOS Engine helpers) straddling
 the boundary, every simulator container as a separate box on the
 `nos3-sc01` side, and the four host-side capture scripts feeding
-the `nos3-logstash` bind-mount. The current docs draft for Figure
+the `nos3-legacy-logstash` bind-mount. The current docs draft for Figure
 F1 (`docs/thesis/08-figures/figures.md:14-78`) draws cFS as the
 dual-homed container; the correct dual-homing target is COSMOS, not
 cFS (`scripts/ci_launch.sh:78-103` starts the COSMOS container with
-`--network=nos3-core` and `ci_launch.sh:192` then connects it to
+`--network=$NETWORK_NAME` (the shared `nos3-legacy-core`) and
+`ci_launch.sh:192` then connects it to
 `nos3-sc01`; the FSW container at `ci_launch.sh:204-208` is only on
 `nos3-sc01`).
 
@@ -178,9 +186,10 @@ A single representative end-to-end command: operator sends a
 script-runner to the spacecraft, the FSW dispatches it through
 `beacon_app`, `beacon_app` publishes a "pong" telemetry packet on
 `BEACON_APP_HK_TLM_MID` (`0x08F0`), and the packet arrives in
-Elasticsearch as a `software_bus` document. This path is also the
-`noisy_app` arming sequence (`noisy_app` opportunistically
-subscribes to the same MID).
+Elasticsearch as a `software_bus` document. This is purely the
+legitimate-command example; `noisy_app`'s covert arming is a
+separate path that rides the CI_LAB carrier MID `0x18E0` (see
+section 4.2), not this `beacon_app` MID.
 
 Hops, in order, with the code path at each step:
 
@@ -219,18 +228,20 @@ Hops, in order, with the code path at each step:
    originated from (and regardless of whether CryptoLib touched it
    on the wire).
 7. **Software Bus routing**. The Software Bus indexes pipes by
-   MID. Both `beacon_app` (`fsw/apps/beacon_app/fsw/src/beacon_app.c:105`)
-   and `noisy_app` (`fsw/apps/noisy_app/fsw/src/noisy_app.c:38`)
-   subscribe to MID `0x18F0`. cFE delivers a copy of the packet to
-   each subscriber's pipe.
+   MID. `beacon_app` (`fsw/apps/beacon_app/fsw/src/beacon_app.c`)
+   subscribes to MID `0x18F0` and cFE delivers the packet to its
+   pipe. (`noisy_app` does NOT subscribe to `0x18F0`; it subscribes
+   to its own `0x18F2` and to the CI_LAB carrier `0x18E0`.)
 8. **`beacon_app` dispatch**. The handler in
    `beacon_app.c:57-92` reads the CCSDS function code, branches on
    it, increments counters, and calls `BEACON_APP_SendHk` which
    publishes the HK telemetry under MID `0x08F0`.
-9. **`noisy_app` dispatch**. The handler in
-   `noisy_app.c:48-83` counts `BEACON_PING_FC` packets and after
-   the third one ARMS the broadcast storm. No other action happens
-   for ping #1 and ping #2.
+9. **`noisy_app` is not on this path**. This beacon ping does not
+   reach `noisy_app`. `noisy_app` arms only when a covert opcode
+   byte rides the CI_LAB carrier (`0x18E0`), dispatched in
+   `NOISY_APP_RunScenario` (see section 4.2). It is listed here
+   only to make explicit that the malicious app is decoupled from
+   the legitimate beacon command.
 10. **HK telemetry leaves the bus via `to_lab`**.
     `nos3/cfg/nos3_defs/tables/to_lab_sub.c:285-287` subscribes
     `to_lab` to `BEACON_APP_CMD_MID`, `BEACON_APP_SEND_HK_MID`, and
@@ -251,7 +262,7 @@ Hops, in order, with the code path at each step:
     receives telemetry.
 12. **Logstash tails the file**. The bind mount
     `../attack_logs:/attack_logs:ro` (`elk/docker-compose.yml`)
-    makes the JSON file readable by the `nos3-logstash` container.
+    makes the JSON file readable by the `nos3-legacy-logstash` container.
     The `file` input in `elk/logstash.conf` tails it with
     `sincedb_path => "/dev/null"` so a Logstash restart re-reads
     from the beginning.
@@ -265,7 +276,7 @@ Hops, in order, with the code path at each step:
     `nos3-telemetry-%{+YYYY.MM.dd}`; the daily index is created on
     first write.
 15. **Kibana dashboard**. The "Cyber-Physical Attack Radar"
-    dashboard (one of the 15 saved objects built by
+    dashboard (one of the twenty saved objects built by
     `elk/build_kibana_dashboards.py`) renders the document on the
     EVS-tagged timeline panel.
 
@@ -276,9 +287,11 @@ Interception / failure surfaces, by hop:
 - Hop 4 (RADIO path): CryptoLib SDLP-wrapped. Replay protection is
   by sequence counter inside the SA; an attacker who reads a
   captured frame cannot replay it after the SA window closes.
-- Hop 7 (Software Bus): no provenance. A second publisher of MID
-  `0x18F0` (for example `noisy_app` itself if it had been loaded)
-  would be indistinguishable from the original ground operator.
+- Hop 7 (Software Bus): no provenance. A second subscriber or
+  publisher on any command MID (for example `noisy_app` sniffing
+  the CI_LAB carrier `0x18E0`) is indistinguishable from the
+  legitimate ground operator; the bus enforces no per-publisher
+  identity.
 - Hop 11 (UDP 5013): a host that races `god_view_capture.py` for
   the same port wins the bind and silently drops the
   `cfs_god_view.json` stream.
@@ -392,61 +405,48 @@ the baseline:
 
 ### 4.2 `noisy_app` (DTU-added)
 
-- Source: `nos3/fsw/apps/noisy_app/fsw/src/noisy_app.c` (122 lines,
-  verified `wc -l`).
-- Purpose: model a compromised cFS payload. Loaded only via an
-  operator-driven flip of its `OFF_APP` startup-script entry; not
-  auto-loaded on boot (see section 1 of `cfg/nos3_defs/cpu1_cfe_es_startup.scr`).
-- MIDs consumed: subscribes to `MALWARE_TRIGGER_MID = 0x18F0`
-  (`noisy_app.c:9`, `:38`), which is the same MID as
-  `BEACON_APP_CMD_MID`
-  (`fsw/apps/beacon_app/fsw/platform_inc/beacon_app_msgids.h:4`).
-- MIDs published: forged `GENERIC_EPS_HK_TLM_MID = 0x091A`
-  (`noisy_app.c:73-78`) on function code 3, and every MID in
-  `0x0000..0x1FFF` four times in the storm phase
-  (`noisy_app.c:101-110`).
-- Dispatch table (`noisy_app.c:48-83`):
-  - Function code `BEACON_PING_FC = 2`: increment counter, emit
-    EVS event id 3 (`PING #N intercepted`). On the third ping,
-    flip `AttackArmed = true` and emit EVS event id 2
-    (`THRESHOLD REACHED. OMNIDIRECTIONAL STORM INITIATED`,
-    severity `CRITICAL`).
-  - Function code `SPOOF_EPS_FC = 3`: forge an EPS HK packet with
-    `BatteryVoltage = 0xDEAD`, length
-    `GENERIC_EPS_HK_TLM_LNGTH = sizeof(GENERIC_EPS_Hk_tlm_t)`
-    (`components/generic_eps/fsw/cfs/src/generic_eps_msg.h:60-61`),
-    call `CFE_SB_TimeStampMsg` and `CFE_SB_TransmitMsg`. Emit EVS
-    event id 4 (`EPS HK SPOOF transmitted`, severity `CRITICAL`).
-- Storm phase (`noisy_app.c:84-118`): tight integer-arithmetic loop
-  (`5_000_000` volatile iterations of `burn += i * i`), followed
-  by a nested loop that iterates `current_mid` from `0x0000` to
-  `0x1FFF` and calls `CFE_SB_TransmitMsg` four times per MID with
-  a 4096-byte malicious payload. The cFE SB buffer pool is
-  `CFE_PLATFORM_SB_BUF_MEMORY_BYTES = 524288`
-  (`cfg/nos3_defs/cpu1_platform_cfg.h:153`); 524288 / 4096 ≈ 128
-  packets before exhaustion. The task runs at priority 20 and the
-  storm branch contains no `OS_TaskDelay`, so it permanently
-  hijacks the cFS scheduler.
-- Status: new-in-this-repo. Initial commit `dd75079` (broadcast
-  storm); `c1642e3` added the OFF_APP menu and OS handshake;
-  `32257387` corrected CMakeLists for cFS 7.0 header layout;
-  `e9465af8` added the EPS HK spoof; `e72f9424` fixed the
-  noisy_app save-conflict and configured C++ include paths.
-- Load-bearing invariants:
-  - `MALWARE_TRIGGER_MID` must match `BEACON_APP_CMD_MID` so the
-    arming pings ride a legitimate ground command. Both are
-    currently `0x18F0`.
-  - `4096-byte MaliciousPayload` is below
-    `CFE_MISSION_SB_MAX_SB_MSG_SIZE = 32768`
-    (`cfg/nos3_defs/cfe_mission_cfg.h:53`), so `CFE_MSG_Init` does
-    not reject the packet.
-  - The Logstash tag `noisy_app_spam_target` is keyed on only 7
-    MIDs in `elk/logstash.conf:150-155` (`0x1806`, `0x1801`,
-    `0x1803`, `0x1805`, `0x1804`, `0x1884`, `0x1880`), but the
-    code carpet-bombs all 8192 MIDs. This makes the tag a *partial*
-    signature: the storm is still detectable through
-    `attack_armed` and `sb_pipe_overflow` tags, which fire on EVS
-    events that always accompany the storm.
+- Source: `nos3/fsw/apps/noisy_app/fsw/src/noisy_app.c`. The
+  authoritative wire surface and per-opcode behaviour live in
+  `docs/thesis/04-apps/noisy_app.md`; the attack analyses live in
+  `docs/security/`. This entry is the setup-level summary.
+- Purpose: model a compromised cFS payload that hides on a benign
+  carrier command (the covert-opcode "piggyback" pattern). As
+  shipped its startup-script row reads `CFE_APP`, so it loads on
+  every boot (see section 1 of
+  `cfg/nos3_defs/cpu1_cfe_es_startup.scr`); the row is a toggle,
+  and flipping it to `OFF_APP` disables loading.
+- MIDs consumed: its own command MID
+  `NOISY_APP_CMD_MID = 0x18F2` (direct path), the CI_LAB carrier
+  `CARRIER_CMD_MID = 0x18E0` (the sniffed piggyback channel), and
+  `GENERIC_EPS_HK_TLM_MID = 0x091A` (read for the EPS-spoof
+  scenario). It does NOT subscribe to `beacon_app`'s `0x18F0`.
+- Trigger: it sniffs the carrier MID. A normal header-only CI_LAB
+  NOOP is ignored; a NOOP that is LONGER than a header-only NOOP
+  carries a trailing covert opcode byte, which dispatches a
+  scenario in `NOISY_APP_RunScenario`. Because the legitimate
+  carrier app still validates its own command length, the extra
+  byte is invisible to it.
+- Covert opcodes (the trailing byte): `0x00` clear, `0x02`
+  EPS_SPOOF (forge one low-battery EPS HK packet, BatteryVoltage
+  10000 mV), `0x04` SB_BURST, `0x06` EPS_OVERRIDE, `0x08` SB_FLOOD
+  (gated pool-lock DoS), `0x0A` IMU_BIAS, `0x0C` GNSS teleport,
+  `0x0E` GNSS drift. See `docs/thesis/04-apps/noisy_app.md` for the
+  exact effects, EVS event ids, and the cross-app memory-write
+  technique (`/proc/self/maps` + `dlopen`).
+- Status: new-in-this-repo. The current implementation is the
+  piggyback sniffer ported from the Draco baseline (see
+  `docs/debug/attack-poc-integration.md`); it replaced an earlier
+  legacy broadcast-storm version.
+- Detection: the live Logstash signature tags for the current
+  piggyback scenarios are defined in `elk/logstash.conf`:
+  `piggyback_opcode` (EVS "piggyback opcode"), `eps_spoof` (EVS
+  "EPS HK SPOOF" / "EPS override ENGAGED"), `sb_pool_lock` (EVS
+  "SB POOL LOCK"), and `noisy_app_spam_target` (keyed on the seven
+  pipe-saturation target MIDs). The conf also still carries the
+  legacy lifecycle regexes (`attack_loaded`, `attack_armed`,
+  `attack_trigger_ping`) from the earlier broadcast-storm app;
+  the current noisy_app does not emit those EVS strings, so those
+  tags no longer fire.
 
 ### 4.3 `beacon_app` (DTU-added)
 
@@ -571,7 +571,7 @@ the baseline:
   `GENERIC_EPS_Hk_tlm_t` with the standard cFE telemetry header
   plus a `GENERIC_EPS_Device_HK_tlm_t DeviceHK` field. The
   `BatteryVoltage` member is what `noisy_app` overwrites with
-  `0xDEAD`.
+  a forged low-battery reading of 10000 mV.
 - Status: upstream-modified.
   - `02f08c6` (`feat(generic_eps): drive sim power state from
     per-app/per-MID load model`): EPS sim now draws its power
@@ -653,8 +653,10 @@ section 12 (b).
 ### 4.14 ELK pipeline
 
 - Compose: `elk/docker-compose.yml`. Three services pinned to
-  `7.17.10`, single shared external network `nos3-core`, one
-  named volume `es_data_vol`.
+  `7.17.10`, attached to the shared external network
+  `nos3-legacy-core` (= `$NETWORK_NAME`, created by
+  `scripts/ci_launch.sh` or `make start-elk`), one named volume
+  `es_data_vol`.
 - Logstash pipeline: `elk/logstash.conf`, 1421 lines.
   - 4 input file globs: `cfs_god_view.json` (`software_bus`),
     `omni_logs/*.log` excluding `tlm_hk_decoded.log`
@@ -702,10 +704,10 @@ backing scripts:
 
 1. `git clone <remote-url>` (any user-chosen directory).
 2. `cd nos3 && make prep`. Runs `scripts/cfg/prepare.sh`, which
-   chains to `scripts/cfg/install-deps.sh` to pull the pinned
-   build image (`ivvitc/nos3-64:20251107`,
-   `scripts/env.sh:59`) and to populate `~/.nos3/` (the host-side
-   42 install directory).
+   pulls the pinned build image (`$DCALL image pull $DBOX`,
+   `ivvitc/nos3-64:20251107`, `scripts/env.sh:59`), populates the
+   per-user `~/.nos3/` directories, and builds the 42 dynamics
+   engine inline (the host-side 42 install directory).
 3. `make config` (also auto-run by `make all` if
    `cfg/build/current_config_path.txt` is missing,
    `Makefile:66-72`). Reads `cfg/nos3-mission.xml` and the active
@@ -727,7 +729,7 @@ backing scripts:
    - Truncate `attack_logs/*` and `omni_logs/*`.
    - Delete `fsw/build/exe/cpu1/data/mgr.bin` so mode persistence
      starts fresh.
-   - `make start-elk`: create `nos3-core` network, ensure the
+   - `make start-elk`: create `nos3-legacy-core` network, ensure the
      MID-registry YAMLs exist (seed-copy fallback if the
      generator fails), bring up the three ELK containers, wait
      up to 40 s for Elasticsearch to leave RED.
@@ -740,10 +742,11 @@ backing scripts:
      OnAIR, CryptoLib, and the 17 simulators in the loop at
      `ci_launch.sh:235-241`.
    - Start the four capture scripts in the background.
-   - Restart Logstash (`docker restart nos3-logstash`) so it
+   - Restart Logstash (`docker restart nos3-legacy-logstash`) so it
      picks up the newly created log files; wait for port 9600.
-   - `make build-kibana-dashboards`: 15 saved objects + 1 saved
-     search via the Saved Objects API.
+   - `make build-kibana-dashboards`: twenty saved objects
+     (nineteen dashboards and one saved search) via the Saved
+     Objects API.
    - `make refresh-kibana-fields`: rewrite the index pattern's
      cached field list.
 
@@ -764,11 +767,11 @@ The system "flies" when:
 
 1. Containers are running (verified by
    `docker ps --format '{{.Names}}'` showing
-   `nos3-elasticsearch`, `nos3-logstash`, `nos3-kibana`, and at
+   `nos3-legacy-elasticsearch`, `nos3-legacy-logstash`, `nos3-legacy-kibana`, and at
    least one `sc01-*` container).
 2. Elasticsearch is yellow or green (`curl
-   localhost:9200/_cluster/health`).
-3. Kibana is available (`curl localhost:5601/api/status`).
+   localhost:9203/_cluster/health`).
+3. Kibana is available (`curl localhost:5604/api/status`).
 4. The `nos3-telemetry-*` index has both `software_bus` and
    `system_log` documents (`_count` queries with the
    corresponding `type` field).
@@ -787,7 +790,8 @@ layers in order:
 5. Kibana data view (`nos3-telemetry*` saved object present;
    hardcoded UUID `5b3163a0-3ea7-11f1-adf4-55f5fc5a104a` in
    `elk_doctor.sh:23`).
-6. Dashboards (the 15-element catalogue from
+6. Dashboards (the twenty-saved-object catalogue, nineteen
+   dashboards and one saved search, from
    `build_kibana_dashboards.py`).
 
 The exit code is the number of failing layers. Layer 0 is
@@ -848,30 +852,35 @@ appears in the table (which is "all of them") leaves the
 spacecraft. Cost of the wide table:
 
 - Anything `noisy_app` forges under an existing MID downlinks.
-- Anything `noisy_app` carpet-bombs that overlaps an existing
-  MID downlinks (well, up to the bus's overflow threshold).
+- Anything `noisy_app` bursts at (the seven `SB_BURST` spam
+  targets) that overlaps an existing MID downlinks (well, up
+  to the bus's overflow threshold).
 - The legitimate vs. forged distinction has to be reconstructed
   by sequence-counter gap analysis on the ground.
 
-### 7.3 The OFF_APP menu is build-trivial to flip
+### 7.3 The startup-script keyword is a build-trivial toggle
 
-`cfg/nos3_defs/cpu1_cfe_es_startup.scr` defines the menu:
+`cfg/nos3_defs/cpu1_cfe_es_startup.scr` (and the matching build
+copy under `cfg/build/nos3_defs/`) define these rows:
 
 ```
 OFF_APP, ===_DTU_THESIS_MENU_===,   CHANGE_CFE_TO_OFF,        TO_DISABLE,       0,  0,     0x0, 0;
-OFF_APP, noisy_app,                 NOISY_APP_Main,           NOISY_APP,        20, 16384, 0x0, 0;
+CFE_APP, noisy_app,                 NOISY_APP_Main,           NOISY_APP,        20, 16384, 0x0, 0;
 OFF_APP, cpu_killer,                CPU_KILLER_Main,          CPU_KILLER,       160, 16384, 0x0, 0;
 ```
 
-The fork ships the malicious `noisy_app` binary built into the
-flight image regardless of whether the operator flips the menu.
-The "flip" is one keyword (`OFF_APP` -> `CFE_APP`) plus a
-rebuild; nothing in the build path notices.
+The first row is only a visual separator/marker, not a
+conditional. The keyword on each app row is a simple toggle:
+`CFE_APP` loads the app on boot, `OFF_APP` keeps it in the image
+but unloaded. As shipped the `noisy_app` row reads `CFE_APP`, so
+the malicious app loads on every boot; flipping it to `OFF_APP`
+plus a rebuild disables it. Nothing in the build path notices the
+malicious app either way.
 
-`cpu_killer` is referenced but the source does not exist. The
-menu is therefore aspirational on that line; an attacker who
-ships a `cpu_killer.c` and a CMakeLists could ride the existing
-entry without any further startup-script change.
+`cpu_killer` is referenced as `OFF_APP` but the source does not
+exist. The line is therefore aspirational; an attacker who ships a
+`cpu_killer.c` and a CMakeLists could flip the row to `CFE_APP`
+without any further startup-script change.
 
 ### 7.4 Both cFS UDP listeners are unauthenticated
 
@@ -981,7 +990,7 @@ cFS app touch the host filesystem. But:
   documents and Logstash will index them.
 - Elasticsearch has `xpack.security.enabled=false`
   (`elk/docker-compose.yml:10`). Any host with reach to
-  `localhost:9200` can rewrite, delete, or close indices.
+  `localhost:9203` can rewrite, delete, or close indices.
 
 The ELK pipeline is therefore forensic-grade against an
 in-spacecraft attacker and integrity-soft against a host-side
@@ -994,7 +1003,8 @@ reader knows the boundary.
 
 1. **`noisy_app.c:73-79` (EPS HK spoof).** Five lines that show
    the entire spoof: `memset`, `CFE_MSG_Init` with the EPS HK
-   MID and the EPS length symbol, `BatteryVoltage = 0xDEAD`,
+   MID and the EPS length symbol, `BatteryVoltage = 10000`
+   (a forged low-battery reading, in mV),
    `CFE_SB_TimeStampMsg`, `CFE_SB_TransmitMsg`. The single
    point the snippet makes is that a publisher under one app
    can fake telemetry as another app with no bus-side
@@ -1002,16 +1012,19 @@ reader knows the boundary.
    an EPS housekeeping packet through cFE's standard SB
    publish API; the bus has no per-MID publisher ACL."
 
-2. **`noisy_app.c:101-110` (carpet-bomb loop).** The
-   `for (uint16 current_mid = 0x0000; current_mid <= 0x1FFF;
-   current_mid++)` with the nested 4-iteration inner loop.
-   One point: an unbounded publisher exhausts the
-   `CFE_PLATFORM_SB_BUF_MEMORY_BYTES = 524288` pool in
-   milliseconds, and the SB has no rate-limit gate. Caption:
-   "Listing X.2 - `noisy_app`'s broadcast storm iterates every
-   possible MID at task priority 20 with no yield; the cFE
-   buffer pool is exhausted before the loop's third
-   iteration."
+2. **`noisy_app.c` (resource-exhaustion DoS).** The
+   SB pool-lock path (covert opcode `0x08`, "SB POOL LOCK
+   engaged") and the pipe-flood path (covert opcode `0x04`,
+   "PIPE FLOOD - N junk cmds delivered"). One point: an
+   in-spacecraft publisher exhausts the
+   `CFE_PLATFORM_SB_BUF_MEMORY_BYTES = 524288` pool, and the
+   SB has no rate-limit gate. Caption: "Listing X.2 -
+   `noisy_app`'s pool-lock DoS starves the cFE buffer pool;
+   the SB has no per-app quota or rate-limit gate."
+   (Historical note: the superseded broadcast-storm design
+   instead iterated every MID in `0x0000..0x1FFF` with a
+   nested 4-iteration inner loop. That design no longer
+   runs.)
 
 3. **`cmd_tlm_server.txt:6` and `:27` (the two FSW-to-GSW
    paths).** A two-line excerpt:
@@ -1033,14 +1046,15 @@ reader knows the boundary.
    binds the TO_LAB downlink port and treats every CCSDS
    packet on the wire as a JSON line."
 
-5. **`cpu1_cfe_es_startup.scr` `OFF_APP` menu (3 lines).**
-   The marker plus the two `OFF_APP` entries for `noisy_app`
-   and `cpu_killer`. One point: the supply-chain attack
-   surface is a single-keyword edit at build time; the
-   compromised binary already ships. Caption: "Listing X.5 -
-   The startup script's `OFF_APP` menu. Flipping a single
-   keyword turns the dormant attacker into a CFE_APP loaded on
-   boot."
+5. **`cpu1_cfe_es_startup.scr` attack rows (3 lines).**
+   The `===_DTU_THESIS_MENU_===` separator/marker plus the
+   `CFE_APP` row for `noisy_app` (loaded on boot) and the
+   `OFF_APP` row for `cpu_killer`. One point: the supply-chain
+   attack surface is the shipped binary itself; the row keyword
+   is a one-line build-time toggle. Caption: "Listing X.5 -
+   The startup script's attack rows. `noisy_app` ships as
+   `CFE_APP` and loads on boot; the keyword is a single-edit
+   toggle (`CFE_APP` loaded, `OFF_APP` not loaded)."
 
 
 ## 9. Diagram candidates
@@ -1050,29 +1064,31 @@ Single dense figure is rejected. Each diagram is one idea.
 ### F1c Container layout (replacement for current F1)
 
 One thing the reader leaves with: two Docker networks, the
-ELK stack on one, the per-spacecraft world on the other, and
-COSMOS straddling both as the dual-homed container.
+shared core (`nos3-legacy-core`) hosting the shared services and
+the ELK stack together, the per-spacecraft world on the other,
+and COSMOS straddling both as the dual-homed container.
 
 Boxes:
 
 - Host frame (outer rounded rectangle).
-- `nos3-core` rectangle (left or top): `nos3-elasticsearch`,
-  `nos3-logstash`, `nos3-kibana`,
+- `nos3-legacy-core` rectangle (the shared core network):
   `cosmos-openc3-operator-1` (dual-home notch on the right
   side), `nos-time-driver`, `nos-terminal`,
   `nos-udp-terminal`, `nos-sim-bridge` (all four with notch
-  showing dual-home onto sc01).
+  showing dual-home onto sc01), and the three ELK containers
+  `nos3-legacy-elasticsearch`, `nos3-legacy-logstash`,
+  `nos3-legacy-kibana`.
 - `nos3-sc01` rectangle (right or bottom): `sc01-fortytwo`
   (top), `sc01-nos-fsw`, `sc01-cryptolib`, `sc01-onair`,
   `sc01-nos-engine-server`, `sc01-truth42sim`, and the 16
   simulator containers.
 - Host-side capture scripts on the outside of the Docker
   frame, with a bind-mount arrow pointing into
-  `nos3-logstash`.
+  `nos3-legacy-logstash`.
 
 Arrows:
 
-- Operator browser to `nos3-kibana` (port 5601) and to
+- Operator browser to `nos3-legacy-kibana` (port 5601) and to
   `cosmos-openc3-operator-1` (port 2900).
 - `cosmos-openc3-operator-1` -> `sc01-nos-fsw` UDP
   5012/5013 (DEBUG, labelled "plaintext").
@@ -1082,7 +1098,7 @@ Arrows:
 - Every sim container -> `sc01-fortytwo` (one bundled
   arrow labelled "42xx TCP, non-blocking, 100 Hz").
 - `god_view_capture.py` (host-side) -> bind-mount into
-  `nos3-logstash`.
+  `nos3-legacy-logstash`.
 
 ### F2 Six wire boundaries (keep as-is)
 
@@ -1114,10 +1130,13 @@ inclination, 346° RAAN, 61.6° true anomaly, 400 km circular).
 ### F6 noisy_app attack timeline (keep)
 
 The swim-lane diagram in `docs/thesis/08-figures/figures.md`
-is accurate at the lane level. One correction: lane 2's
-"4 KB packets x 4 x 8192 MIDs" annotation should explicitly
-note that only 7 of those 8192 MIDs receive the Logstash
-`noisy_app_spam_target` tag in the current pipeline.
+has been reframed to the current piggyback design: lane 2
+shows a single covert opcode byte riding the CI_LAB carrier
+MID `0x18E0`, not a "4 KB packets x 4 x 8192 MIDs" broadcast
+storm. The SB-burst opcode (`0x04`) targets exactly the seven
+MIDs that receive the Logstash `noisy_app_spam_target` tag, so
+the tag now matches the burst targets directly. The legacy
+8192-MID storm design no longer runs.
 
 ### F7 Trust-boundary overlay
 
@@ -1156,7 +1175,11 @@ Divergence: 71 commits, 764 files changed,
 - `dd75079` 2026-03-19 `feat: implemented and staged noisy_app
   broadcast storm attack`. Why this mattered: the
   centrepiece-malware seed; defines the threat-model
-  realisation that the thesis is built around.
+  realisation that the thesis is built around. (This commit's
+  broadcast-storm design has since been superseded: the
+  current `noisy_app` uses a covert-opcode piggyback trigger
+  on the CI_LAB carrier MID `0x18E0` rather than an
+  8192-MID storm.)
 - `90e024c` 2026-03-23 `feat: add BEACON_APP ground-commandable
   ping/pong telemetry application`. Why this mattered: gives
   the threat model a passive-trigger surface (legitimate
@@ -1349,7 +1372,8 @@ sweep (not in scope of this file) knows what to change.
 - **Which container is dual-homed.** Truth: COSMOS and the
   NOS Engine helpers are dual-homed; cFS is not.
   `scripts/ci_launch.sh:78-103` starts the COSMOS container
-  with `--network=nos3-core`, then `:192` connects it to
+  with `--network=$NETWORK_NAME` (the shared `nos3-legacy-core`),
+  then `:192` connects it to
   `nos3-sc01`. The NOS Engine helpers (`nos-time-driver`,
   `nos-terminal`, `nos-udp-terminal`, `nos-sim-bridge`) are
   dual-homed at `:264-269`. The FSW container at `:204-208`
@@ -1360,17 +1384,18 @@ sweep (not in scope of this file) knows what to change.
   NOS Engine helpers) as the dual-homed containers.
 
 - **Whether `noisy_app` loads on every launch.** Truth:
-  `noisy_app` is NOT auto-loaded. Both
+  `noisy_app` IS loaded on every boot. Both
   `cfg/nos3_defs/cpu1_cfe_es_startup.scr` and
-  `cfg/build/nos3_defs/cpu1_cfe_es_startup.scr` declare it
-  as `OFF_APP`; cFE skips `OFF_APP` entries. An operator-
-  driven flip of the keyword (`OFF_APP` -> `CFE_APP`) plus a
-  rebuild is required to arm it. Stale doc:
-  `docs/thesis/04-apps/noisy_app.md:29-32` -
-  "It is therefore loaded on every launch of the default
-  spacecraft profile; no opt-in is required to arm the
-  testbed." Action: thesis follows code, treats `noisy_app`
-  as an opt-in supply-chain attack variant.
+  `cfg/build/nos3_defs/cpu1_cfe_es_startup.scr` declare its
+  row as `CFE_APP` (line 31); cFE loads `CFE_APP` rows on boot.
+  The row is a simple toggle: flipping it to `OFF_APP` keeps the
+  binary in the image but unloaded. The preceding
+  `OFF_APP, ===_DTU_THESIS_MENU_===` row is only a visual
+  separator/marker, not a conditional. This agrees with
+  `docs/thesis/04-apps/noisy_app.md` and
+  `docs/thesis/02-architecture.md`. Action: thesis follows code,
+  treats `noisy_app` as loaded on every boot with a one-line
+  disable toggle.
 
 - **CryptoLib is the sole FSW-to-GSW path.** Truth: two
   parallel paths exist. `gsw/cosmos/config/tools/cmd_tlm_server/cmd_tlm_server.txt:6`
@@ -1419,23 +1444,22 @@ sweep (not in scope of this file) knows what to change.
 - **Logstash `noisy_app_spam_target` tag scope.** Truth: the
   tag fires on 7 specific MIDs
   (`elk/logstash.conf:154-155`: `0x1806`, `0x1801`, `0x1803`,
-  `0x1805`, `0x1804`, `0x1884`, `0x1880`), while
-  `nos3/fsw/apps/noisy_app/fsw/src/noisy_app.c:101` iterates
-  `current_mid` from `0x0000` to `0x1FFF` (8192 MIDs).
-  History note: the 7-MID list was authored in commit
-  `a3ed42a` (2026-03-24) at a time when noisy_app.c targeted
-  exactly those 7 cFE-core service MIDs (`#define TARGET_ES_CMD_MID`,
-  `TARGET_EVS_CMD_MID`, etc.); the noisy_app implementation
-  later evolved into the carpet-bomb, leaving the Logstash
-  tag as a now-partial signature. The original noisy_app
-  source at commit `a3ed42a` is the verifying evidence. Stale
-  alignment: the inline comment at `logstash.conf:152-153`
-  still names the 7 cFE-core service MIDs as "actual targets
-  from noisy_app.c", which is no longer accurate. Action:
-  thesis follows code; the tag catches the original 7-MID
-  signature, and the `attack_armed` and `sb_pipe_overflow`
-  EVS-derived tags do the heavy lifting for current-code
-  detection.
+  `0x1805`, `0x1804`, `0x1884`, `0x1880`). The current
+  piggyback `noisy_app` bursts at exactly these 7 high-impact
+  MIDs on the `SB_BURST` covert opcode (`0x04`), so the tag
+  matches the burst targets directly. History note: the 7-MID
+  list was authored in commit `a3ed42a` (2026-03-24) when
+  noisy_app.c targeted exactly those 7 cFE-core service MIDs;
+  the app then briefly evolved into a carpet-bomb storm
+  (iterating `0x0000..0x1FFF`, 8192 MIDs), which left the tag
+  as a partial signature; the subsequent piggyback rewrite
+  re-narrowed the burst to the same 7 MIDs, re-aligning the
+  tag. Action: thesis follows code; the tag catches the
+  current `SB_BURST` targets, and the EVS-derived
+  `piggyback_opcode`, `eps_spoof`, and `sb_pool_lock` tags
+  plus `sb_pipe_overflow` do the heavy lifting for current-
+  code detection. (The legacy `attack_armed` regex no longer
+  fires: the current app does not emit its trigger strings.)
 
 - **`cpu_killer` exists.** Truth: the startup script (source
   and build copies) lists `OFF_APP, cpu_killer, CPU_KILLER_Main, ...`
@@ -1491,8 +1515,11 @@ sweep (not in scope of this file) knows what to change.
   `TARGET_SB_CMD_MID`, `TARGET_TIME_CMD_MID`,
   `TARGET_TBL_CMD_MID`, `TARGET_CI_LAB_CMD_MID`,
   `TARGET_TO_LAB_CMD_MID`). The carpet-bomb form
-  (`current_mid` iterating 0x0000..0x1FFF) came later; the
-  tag did not get updated. Recorded in section 12 (b).
+  (`current_mid` iterating 0x0000..0x1FFF) came later, leaving
+  the tag partial; the subsequent piggyback rewrite re-
+  narrowed the `SB_BURST` opcode (`0x04`) to the same seven
+  MIDs, so the tag is aligned again. Recorded in section
+  12 (b).
 - T3 COSMOS DEBUG / RADIO usage in default workflow:
   `gsw/cosmos/config/tools/cmd_tlm_server/cmd_tlm_server.txt`
   attaches 17 component targets to DEBUG (lines 8-25) and the

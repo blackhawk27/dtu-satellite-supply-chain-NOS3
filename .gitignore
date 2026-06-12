@@ -23,16 +23,9 @@ nos3/fsw_syslog_test.txt
 # Generated repo tree
 repo_tree.txt
 
-# AI agent tooling — local to each developer's environment
-.ai-memory/
+# Local developer tooling (Claude Code) - not part of the published repo
 .claude/
-.codex
-.cursorrules
-.mcp.json
-.windsurfrules
-AGENTS.md
 CLAUDE.md
-GEMINI.md
 
 # Node / npm (used by local tooling only, not part of the project)
 node_modules/

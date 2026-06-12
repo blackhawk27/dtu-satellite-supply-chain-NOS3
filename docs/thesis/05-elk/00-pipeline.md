@@ -115,7 +115,7 @@ the operational consequence is documented in
 
 The output also writes a `rubydebug`-formatted copy of every
 event to stdout. This is intentionally verbose: `docker logs
-nos3-logstash` is the diagnostic of record when a Logstash
+nos3-legacy-logstash` is the diagnostic of record when a Logstash
 filter is silently dropping events.
 
 There is no dead-letter queue, no upstream retry, and no
@@ -123,16 +123,16 @@ buffering layer between Logstash and Elasticsearch. The
 single-node Elasticsearch is fast enough that Logstash's default
 in-memory queue absorbs the spikes produced by `noisy_app`'s
 broadcast-storm phase. The diagnostic for "events are missing in
-Kibana" is `docker logs nos3-logstash` followed by `curl` against
+Kibana" is `docker logs nos3-legacy-logstash` followed by `curl` against
 the relevant index; `make doctor` automates the first three
 layers of that walk.
 
 ## Consumer surface
 
 Kibana attaches to Elasticsearch on
-`http://nos3-elasticsearch:9200` (or, from the host, on
-`http://localhost:9200`). The frontend serves fifteen saved
-objects (fourteen dashboards plus one saved search) built by
+`http://nos3-legacy-elasticsearch:9200` (or, from the host, on
+`http://localhost:9203`). The frontend serves twenty saved
+objects (nineteen dashboards plus one saved search) built by
 `elk/build_kibana_dashboards.py`. The dashboards are listed in
 [03-kibana-dashboards.md](03-kibana-dashboards.md); the build
 mechanics are in

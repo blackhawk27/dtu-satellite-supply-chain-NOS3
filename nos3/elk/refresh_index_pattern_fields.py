@@ -12,7 +12,7 @@ Kibana 7.17 OSS does not expose a dedicated /refresh_fields endpoint
 Without this, every dashboard's Lens panels render "No data" the
 moment a fresh daily index is created and the saved-object's cached
 field list goes stale (the dominant cause of empty panels in the
-prior debug session, see debug/journal.md 2026-04-25 19:05).
+prior debug session, see docs/debug/telemetry-and-elk-pipeline.md).
 
 Called from the `launch` target of nos3/Makefile so the cache is
 always fresh after Kibana comes up.

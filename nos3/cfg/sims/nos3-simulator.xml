@@ -699,10 +699,11 @@
                     <spacecraft>0</spacecraft>
                     <star-tracker>0</star-tracker>
                 </data-provider>
-                <!-- Per CLAUDE.md, IPC port 4282 must stay OFF (would hang 42),
+                <!-- IPC port 4282 must stay OFF (otherwise 42 hangs in
+                     inet_csk_accept waiting for a client that never connects),
                      so the _42_PROVIDER variant below cannot connect to fortytwo.
                      The plain PROVIDER above generates quaternions internally
-                     without a 42 socket. -->
+                     without a 42 socket. See docs/debug/sim-ipc-and-42-connectivity.md. -->
                 <!--<data-provider>
                     <type>GENERIC_STAR_TRACKER_42_PROVIDER</type>
                     <hostname>fortytwo</hostname>
